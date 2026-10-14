@@ -37,14 +37,16 @@ export type AuditWrite = {
 export async function writeAuditLog(input: AuditWrite): Promise<void> {
   const admin = createSupabaseAdminClient();
 
-  const { error } = await admin.from("audit_logs").insert({
+  const payload: Database["public"]["Tables"]["audit_logs"]["Insert"] = {
     actor_id: input.actorId,
     action: input.action,
     resource_type: input.resourceType,
     resource_id: input.resourceId ?? null,
     classroom_id: input.classroomId ?? null,
     metadata: input.metadata ?? null,
-  } satisfies Database["public"]["Tables"]["audit_logs"]["Insert"]);
+  };
+
+  const { error } = await admin.from("audit_logs").insert(payload);
 
   if (error) {
     // Best-effort, non-blocking telemetry

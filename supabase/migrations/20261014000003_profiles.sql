@@ -8,13 +8,15 @@ CREATE TABLE public.profiles (
   updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
 );
 
+-- SECURITY DEFINER-compatible trigger helper:
+-- lock search_path, and schema-qualify builtins used in body.
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
-SET search_path = ''
+SET search_path = pg_catalog
 AS $$
 BEGIN
-  NEW.updated_at = timezone('utc', now());
+  NEW.updated_at = pg_catalog.timezone('utc', pg_catalog.now());
   RETURN NEW;
 END;
 $$;
