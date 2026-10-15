@@ -1,5 +1,7 @@
 # 3. Hosted Supabase configuration checklist
 
+> The exact settings, values and deployment procedure are consolidated in [06-hosted-pilot-configuration.md](06-hosted-pilot-configuration.md). Where this checklist and `06` differ, `06` is correct (corrections listed in `06` §2).
+
 Apply to **staging first**, then production. Dashboard menu names are as of writing and may move; the *setting* matters, not the menu path.
 
 Legend: **[V-local]** verified on the local stack during development (evidence noted). **[V-staging]** cannot be verified locally: you must test it on staging before production. Defaults quoted from Supabase documentation may change: confirm in the Dashboard.
@@ -28,7 +30,7 @@ Legend: **[V-local]** verified on the local stack during development (evidence n
 |---|---|---|---|
 | 3.1 | **Allow new users to sign up** | **OFF** | [V-local] with `enable_signup = false` a direct `POST /auth/v1/signup` returned `422 signup_disabled`. Students never self-register; staff are created by the operator |
 | 3.2 | Email provider | Enabled (password sign-in uses it) | Required |
-| 3.3 | Confirm email | Either; accounts are created already confirmed by the app (`email_confirm: true`) and by the runbook ("Auto Confirm User") | Verify a staff login works on staging |
+| 3.3 | Confirm email | **OFF** (autoconfirm), matching the tested local configuration; accounts are created already confirmed by the app (`email_confirm: true`) and the runbook ("Auto Confirm User") | Decision and rationale in `06` §2. Verify a staff login works on staging |
 | 3.4 | Anonymous sign-ins | **OFF** | The app has no anonymous flow |
 | 3.5 | Other providers (OAuth, phone, magic link) | OFF | Smaller attack surface |
 | 3.6 | **`.invalid` synthetic email accepted** | Creating a user with `<id>@students.eduquest.invalid` through the admin API must succeed | **[V-staging]**. Works locally; hosted email validation could differ. Smoke test step S4 |
@@ -48,9 +50,9 @@ Legend: **[V-local]** verified on the local stack during development (evidence n
 
 | # | Item | Required | Notes |
 |---|---|---|---|
-| 5.1 | Minimum password length | **≥ 10** (hosted default is lower) | Students' own chosen password is checked in-app at 8+ only (`setPasswordSchema`); the project setting is the stricter backstop. Temporary passwords are 14 random characters |
+| 5.1 | Minimum password length | **8** (matches the app form) | Corrected in `06` §2: a higher project minimum makes the app form pass and the Auth server then reject it, shown only as the generic "비밀번호를 변경하지 못했습니다.". Temporary passwords are 14 random characters |
 | 5.2 | Password requirements (letters/digits/symbols) | Enable if the plan allows | Check that the in-app set-password form shows a clear message for a rejected password (staging smoke test S6) |
-| 5.3 | Leaked-password protection | Enable if available on the plan | Helps against reused passwords |
+| 5.3 | Leaked-password protection | **OFF for the pilot** | Enable only after the app shows a clear message for Auth's `weak_password` error (`06` §8, F2) |
 | 5.4 | Secure password change | Leave defaults | Admin password updates revoke other sessions (observed locally on password change) |
 
 ## 6. Rate limits (important for a school)
@@ -59,7 +61,7 @@ All Supabase calls come from the **app server**, so every student looks like **o
 
 | # | Item | Required | Notes |
 |---|---|---|---|
-| 6.1 | Sign-ups and sign-ins per 5 min per IP | Documented hosted default is **30**. Raise it above the largest class that logs in together (e.g. ≥ 120) | **[V-staging]**. Locally 40 password sign-ins from one IP in seconds were not throttled, so local results say nothing about hosted. Test S9 |
+| 6.1 | Sign-ups and sign-ins per 5 min per IP | CLI definition: sign-up and sign-in requests per 5 min per IP, default **30**. Pilot value **300** if the plan allows editing | **[V-staging]**. Locally 170 rapid sign-ins were not throttled (no enforcement), so local results say nothing about hosted. Exact keys, values and the S9 measurement are in `06` §4.4 |
 | 6.2 | Token refreshes per 5 min per IP | Documented default 150 | Refreshes are rare at 3600 s lifetime |
 | 6.3 | Emails per hour | Only matters with SMTP (section 7) | |
 | 6.4 | If limits cannot be raised on the plan | Stagger class log-ins, or pick a plan that allows it | Record the decision in the sign-off table |

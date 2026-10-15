@@ -67,7 +67,7 @@ First login with the temporary password lands on `/student/set-password`; openin
 |---|---|
 | Provision + enroll, sequential | 294 ms/row local → 30 rows ≈ 9 s, 200 rows ≈ **59 s** |
 | Provision + enroll, 4-way concurrency | 67 ms/row local → 200 rows ≈ 13 s |
-| Auth rate limit | 40 rapid password sign-ins from one IP were **not** throttled locally; no inference possible for hosted |
+| Auth rate limit | 170 rapid password sign-ins from one IP in 17 s were all answered `400` (none `429`): local limiting is not enforced; no inference possible for hosted |
 
 ## 2. Resolved during the pilot review cycle (history)
 

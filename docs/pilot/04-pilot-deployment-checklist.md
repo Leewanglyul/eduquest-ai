@@ -33,6 +33,8 @@ Housekeeping to settle before the tag: uncommitted `next-env.d.ts` noise and the
 
 ## Phase 2: staging environment
 
+Exact settings and commands: see `06-hosted-pilot-configuration.md` (Parts A–F).
+
 1. Create the staging Supabase project and apply section 1–5, 7–8, 10 of `03-hosted-supabase-checklist.md`.
 2. `supabase link` → `supabase db push`. Verify 15 migrations and the catalog checks (checklist section 9).
 3. Deploy the app to a staging URL with the three environment variables from the staging project.
