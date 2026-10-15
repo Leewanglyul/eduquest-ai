@@ -97,3 +97,44 @@ export async function resetFailedAttempts(accountId: string) {
 
   if (error) throw error;
 }
+
+/**
+ * Is this Auth error an INFRASTRUCTURE failure (the password was not, or may not have been,
+ * checked) rather than a credential problem? Only these are refunded; everything else counts.
+ *
+ * Deny-list on purpose (fails closed): a wrong-password reply that this function does not
+ * recognise as infrastructure keeps counting, so a change in Auth's wording can never switch
+ * the lockout off.
+ *
+ *   429                                  rate limit: rejected BEFORE the password is checked
+ *   AuthRetryableFetchError              5xx, 502/503/504, network failure, timeout (status 0)
+ *   any status >= 500                    defensive, in case another auth-js wraps 5xx differently
+ *
+ * Counted (never refunded): invalid_credentials, email_not_confirmed, user_banned, and any
+ * other 4xx or unknown error.
+ */
+export function isInfrastructureAuthError(
+  error: { name?: string; status?: number } | null | undefined,
+): boolean {
+  if (!error) return false;
+  if (error.status === 429) return true;
+  if (error.name === "AuthRetryableFetchError") return true;
+  return typeof error.status === "number" && error.status >= 500;
+}
+
+/**
+ * Gives back the slot reserved by beginLoginAttempt (see fn_student_login_release). Best effort:
+ * if it fails the attempt simply stays counted, which is the old, safe behaviour, so this never
+ * throws and never blocks the sign-in response.
+ */
+export async function releaseLoginAttempt(accountId: string): Promise<void> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin.rpc("fn_student_login_release", { p_account_id: accountId });
+    if (error) console.error("[auth] could not release a reserved sign-in attempt", { code: error.code });
+  } catch (thrown) {
+    console.error("[auth] could not release a reserved sign-in attempt", {
+      name: (thrown as { name?: string })?.name,
+    });
+  }
+}

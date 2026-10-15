@@ -245,6 +245,9 @@ isOneToOne: true
               "locked": boolean,"locked_until": string
             }[]
                            },
+"fn_student_login_release":
+{ Args: { "p_account_id": string }; Returns: undefined
+                           },
 "fn_transfer_enrollment":
 { Args: { "actor_id": string,"source_classroom_id": string,"student_id": string,"target_classroom_id": string }; Returns: string
                            }

@@ -18,7 +18,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   beginLoginAttempt,
   findStudentAccountByUsername,
+  isInfrastructureAuthError,
   recordLoginFailure,
+  releaseLoginAttempt,
   remainingLockMinutes,
   resetFailedAttempts,
 } from "./lockout";
@@ -60,6 +62,8 @@ const setPasswordSchema = z
   });
 
 const GENERIC_SIGN_IN_ERROR = "아이디 또는 비밀번호가 올바르지 않습니다.";
+const RATE_LIMITED_SIGN_IN_ERROR = "로그인 요청이 많습니다. 잠시 후 다시 시도해 주세요.";
+const TEMPORARY_SIGN_IN_ERROR = "일시적인 오류로 로그인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 
 /**
  * Teacher-only. Credentials are returned once in the action result and are
@@ -159,13 +163,34 @@ export async function studentSignInAction(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({
-    email: account.synthetic_email,
-    password,
-  });
+  let error: { name?: string; status?: number; code?: string } | null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    ({ error } = await supabase.auth.signInWithPassword({
+      email: account.synthetic_email,
+      password,
+    }));
+  } catch (thrown) {
+    // Unexpected failure after the slot was reserved: no password was judged, so give it back.
+    await releaseLoginAttempt(account.id);
+    throw thrown;
+  }
+
+  if (error && isInfrastructureAuthError(error)) {
+    // Rate limit, Auth outage, network failure or timeout: this is not a wrong password and must
+    // not count toward the lock. Refund the reserved slot and say what really happened.
+    await releaseLoginAttempt(account.id);
+    console.error("[auth] student sign-in not counted (infrastructure error)", {
+      status: error.status,
+      name: error.name,
+      code: error.code,
+    });
+    return { error: error.status === 429 ? RATE_LIMITED_SIGN_IN_ERROR : TEMPORARY_SIGN_IN_ERROR };
+  }
 
   if (error) {
+    // invalid_credentials, email_not_confirmed, user_banned and any other credential-side error
+    // keep the reserved slot: it counts as a failed attempt.
     const result = await recordLoginFailure(account.id);
     if (result.locked) {
       return {
