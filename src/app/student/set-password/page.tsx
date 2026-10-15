@@ -1,15 +1,10 @@
-import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/rbac/guards";
+import { requireStudentSessionPage } from "@/lib/rbac/student-guard";
 import { SetPasswordForm } from "@/components/auth/set-password-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentSetPasswordPage() {
-  try {
-    await requireRole("student");
-  } catch {
-    redirect("/student/sign-in");
-  }
+  await requireStudentSessionPage();
 
   return (
     <main className="mx-auto max-w-sm p-8">

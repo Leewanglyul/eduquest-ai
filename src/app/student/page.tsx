@@ -1,17 +1,11 @@
-import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/rbac/guards";
+import { requireStudentAreaPage } from "@/lib/rbac/student-guard";
 import { studentSignOutAction } from "@/features/auth/student-actions";
 import { getStudentHome } from "@/features/enrollments/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentHomePage() {
-  let profile;
-  try {
-    profile = await requireRole("student");
-  } catch {
-    redirect("/student/sign-in");
-  }
+  const profile = await requireStudentAreaPage();
 
   const { grade, classrooms } = await getStudentHome();
 

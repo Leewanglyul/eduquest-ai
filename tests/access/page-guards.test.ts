@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 // Static regression test: every authenticated page must go through the shared guard.
 //  - /teacher/**  (except /teacher/sign-in) -> requireTeacherAreaPage()
-//  - /student/**  (except /student/sign-in) -> requireRole("student")
+//  - /student/**  (except /student/sign-in) -> requireStudentAreaPage() (student + password reset done)
 
 function pages(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -31,8 +31,15 @@ describe("page guards", () => {
     expect(src).toMatch(/await requireTeacherAreaPage\(\)/);
   });
 
-  it.each(studentPages.map((p) => [rel(p), p]))('%s requires requireRole("student")', (_name, file) => {
+  // Every student page must use the student guard; only set-password may skip the
+  // must_change_password redirect (it IS the destination of that redirect).
+  it.each(studentPages.map((p) => [rel(p), p]))("%s uses the student guard", (name, file) => {
     const src = fs.readFileSync(file, "utf8");
-    expect(src).toMatch(/requireRole\("student"\)/);
+    expect(src).toContain('from "@/lib/rbac/student-guard"');
+    if (name === "student/set-password/page.tsx") {
+      expect(src).toMatch(/await requireStudentSessionPage\(\)/);
+    } else {
+      expect(src).toMatch(/await requireStudentAreaPage\(\)/);
+    }
   });
 });
