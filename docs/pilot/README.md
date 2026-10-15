@@ -6,6 +6,7 @@
 | 2 | [Staff bootstrap runbook](02-staff-bootstrap-runbook.md) | Create the school id, the first admin and teachers on hosted Supabase; suspend, reset, audit |
 | 3 | [Hosted Supabase checklist](03-hosted-supabase-checklist.md) | Every setting that must be on/off/at a value, with what is verified locally vs only on staging |
 | 4 | [Pilot deployment checklist](04-pilot-deployment-checklist.md) | Decisions, gates, staging smoke test, go-live, support playbook, monitoring SQL, rollback, sign-off |
+| 5 | [Pilot readiness report](05-readiness-report.md) | Verdict (Ready with Conditions), evidence, P0/P1/P2 findings, pilot constraints, readiness criteria |
 
 ## What was verified, and how
 
