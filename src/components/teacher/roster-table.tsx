@@ -1,5 +1,6 @@
 import type { RosterEntry, TransferTarget } from "@/features/enrollments/domain";
 import { RemoveStudentButton } from "./remove-student-button";
+import { ReissuePasswordButton } from "./reissue-password-button";
 import { TransferStudentDialog } from "./transfer-student-dialog";
 
 type Props = {
@@ -50,6 +51,12 @@ export function RosterTable({ classroomId, classroomName, roster, targets, readO
                   studentId={s.studentId}
                   studentName={s.displayName}
                   targets={targets}
+                  disabled={readOnly}
+                />
+                <ReissuePasswordButton
+                  classroomId={classroomId}
+                  studentId={s.studentId}
+                  studentName={s.displayName}
                   disabled={readOnly}
                 />
                 <RemoveStudentButton
