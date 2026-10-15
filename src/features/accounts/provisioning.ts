@@ -24,7 +24,7 @@ export async function provisionStudentAccount(
   const admin = createSupabaseAdminClient();
 
   const username = generateUsername(input.studentNo, input.schoolId);
-  const syntheticEmail = generateSyntheticEmail(username, input.schoolId);
+  const syntheticEmail = generateSyntheticEmail();
   const temporaryPassword = generateTemporaryPassword();
 
   let authUserId: string | null = null;

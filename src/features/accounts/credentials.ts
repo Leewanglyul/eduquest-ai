@@ -25,9 +25,18 @@ export function generateTemporaryPassword(length = 14): string {
   return pwd;
 }
 
-export function generateSyntheticEmail(username: string, schoolId: string): string {
-  const sanitizedSchool = schoolId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  return `${username}@${sanitizedSchool}.eduquest.local`;
+export const SYNTHETIC_EMAIL_DOMAIN = "students.eduquest.invalid";
+
+/**
+ * Internal auth email: `<opaque-id>@students.eduquest.invalid`.
+ *
+ * The local part is 128 random bits and is NOT derived from the username or school. The username is
+ * shown to students/teachers, and the auth API is reachable with the public anon key, so an email
+ * derived from the username would let anyone bypass the app-level lockout by calling the auth
+ * endpoint directly. The mapping username -> email exists only in student_accounts.
+ */
+export function generateSyntheticEmail(): string {
+  return `${crypto.randomBytes(16).toString("hex")}@${SYNTHETIC_EMAIL_DOMAIN}`;
 }
 
 export function generateUsername(studentNo: string, schoolId: string): string {
