@@ -15,8 +15,8 @@ export type TeacherAuthFormState = {
   error?: string;
 };
 
-export const TEACHER_HOME_PATH = "/teacher";
-export const TEACHER_SIGN_IN_PATH = "/teacher/sign-in";
+const TEACHER_HOME_PATH = "/teacher";
+const TEACHER_SIGN_IN_PATH = "/teacher/sign-in";
 
 const GENERIC_SIGN_IN_ERROR = "이메일 또는 비밀번호가 올바르지 않습니다.";
 const NOT_TEACHER_ERROR = "교사 계정이 아닙니다. 교사 계정으로 로그인해 주세요.";
