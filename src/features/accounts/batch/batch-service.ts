@@ -4,6 +4,8 @@ import { writeAuditLog } from "@/lib/audit/log";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { provisionStudentAccount } from "../provisioning";
 import { AccountProvisioningError } from "../errors";
+import { EnrollmentError } from "@/features/enrollments/errors";
+import { addStudentToClassroom } from "@/features/enrollments/service";
 import { BatchError } from "./batch-errors";
 import {
   batchRunInputSchema,
@@ -20,8 +22,11 @@ function sha256(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function hashRows(rows: RowInput[]): string {
-  return sha256(JSON.stringify(rows.map(({ row }) => [row.studentName, row.studentNo, row.grade])));
+/** The classroom is part of the hash so a preview token cannot be replayed against another classroom. */
+function hashRows(rows: RowInput[], classroomId: string | null): string {
+  return sha256(
+    JSON.stringify([classroomId, rows.map(({ row }) => [row.studentName, row.studentNo, row.grade])]),
+  );
 }
 
 export type BatchPreviewTicket = { batchId: string; commitToken: string; expiresAt: string };
@@ -30,6 +35,7 @@ export type BatchPreviewTicket = { batchId: string; commitToken: string; expires
 export async function createBatchPreview(input: {
   schoolId: string;
   actorId: string;
+  classroomId?: string | null;
   rows: RowInput[];
 }): Promise<BatchPreviewTicket> {
   if (input.rows.length === 0) {
@@ -46,7 +52,7 @@ export async function createBatchPreview(input: {
       school_id: input.schoolId,
       actor_id: input.actorId,
       commit_token_hash: sha256(commitToken),
-      rows_hash: hashRows(input.rows),
+      rows_hash: hashRows(input.rows, input.classroomId ?? null),
       total_rows: input.rows.length,
       expires_at: expiresAt,
     })
@@ -70,6 +76,9 @@ export async function commitStudentBatch(input: {
   commitToken: string;
   schoolId: string;
   actorId: string;
+  /** Enroll every created student into this classroom (validated by the caller beforehand). */
+  classroomId?: string | null;
+  actor?: Parameters<typeof addStudentToClassroom>[0];
   rows: RowInput[];
 }): Promise<BatchSummary> {
   if (input.rows.length === 0) {
@@ -98,7 +107,7 @@ export async function commitStudentBatch(input: {
     await admin.from("account_batches").update({ status: "expired" }).eq("id", batch.id);
     throw new BatchError("BATCH_EXPIRED", "미리보기가 만료되었습니다. 다시 미리보기를 실행해 주세요.");
   }
-  if (batch.rows_hash !== hashRows(input.rows)) {
+  if (batch.rows_hash !== hashRows(input.rows, input.classroomId ?? null)) {
     throw new BatchError("ROWS_CHANGED", "미리보기 이후 파일 내용이 변경되었습니다.");
   }
 
@@ -118,7 +127,7 @@ export async function commitStudentBatch(input: {
     action: "student.batch_started",
     resourceType: "batch",
     resourceId: batch.id,
-    metadata: { schoolId: input.schoolId, total: input.rows.length },
+    metadata: { schoolId: input.schoolId, total: input.rows.length, classroomId: input.classroomId ?? null },
   });
 
   const results: BatchRowResult[] = [];
@@ -131,6 +140,19 @@ export async function commitStudentBatch(input: {
         studentNo: row.studentNo,
         grade: row.grade,
       });
+      let enrollmentError: string | undefined;
+      if (input.classroomId && input.actor) {
+        try {
+          await addStudentToClassroom(input.actor, {
+            classroomId: input.classroomId,
+            studentId: account.studentId,
+          });
+        } catch (enrollError) {
+          // Account exists; keep its credential row and flag the enrollment failure.
+          enrollmentError =
+            enrollError instanceof EnrollmentError ? enrollError.message : "학급 등록에 실패했습니다.";
+        }
+      }
       results.push({
         ok: true,
         line,
@@ -140,6 +162,7 @@ export async function commitStudentBatch(input: {
         studentName: row.studentName,
         studentNo: row.studentNo,
         grade: row.grade,
+        ...(enrollmentError ? { enrollmentError } : {}),
       });
     } catch (error) {
       results.push({
@@ -173,8 +196,15 @@ export async function commitStudentBatch(input: {
     action: "student.batch_completed",
     resourceType: "batch",
     resourceId: batch.id,
-    metadata: { schoolId: input.schoolId, total: results.length, succeeded, failed },
+    metadata: {
+      schoolId: input.schoolId,
+      total: results.length,
+      succeeded,
+      failed,
+      classroomId: input.classroomId ?? null,
+      enrollmentFailed: results.filter((r) => r.ok && r.enrollmentError).length,
+    },
   });
 
-  return { batchId: batch.id, total: results.length, succeeded, failed, results };
+  return { batchId: batch.id, classroomId: input.classroomId ?? null, total: results.length, succeeded, failed, results };
 }

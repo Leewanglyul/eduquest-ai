@@ -7,6 +7,11 @@ import { provisionStudentAccount } from "@/features/accounts/provisioning";
 import { AccountProvisioningError } from "@/features/accounts/errors";
 import type { ProvisionedStudentAccount } from "@/features/accounts/domain";
 import { requireTeacherArea } from "@/lib/rbac/guards";
+import { EnrollmentError } from "@/features/enrollments/errors";
+import {
+  addStudentToClassroom,
+  requireManageableClassroom,
+} from "@/features/enrollments/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -21,6 +26,8 @@ export type CreateStudentState = {
   ok: boolean;
   error?: string;
   credential?: ProvisionedStudentAccount;
+  /** Account was created but enrolling it into the classroom failed. */
+  enrollmentWarning?: string;
 };
 
 export type AuthFormState = {
@@ -73,14 +80,38 @@ export async function createStudentAction(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요." };
   }
 
+  const classroomId = String(formData.get("classroomId") ?? "").trim();
+
   try {
+    // Reject archived / inaccessible classrooms BEFORE creating any account.
+    if (classroomId) await requireManageableClassroom(teacher, classroomId);
+
     const credential = await provisionStudentAccount({
       schoolId: teacher.school_id,
       actorId: teacher.id,
       ...parsed.data,
     });
+
+    if (classroomId) {
+      try {
+        await addStudentToClassroom(teacher, { classroomId, studentId: credential.studentId });
+      } catch (enrollError) {
+        // The account exists and its one-time credential must still be shown.
+        return {
+          ok: true,
+          credential,
+          enrollmentWarning:
+            enrollError instanceof EnrollmentError
+              ? `계정은 만들었지만 학급 등록에 실패했습니다: ${enrollError.message}`
+              : "계정은 만들었지만 학급 등록에 실패했습니다.",
+        };
+      }
+    }
     return { ok: true, credential };
   } catch (error) {
+    if (error instanceof EnrollmentError) {
+      return { ok: false, error: error.message };
+    }
     if (error instanceof AccountProvisioningError) {
       return { ok: false, error: error.message };
     }

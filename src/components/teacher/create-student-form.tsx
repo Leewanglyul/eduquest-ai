@@ -9,12 +9,13 @@ import { CredentialCard } from "./credential-card";
 
 const initialState: CreateStudentState = { ok: false };
 
-export function CreateStudentForm() {
+export function CreateStudentForm({ classroomId }: { classroomId?: string }) {
   const [state, formAction, pending] = useActionState(createStudentAction, initialState);
 
   return (
     <div className="space-y-6">
       <form action={formAction} className="space-y-4">
+        {classroomId ? <input type="hidden" name="classroomId" value={classroomId} /> : null}
         <div>
           <label htmlFor="studentName" className="block text-sm font-medium">
             이름
@@ -68,6 +69,12 @@ export function CreateStudentForm() {
           {pending ? "생성 중..." : "학생 계정 만들기"}
         </button>
       </form>
+
+      {state.ok && state.enrollmentWarning ? (
+        <p role="alert" className="text-sm text-amber-700">
+          {state.enrollmentWarning}
+        </p>
+      ) : null}
 
       {state.ok && state.credential ? <CredentialCard credential={state.credential} /> : null}
     </div>

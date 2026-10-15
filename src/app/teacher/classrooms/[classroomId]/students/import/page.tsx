@@ -22,7 +22,7 @@ export default async function ImportStudentsPage({ params }: PageProps) {
       <p className="mt-1 mb-6 text-sm text-slate-600">
         CSV 파일을 올려 미리 확인한 뒤, 학생 계정을 한 번에 만듭니다.
       </p>
-      <BatchUploadForm />
+      <BatchUploadForm classroomId={classroomId} />
     </main>
   );
 }

@@ -30,7 +30,7 @@ function parse<T>(schema: Parsable<T>, input: unknown): T {
  * (school boundary enforced by getClassroomForActor), roster management allowed, not archived.
  * Not-visible is reported as NOT_FOUND so existence is not leaked.
  */
-async function requireManageableClassroom(
+export async function requireManageableClassroom(
   actor: ClassroomActor,
   classroomId: string,
 ): Promise<ClassroomWithRole> {

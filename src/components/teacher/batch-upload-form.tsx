@@ -13,7 +13,7 @@ import { BatchResultPanel } from "./batch-result-panel";
 const previewInitial: BatchPreviewState = { ok: false };
 const commitInitial: BatchRunState = { ok: false };
 
-export function BatchUploadForm() {
+export function BatchUploadForm({ classroomId }: { classroomId?: string }) {
   const [csv, setCsv] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
   const [previewState, previewAction, previewPending] = useActionState(
@@ -67,6 +67,7 @@ export function BatchUploadForm() {
             </p>
           </div>
           <input type="hidden" name="csv" value={csv} />
+          {classroomId ? <input type="hidden" name="classroomId" value={classroomId} /> : null}
 
           {fileError ? (
             <p role="alert" className="text-sm text-red-600">
@@ -96,6 +97,7 @@ export function BatchUploadForm() {
       {canCommit ? (
         <form action={commitAction} className="space-y-3">
           <input type="hidden" name="csv" value={csv} />
+          {classroomId ? <input type="hidden" name="classroomId" value={classroomId} /> : null}
           <input type="hidden" name="batchId" value={previewState.batchId} />
           <input type="hidden" name="commitToken" value={previewState.commitToken} />
           {!commitState.ok && commitState.error ? (
@@ -104,7 +106,7 @@ export function BatchUploadForm() {
             </p>
           ) : null}
           <p className="text-xs text-slate-600">
-            확인 후 생성하면 되돌릴 수 없습니다. 미리보기는 15분 동안만 유효합니다.
+            {classroomId ? "생성된 학생은 이 학급에 자동으로 등록됩니다. " : ""}확인 후 생성하면 되돌릴 수 없습니다. 미리보기는 15분 동안만 유효합니다.
           </p>
           <button
             type="submit"

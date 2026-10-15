@@ -22,7 +22,7 @@ export default async function NewStudentPage({ params }: PageProps) {
       <p className="mt-1 mb-6 text-sm text-slate-600">
         학생 정보를 입력하면 아이디와 임시 비밀번호가 한 번만 표시됩니다.
       </p>
-      <CreateStudentForm />
+      <CreateStudentForm classroomId={classroomId} />
     </main>
   );
 }

@@ -26,11 +26,14 @@ export type BatchRowResult =
       studentName: string;
       studentNo: string;
       grade: string;
+      /** Account was created but the classroom enrollment failed. */
+      enrollmentError?: string;
     }
   | { ok: false; line: number; studentName: string; studentNo: string; error: string };
 
 export type BatchSummary = {
   batchId: string;
+  classroomId: string | null;
   total: number;
   succeeded: number;
   failed: number;

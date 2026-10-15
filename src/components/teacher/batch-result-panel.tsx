@@ -8,6 +8,7 @@ type Props = { summary: BatchSummary; credentialCsv: string };
 export function BatchResultPanel({ summary, credentialCsv }: Props) {
   const [downloaded, setDownloaded] = useState(false);
   const failedRows = summary.results.filter((r) => !r.ok);
+  const notEnrolled = summary.results.filter((r) => r.ok && r.enrollmentError);
 
   function download() {
     const blob = new Blob([credentialCsv], { type: "text/csv;charset=utf-8" });
@@ -44,6 +45,22 @@ export function BatchResultPanel({ summary, credentialCsv }: Props) {
           >
             {downloaded ? "다운로드 완료" : "계정 정보 CSV 내려받기"}
           </button>
+        </div>
+      ) : null}
+
+      {notEnrolled.length > 0 ? (
+        <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
+          <p className="font-medium">계정은 만들었지만 학급에 등록하지 못한 학생 {notEnrolled.length}명</p>
+          <ul className="mt-1 list-disc pl-5">
+            {notEnrolled.map((r) =>
+              r.ok ? (
+                <li key={r.line}>
+                  {r.studentName} ({r.studentNo}): {r.enrollmentError}
+                </li>
+              ) : null,
+            )}
+          </ul>
+          <p className="mt-1">학생 명단 관리 화면에서 직접 추가해 주세요.</p>
         </div>
       ) : null}
 
