@@ -12,6 +12,7 @@
 | 8 | [Hosted pilot execution guide](08-hosted-pilot-execution-guide.md) | The operator run sheet (env vars, project configuration, migration order, teacher bootstrap, smoke test, rollback), scale validation of the pilot assumptions, and the final Required / Recommended / Defer readiness checklist and status |
 | 9 | [M1 release closure checklist](09-m1-release-closure-checklist.md) | The single actionable list that closes M1: R1-R12 (and decisions D1-D6) with owner, effort, dependencies, completion evidence, sequence and schedule risks |
 | 10 | [Pilot execution preparation](10-pilot-execution-preparation.md) | Staging preparation checklist (Supabase settings, environment variables, Security Advisor expectations), the operator runbook (bootstrap, classroom, student import, reissue, emergency lockout recovery), the risk register and the final readiness summary |
+| 11 | [Hosted verification package](11-hosted-verification-package.md) | What to verify on the hosted project (VER-01..44), the exact staging test sequence (ST-01..63, incl. a validated rate-limit/A1 load generator), the final Supabase settings sheet, batch cap options, and the go-live decision workflow |
 
 ## What was verified, and how
 
