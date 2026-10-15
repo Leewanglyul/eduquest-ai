@@ -45,6 +45,102 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"classroom_enrollments": {
+                  Row: {
+                    "classroom_id": string,"enrolled_at": string,"id": string,"removed_at": string | null,"status": Database["public"]['Enums']["enrollment_status"],"student_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "classroom_id": string,"enrolled_at"?: string,"id"?: string,"removed_at"?: string | null,"status"?: Database["public"]['Enums']["enrollment_status"],"student_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "classroom_id"?: string,"enrolled_at"?: string,"id"?: string,"removed_at"?: string | null,"status"?: Database["public"]['Enums']["enrollment_status"],"student_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "classroom_enrollments_classroom_id_fkey"
+      columns: ["classroom_id"]
+isOneToOne: false
+      referencedRelation: "classrooms"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "classroom_enrollments_classroom_id_fkey"
+      columns: ["classroom_id"]
+isOneToOne: false
+      referencedRelation: "v_classroom_activity_safe"
+      referencedColumns: ["classroom_id"]
+    },{
+      foreignKeyName: "classroom_enrollments_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "classroom_enrollments_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "v_students_safe"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"classroom_teachers": {
+                  Row: {
+                    "added_by": string | null,"classroom_id": string,"created_at": string,"teacher_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "added_by"?: string | null,"classroom_id": string,"created_at"?: string,"teacher_id": string
+                  }
+                  Update: {
+                    "added_by"?: string | null,"classroom_id"?: string,"created_at"?: string,"teacher_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "classroom_teachers_added_by_fkey"
+      columns: ["added_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "classroom_teachers_classroom_id_fkey"
+      columns: ["classroom_id"]
+isOneToOne: false
+      referencedRelation: "classrooms"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "classroom_teachers_classroom_id_fkey"
+      columns: ["classroom_id"]
+isOneToOne: false
+      referencedRelation: "v_classroom_activity_safe"
+      referencedColumns: ["classroom_id"]
+    },{
+      foreignKeyName: "classroom_teachers_teacher_id_fkey"
+      columns: ["teacher_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"classrooms": {
+                  Row: {
+                    "archived_at": string | null,"created_at": string,"id": string,"name": string,"owner_id": string,"school_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "archived_at"?: string | null,"created_at"?: string,"id"?: string,"name": string,"owner_id": string,"school_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "archived_at"?: string | null,"created_at"?: string,"id"?: string,"name"?: string,"owner_id"?: string,"school_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "classrooms_owner_id_fkey"
+      columns: ["owner_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "created_at": string,"display_name": string,"id": string,"role": Database["public"]['Enums']["user_role"],"school_id": string,"status": Database["public"]['Enums']["profile_status"],"updated_at": string
@@ -77,6 +173,12 @@ isOneToOne: false
 isOneToOne: true
       referencedRelation: "students"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "student_accounts_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: true
+      referencedRelation: "v_students_safe"
+      referencedColumns: ["id"]
     }
                   ]
                 },"students": {
@@ -102,13 +204,37 @@ isOneToOne: true
                 }
           }
           Views: {
-            [_ in never]: never
+            "v_classroom_activity_safe": {
+                  Row: {
+                    "active_student_count": number | null,"archived_at": string | null,"classroom_id": string | null,"co_teacher_count": number | null,"last_activity_at": string | null,"name": string | null,"school_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "active_student_count"?: never,"archived_at"?: string | null,"classroom_id"?: string | null,"co_teacher_count"?: never,"last_activity_at"?: never,"name"?: string | null,"school_id"?: string | null
+                         }
+                        Update: {
+                           "active_student_count"?: never,"archived_at"?: string | null,"classroom_id"?: string | null,"co_teacher_count"?: never,"last_activity_at"?: never,"name"?: string | null,"school_id"?: string | null
+                         }
+                        Relationships: [
+                    
+                  ]
+                },"v_students_safe": {
+                  Row: {
+                    "created_at": string | null,"display_name": string | null,"grade": string | null,"id": string | null,"profile_status": Database["public"]['Enums']["profile_status"] | null,"school_id": string | null,"student_no": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    
+                  ]
+                }
           }
           Functions: {
-            [_ in never]: never
+            "fn_transfer_enrollment":
+{ Args: { "actor_id": string,"source_classroom_id": string,"student_id": string,"target_classroom_id": string }; Returns: string
+                           }
           }
           Enums: {
-            "account_batch_status": "previewed"|"running"|"completed"|"expired","audit_action": "student.provisioned"|"student.batch_started"|"student.batch_completed"|"classroom.created"|"classroom.updated"|"classroom.archived"|"classroom.unarchived"|"classroom.co_teacher_added"|"classroom.co_teacher_removed"|"enrollment.added"|"enrollment.removed"|"enrollment.reactivated"|"enrollment.transferred","audit_resource": "profile"|"student"|"account"|"batch"|"classroom"|"classroom_teacher"|"enrollment","profile_status": "active"|"suspended","user_role": "teacher"|"student"|"admin"
+            "account_batch_status": "previewed"|"running"|"completed"|"expired","audit_action": "student.provisioned"|"student.batch_started"|"student.batch_completed"|"classroom.created"|"classroom.updated"|"classroom.archived"|"classroom.unarchived"|"classroom.co_teacher_added"|"classroom.co_teacher_removed"|"enrollment.added"|"enrollment.removed"|"enrollment.reactivated"|"enrollment.transferred","audit_resource": "profile"|"student"|"account"|"batch"|"classroom"|"classroom_teacher"|"enrollment","enrollment_status": "active"|"removed","profile_status": "active"|"suspended","user_role": "teacher"|"student"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -224,7 +350,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_batch_status": ["previewed", "running", "completed", "expired"],"audit_action": ["student.provisioned", "student.batch_started", "student.batch_completed", "classroom.created", "classroom.updated", "classroom.archived", "classroom.unarchived", "classroom.co_teacher_added", "classroom.co_teacher_removed", "enrollment.added", "enrollment.removed", "enrollment.reactivated", "enrollment.transferred"],"audit_resource": ["profile", "student", "account", "batch", "classroom", "classroom_teacher", "enrollment"],"profile_status": ["active", "suspended"],"user_role": ["teacher", "student", "admin"]
+            "account_batch_status": ["previewed", "running", "completed", "expired"],"audit_action": ["student.provisioned", "student.batch_started", "student.batch_completed", "classroom.created", "classroom.updated", "classroom.archived", "classroom.unarchived", "classroom.co_teacher_added", "classroom.co_teacher_removed", "enrollment.added", "enrollment.removed", "enrollment.reactivated", "enrollment.transferred"],"audit_resource": ["profile", "student", "account", "batch", "classroom", "classroom_teacher", "enrollment"],"enrollment_status": ["active", "removed"],"profile_status": ["active", "suspended"],"user_role": ["teacher", "student", "admin"]
           }
         }
 } as const
