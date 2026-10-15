@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTeacherArea } from "@/lib/rbac/guards";
 import { teacherSignOutAction } from "@/features/auth/teacher-actions";
@@ -18,6 +19,11 @@ export default async function TeacherDashboardPage() {
       <p className="mt-2 text-sm text-slate-600">
         {profile.display_name} ({profile.role})
       </p>
+      <nav aria-label="교사 메뉴" className="mt-6">
+        <Link href="/teacher/classrooms" className="text-sm underline">
+          내 학급
+        </Link>
+      </nav>
       <form action={teacherSignOutAction} className="mt-6">
         <button type="submit" className="rounded-md border border-slate-300 px-3 py-1 text-sm">
           로그아웃

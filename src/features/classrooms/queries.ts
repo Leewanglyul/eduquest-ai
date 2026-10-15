@@ -154,3 +154,30 @@ export async function listRoster(classroomId: string): Promise<RosterEntry[]> {
     ];
   });
 }
+
+export type SchoolTeacher = { id: string; displayName: string };
+
+/** Active teachers/admins of the actor's school who are not already on the classroom. */
+export async function listAddableTeachers(
+  actor: ClassroomActor,
+  classroom: Pick<ClassroomRecord, "id" | "ownerId">,
+): Promise<SchoolTeacher[]> {
+  const admin = createSupabaseAdminClient();
+  const { data: members } = await admin
+    .from("classroom_teachers")
+    .select("teacher_id")
+    .eq("classroom_id", classroom.id);
+  const excluded = new Set([classroom.ownerId, ...(members ?? []).map((m) => m.teacher_id)]);
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, display_name")
+    .eq("school_id", actor.school_id)
+    .eq("status", "active")
+    .in("role", ["teacher", "admin"])
+    .order("display_name");
+
+  return (profiles ?? [])
+    .filter((p) => !excluded.has(p.id))
+    .map((p) => ({ id: p.id, displayName: p.display_name }));
+}
