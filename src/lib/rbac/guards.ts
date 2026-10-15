@@ -11,3 +11,12 @@ export async function requireRole(role: ProfileRole) {
   }
   return profile;
 }
+
+/** Teacher area: teacher or admin (role read from profiles.role only). */
+export async function requireTeacherArea() {
+  const profile = await requireActiveProfile();
+  if (profile.role !== "teacher" && profile.role !== "admin") {
+    throw new IdentityError("FORBIDDEN", "해당 작업 권한이 없습니다.");
+  }
+  return profile;
+}
