@@ -14,7 +14,9 @@ export async function findProfileByUserId(
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   return data as IdentityProfile | null;
 }
