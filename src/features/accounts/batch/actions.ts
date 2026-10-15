@@ -7,6 +7,7 @@ import { commitStudentBatch, createBatchPreview } from "./batch-service";
 import { buildCredentialCsv } from "./credential-export";
 import type { BatchSummary } from "./batch-schemas";
 import { requireTeacherArea } from "@/lib/rbac/guards";
+import { IdentityError } from "@/features/identity/errors";
 import { EnrollmentError } from "@/features/enrollments/errors";
 import { requireManageableClassroom } from "@/features/enrollments/service";
 
@@ -30,6 +31,18 @@ export type BatchRunState = {
 
 const classroomIdOf = (formData: FormData) => String(formData.get("classroomId") ?? "").trim() || null;
 
+/** Unauthenticated / non-teacher callers get an error state; nothing is created or stored. */
+async function authorize(): Promise<
+  { ok: true; profile: Awaited<ReturnType<typeof requireTeacherArea>> } | { ok: false; error: string }
+> {
+  try {
+    return { ok: true, profile: await requireTeacherArea() };
+  } catch (error) {
+    if (error instanceof IdentityError) return { ok: false, error: error.message };
+    throw error;
+  }
+}
+
 async function readCsv(formData: FormData): Promise<string> {
   const file = formData.get("file");
   if (file instanceof File && file.size > 0) return file.text();
@@ -41,7 +54,9 @@ export async function previewBatchAction(
   _prev: BatchPreviewState,
   formData: FormData,
 ): Promise<BatchPreviewState> {
-  const profile = await requireTeacherArea();
+  const auth = await authorize();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const profile = auth.profile;
   const classroomId = classroomIdOf(formData);
   try {
     if (classroomId) await requireManageableClassroom(profile, classroomId);
@@ -68,7 +83,9 @@ export async function commitBatchAction(
   _prev: BatchRunState,
   formData: FormData,
 ): Promise<BatchRunState> {
-  const profile = await requireTeacherArea();
+  const auth = await authorize();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const profile = auth.profile;
   const classroomId = classroomIdOf(formData);
   try {
     // Re-check at commit time: the classroom may have been archived since the preview.

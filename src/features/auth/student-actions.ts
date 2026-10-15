@@ -7,6 +7,7 @@ import { provisionStudentAccount } from "@/features/accounts/provisioning";
 import { AccountProvisioningError } from "@/features/accounts/errors";
 import type { ProvisionedStudentAccount } from "@/features/accounts/domain";
 import { requireRole, requireTeacherArea } from "@/lib/rbac/guards";
+import { IdentityError } from "@/features/identity/errors";
 import { EnrollmentError } from "@/features/enrollments/errors";
 import {
   addStudentToClassroom,
@@ -68,7 +69,14 @@ export async function createStudentAction(
   _prev: CreateStudentState,
   formData: FormData,
 ): Promise<CreateStudentState> {
-  const teacher = await requireTeacherArea();
+  let teacher;
+  try {
+    teacher = await requireTeacherArea();
+  } catch (error) {
+    // Unauthenticated / non-teacher callers fail safely: no account is created.
+    if (error instanceof IdentityError) return { ok: false, error: error.message };
+    throw error;
+  }
 
   const parsed = createStudentFormSchema.safeParse({
     studentName: formData.get("studentName"),
