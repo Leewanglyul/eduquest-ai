@@ -9,6 +9,7 @@
 | 5 | [Pilot readiness report](05-readiness-report.md) | Verdict (Ready with Conditions), evidence, P0/P1/P2 findings, pilot constraints, readiness criteria |
 | 6 | [Hosted pilot configuration and deployment procedure](06-hosted-pilot-configuration.md) | Exact environment variables, Supabase Auth/JWT/refresh/signup/rate-limit settings, and the step-by-step staging→production procedure with verification commands |
 | 7 | [Final pilot package](07-final-pilot-package.md) | Review of `docs/pilot/*`, final pilot constraints, the single ordered staging checklist, and the final production blockers |
+| 8 | [Hosted pilot execution guide](08-hosted-pilot-execution-guide.md) | The operator run sheet (env vars, project configuration, migration order, teacher bootstrap, smoke test, rollback), scale validation of the pilot assumptions, and the final Required / Recommended / Defer readiness checklist and status |
 
 ## What was verified, and how
 
