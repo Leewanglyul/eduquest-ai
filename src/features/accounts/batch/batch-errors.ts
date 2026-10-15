@@ -3,7 +3,12 @@ export type BatchErrorCode =
   | "MISSING_HEADER"
   | "TOO_MANY_ROWS"
   | "CSV_MALFORMED"
-  | "NO_VALID_ROWS";
+  | "NO_VALID_ROWS"
+  | "BATCH_NOT_FOUND"
+  | "COMMIT_TOKEN_INVALID"
+  | "BATCH_EXPIRED"
+  | "ROWS_CHANGED"
+  | "BATCH_PERSIST_FAILED";
 
 export class BatchError extends Error {
   code: BatchErrorCode;

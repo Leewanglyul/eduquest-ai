@@ -3,17 +3,26 @@
 import { BatchError } from "./batch-errors";
 import { parseStudentCsv } from "./csv-parse";
 import { buildPreview, type BatchPreview } from "./preview";
-import { runStudentBatch } from "./batch-service";
+import { commitStudentBatch, createBatchPreview } from "./batch-service";
 import { buildCredentialCsv } from "./credential-export";
 import type { BatchSummary } from "./batch-schemas";
 import { requireTeacherArea } from "@/lib/rbac/guards";
 
-export type BatchPreviewState = { ok: boolean; error?: string; preview?: BatchPreview };
+export type BatchPreviewState = {
+  ok: boolean;
+  error?: string;
+  preview?: BatchPreview;
+  /** Present only when there is at least one valid row to commit. */
+  batchId?: string;
+  commitToken?: string;
+  expiresAt?: string;
+};
+
 export type BatchRunState = {
   ok: boolean;
   error?: string;
   summary?: BatchSummary;
-  /** One-time credential sheet; shown/downloaded once and never stored. */
+  /** One-time credential sheet; returned once and never stored. */
   credentialCsv?: string;
 };
 
@@ -28,10 +37,17 @@ export async function previewBatchAction(
   _prev: BatchPreviewState,
   formData: FormData,
 ): Promise<BatchPreviewState> {
-  await requireTeacherArea();
+  const profile = await requireTeacherArea();
   try {
     const preview = buildPreview(parseStudentCsv(await readCsv(formData)));
-    return { ok: true, preview };
+    if (preview.valid.length === 0) return { ok: true, preview };
+
+    const ticket = await createBatchPreview({
+      schoolId: profile.school_id,
+      actorId: profile.id,
+      rows: preview.valid,
+    });
+    return { ok: true, preview, ...ticket };
   } catch (error) {
     if (error instanceof BatchError) return { ok: false, error: error.message };
     throw error;
@@ -39,14 +55,16 @@ export async function previewBatchAction(
 }
 
 /** Re-parses and re-validates server-side; the client preview is never trusted. */
-export async function runBatchAction(
+export async function commitBatchAction(
   _prev: BatchRunState,
   formData: FormData,
 ): Promise<BatchRunState> {
   const profile = await requireTeacherArea();
   try {
     const { valid } = buildPreview(parseStudentCsv(await readCsv(formData)));
-    const summary = await runStudentBatch({
+    const summary = await commitStudentBatch({
+      batchId: String(formData.get("batchId") ?? ""),
+      commitToken: String(formData.get("commitToken") ?? ""),
       schoolId: profile.school_id,
       actorId: profile.id,
       rows: valid,
