@@ -6,7 +6,7 @@ import { z } from "zod";
 import { provisionStudentAccount } from "@/features/accounts/provisioning";
 import { AccountProvisioningError } from "@/features/accounts/errors";
 import type { ProvisionedStudentAccount } from "@/features/accounts/domain";
-import { requireRole } from "@/lib/rbac/guards";
+import { requireTeacherArea } from "@/lib/rbac/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -61,7 +61,7 @@ export async function createStudentAction(
   _prev: CreateStudentState,
   formData: FormData,
 ): Promise<CreateStudentState> {
-  const teacher = await requireRole("teacher");
+  const teacher = await requireTeacherArea();
 
   const parsed = createStudentFormSchema.safeParse({
     studentName: formData.get("studentName"),
