@@ -1,7 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import type { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function findProfileByUserId(client: SupabaseClient<Database>, userId: string) {
+type ServerSupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+export async function findProfileByUserId(client: ServerSupabaseClient, userId: string) {
   const { data, error } = await client
     .from("profiles")
     .select("id, school_id, role, display_name, status")
