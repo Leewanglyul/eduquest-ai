@@ -25,15 +25,6 @@ export type CoTeacherRecord = {
   createdAt: string;
 };
 
-export type RosterEntry = {
-  enrollmentId: string;
-  studentId: string;
-  studentNo: string;
-  grade: string;
-  displayName: string;
-  enrolledAt: string;
-};
-
 export type ClassroomActor = Pick<IdentityProfile, "id" | "school_id" | "role">;
 
 export function isArchived(classroom: Pick<ClassroomRecord, "archivedAt">): boolean {

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireTeacherArea } from "@/lib/rbac/guards";
-import { getClassroomForActor, listRoster } from "@/features/classrooms/queries";
+import { getClassroomForActor } from "@/features/classrooms/queries";
+import { listRoster } from "@/features/enrollments/queries";
 import { ClassroomCodeBadge } from "@/components/teacher/classroom-code-badge";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,9 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
       ) : null}
 
       <nav aria-label="학급 관리" className="flex flex-wrap gap-3 text-sm">
+        <Link href={`${base}/students`} className="rounded-md border border-slate-300 px-3 py-1">
+          학생 명단 관리
+        </Link>
         <Link href={`${base}/settings`} className="rounded-md border border-slate-300 px-3 py-1">
           학급 설정
         </Link>

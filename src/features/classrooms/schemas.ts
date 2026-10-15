@@ -19,14 +19,6 @@ export const classroomIdSchema = z.object({ classroomId: id }).strict();
 
 export const coTeacherSchema = z.object({ classroomId: id, teacherId: id }).strict();
 
-export const enrollmentSchema = z.object({ classroomId: id, studentId: id }).strict();
-
-export const transferSchema = z
-  .object({ sourceClassroomId: id, targetClassroomId: id, studentId: id })
-  .strict();
-
 export type CreateClassroomInput = z.infer<typeof createClassroomSchema>;
 export type UpdateClassroomInput = z.infer<typeof updateClassroomSchema>;
 export type CoTeacherInput = z.infer<typeof coTeacherSchema>;
-export type EnrollmentInput = z.infer<typeof enrollmentSchema>;
-export type TransferInput = z.infer<typeof transferSchema>;

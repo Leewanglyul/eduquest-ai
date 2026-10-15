@@ -5,12 +5,9 @@ import { IdentityError } from "@/features/identity/errors";
 import { ClassroomError } from "./errors";
 import {
   addCoTeacher,
-  addStudentToClassroom,
   archiveClassroom,
   createClassroom,
   removeCoTeacher,
-  removeStudentFromClassroom,
-  transferStudent,
   unarchiveClassroom,
   updateClassroom,
 } from "./service";
@@ -100,43 +97,6 @@ export async function removeCoTeacherAction(
     await removeCoTeacher(actor, {
       classroomId: initial(formData, "classroomId"),
       teacherId: initial(formData, "teacherId"),
-    });
-  });
-}
-
-export async function addStudentToClassroomAction(
-  _prev: ClassroomActionState,
-  formData: FormData,
-): Promise<ClassroomActionState> {
-  return run(async (actor) => {
-    await addStudentToClassroom(actor, {
-      classroomId: initial(formData, "classroomId"),
-      studentId: initial(formData, "studentId"),
-    });
-  });
-}
-
-export async function removeStudentFromClassroomAction(
-  _prev: ClassroomActionState,
-  formData: FormData,
-): Promise<ClassroomActionState> {
-  return run(async (actor) => {
-    await removeStudentFromClassroom(actor, {
-      classroomId: initial(formData, "classroomId"),
-      studentId: initial(formData, "studentId"),
-    });
-  });
-}
-
-export async function transferStudentAction(
-  _prev: ClassroomActionState,
-  formData: FormData,
-): Promise<ClassroomActionState> {
-  return run(async (actor) => {
-    await transferStudent(actor, {
-      sourceClassroomId: initial(formData, "sourceClassroomId"),
-      targetClassroomId: initial(formData, "targetClassroomId"),
-      studentId: initial(formData, "studentId"),
     });
   });
 }
