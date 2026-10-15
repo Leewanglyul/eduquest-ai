@@ -11,6 +11,7 @@
 | 7 | [Final pilot package](07-final-pilot-package.md) | Review of `docs/pilot/*`, final pilot constraints, the single ordered staging checklist, and the final production blockers |
 | 8 | [Hosted pilot execution guide](08-hosted-pilot-execution-guide.md) | The operator run sheet (env vars, project configuration, migration order, teacher bootstrap, smoke test, rollback), scale validation of the pilot assumptions, and the final Required / Recommended / Defer readiness checklist and status |
 | 9 | [M1 release closure checklist](09-m1-release-closure-checklist.md) | The single actionable list that closes M1: R1-R12 (and decisions D1-D6) with owner, effort, dependencies, completion evidence, sequence and schedule risks |
+| 10 | [Pilot execution preparation](10-pilot-execution-preparation.md) | Staging preparation checklist (Supabase settings, environment variables, Security Advisor expectations), the operator runbook (bootstrap, classroom, student import, reissue, emergency lockout recovery), the risk register and the final readiness summary |
 
 ## What was verified, and how
 
