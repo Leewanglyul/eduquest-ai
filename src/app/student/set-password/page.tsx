@@ -1,16 +1,13 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/rbac/guards";
 import { SetPasswordForm } from "@/components/auth/set-password-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentSetPasswordPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  try {
+    await requireRole("student");
+  } catch {
     redirect("/student/sign-in");
   }
 

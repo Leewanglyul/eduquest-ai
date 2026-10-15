@@ -6,7 +6,7 @@ import { z } from "zod";
 import { provisionStudentAccount } from "@/features/accounts/provisioning";
 import { AccountProvisioningError } from "@/features/accounts/errors";
 import type { ProvisionedStudentAccount } from "@/features/accounts/domain";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { requireRole, requireTeacherArea } from "@/lib/rbac/guards";
 import { EnrollmentError } from "@/features/enrollments/errors";
 import {
   addStudentToClassroom,
@@ -178,6 +178,13 @@ export async function setStudentPasswordAction(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요." };
+  }
+
+  // Student-only: profiles.role is the source of truth. Teachers/admins are blocked here too.
+  try {
+    await requireRole("student");
+  } catch {
+    redirect("/student/sign-in");
   }
 
   const supabase = await createSupabaseServerClient();

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listClassroomsForActor } from "@/features/classrooms/queries";
 import type { ClassroomActor, ClassroomRecord } from "@/features/classrooms/domain";
 import {
@@ -88,4 +89,48 @@ export async function listTransferTargets(
   return classrooms
     .filter((c) => c.id !== sourceClassroomId)
     .map((c) => ({ classroomId: c.id, name: c.name, code: c.code }));
+}
+
+export type StudentClassroom = { classroomId: string; name: string; code: string; enrolledAt: string };
+
+export type StudentHome = { grade: string | null; classrooms: StudentClassroom[] };
+
+/**
+ * The signed-in student's own active classrooms. Uses the user-session client on purpose:
+ * RLS (self enrollments, non-archived classrooms) is the enforcement; the explicit filters
+ * only make the intent visible.
+ */
+export async function getStudentHome(): Promise<StudentHome> {
+  const supabase = await createSupabaseServerClient();
+
+  // The ssr client's generics resolve selects to `never`; cast like identity/queries.ts does.
+  const { data: studentRow } = await supabase.from("students").select("id, grade").maybeSingle();
+  const student = studentRow as { id: string; grade: string } | null;
+  if (!student) return { grade: null, classrooms: [] };
+
+  const { data: enrollmentRows } = await supabase
+    .from("classroom_enrollments")
+    .select("classroom_id, enrolled_at")
+    .eq("student_id", student.id)
+    .eq("status", "active");
+  const enrollments = enrollmentRows as { classroom_id: string; enrolled_at: string }[] | null;
+  if (!enrollments || enrollments.length === 0) return { grade: student.grade, classrooms: [] };
+
+  const { data: classroomRows } = await supabase
+    .from("classrooms")
+    .select("id, name, code")
+    .in(
+      "id",
+      enrollments.map((e) => e.classroom_id),
+    )
+    .is("archived_at", null);
+  const classrooms = classroomRows as { id: string; name: string; code: string }[] | null;
+
+  const enrolledAt = new Map(enrollments.map((e) => [e.classroom_id, e.enrolled_at]));
+  return {
+    grade: student.grade,
+    classrooms: (classrooms ?? [])
+      .map((c) => ({ classroomId: c.id, name: c.name, code: c.code, enrolledAt: enrolledAt.get(c.id) ?? "" }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ko")),
+  };
 }
