@@ -24,7 +24,7 @@ For "with conditions":
 
 - The behaviours that decide whether the first lesson works are **hosted-only and untested**: the per-IP auth rate limit (all students share the app server's IP), acceptance of the `.invalid` auth email, the host's request-time limit, and the actual Auth settings.
 - The batch size cap is **designed but not implemented**; the UI still advertises 200 rows (about 59 s sequential locally).
-- Release hygiene is incomplete: lockfile untracked, docs commit unpushed, nothing merged or tagged.
+- Release hygiene is incomplete: lockfile untracked, nothing merged or tagged.
 - Staff creation is a manual, one-operator procedure, and data-protection/consent sign-off (D6) is unrecorded.
 
 None of these needs new product features. They are verification, one small change (the cap) and housekeeping.
@@ -94,7 +94,7 @@ Condition attached: this holds only while the Auth settings in the hosted checkl
 | P1-1 | **Hosted behaviour unverified:** per-IP auth rate limit (class login), `.invalid` email acceptance, host request limit, Auth settings, Security Advisor, password policy | First lesson fails or users are throttled | Staging smoke test S1–S15 (`04`), especially S4 and S9 |
 | P1-2 | **Batch cap not implemented.** UI says 200; 200 rows ≈ 59 s locally, slower hosted; a timeout loses the one-time passwords | Credential loss, stuck `running` batch | Implement `01-batch-size-cap-plan.md` items 1–3 (and 4–6), or enforce ≤ 30 by process and measure on staging |
 | P1-3 | **Lockfile untracked** (`pnpm-lock.yaml`), so deploys resolve versions again; 4 `postcss` advisories via Next | Non-reproducible build; scanner noise | Decide D3, commit the lockfile, upgrade Next or add an override |
-| P1-4 | **Release hygiene:** docs commit unpushed; no PR, merge or tag | Deploying an unreviewed state | Push, review via PR, tag e.g. `m1-pilot-rc1` |
+| P1-4 | **Release hygiene:** no PR, merge or tag | Deploying an unreviewed state | Push, review via PR, tag e.g. `m1-pilot-rc1` |
 | P1-5 | **Recovery not rehearsed:** no backup restore drill, no alerting; staff bootstrap never run on a hosted project | Slow, error-prone incident response | Hosted checklist section 10; run the runbook on staging with the two-person rule |
 | P1-6 | **Data-protection/consent sign-off (D6) not recorded**; no student delete/export feature | Cannot lawfully start or fulfil requests | School/PM decision; erasure by approved SQL until a feature exists |
 
@@ -145,18 +145,20 @@ Stop rule
 
 ## 7. Readiness criteria (all required to move from "Ready with Conditions" to "Ready")
 
+> These are the report's readiness criteria **RC1-RC10**. They are a different list from the "required before pilot" items **R1-R13** in `08` and `09` (mapping in `09`).
+
 | # | Criterion | Evidence required | Status |
 |---|---|---|---|
-| R1 | Code gates pass on the tagged commit: typecheck, lint, build (lists Middleware), pgTAP, vitest | Command output attached | Met on `9df58ab` (local) |
-| R2 | Staging smoke test S1–S15 passes, including `.invalid` email (S4) and 30-student class login (S9) | Filled results table | **Open** |
-| R3 | Batch cap implemented and its value chosen from a staging measurement | Code + measurement | **Open** |
-| R4 | Lockfile committed; dependency advisories resolved or consciously accepted | Commit + decision note | **Open** |
-| R5 | Docs pushed, branch merged through a reviewed PR, release tagged | PR link, tag | **Open** |
-| R6 | Hosted configuration (`06`, with checklist `03`) applied and verified on staging and production, including Security Advisor | Filled checklist, outputs of `06` Part B | **Open** |
-| R7 | Backup restore drill completed; alert recipient set | Drill record | **Open** |
-| R8 | Staff bootstrapped on production with the two-person rule; test accounts removed | Ops log | **Open** |
-| R9 | Decisions D1–D6 recorded (host, staff recovery route, lockfile, scope, audit contract extension, consent) | Decision log | **Open** |
-| R10 | On-call and support contacts named; teacher one-page guide issued | Names, document | **Open** |
+| RC1 | Code gates pass on the tagged commit: typecheck, lint, build (lists Middleware), pgTAP, vitest | Command output attached | Met on `9df58ab` (local) |
+| RC2 | Staging smoke test S1–S15 passes, including `.invalid` email (S4) and 30-student class login (S9) | Filled results table | **Open** |
+| RC3 | Batch cap implemented and its value chosen from a staging measurement | Code + measurement | **Open** |
+| RC4 | Lockfile committed; dependency advisories resolved or consciously accepted | Commit + decision note | **Open** |
+| RC5 | Docs pushed, branch merged through a reviewed PR, release tagged | PR link, tag | **Open** |
+| RC6 | Hosted configuration (`06`, with checklist `03`) applied and verified on staging and production, including Security Advisor | Filled checklist, outputs of `06` Part B | **Open** |
+| RC7 | Backup restore drill completed; alert recipient set | Drill record | **Open** |
+| RC8 | Staff bootstrapped on production with the two-person rule; test accounts removed | Ops log | **Open** |
+| RC9 | Decisions D1–D6 recorded (host, staff recovery route, lockfile, scope, audit contract extension, consent) | Decision log | **Open** |
+| RC10 | On-call and support contacts named; teacher one-page guide issued | Names, document | **Open** |
 
 ## 8. What this review did not cover
 

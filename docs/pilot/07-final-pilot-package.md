@@ -17,7 +17,7 @@ What this pass checked, and the result:
 | Auth client refresh margin (the "90 s" rule) | confirmed in source: `EXPIRY_MARGIN_MS = 3 × 30 s = 90 s` (auth-js 2.117.3) |
 | `NEXT_PUBLIC_*` variables | inlined into the middleware at build time when present; when absent, the compiled middleware keeps a runtime lookup (build still succeeds). Provide them at build time |
 | Postgres compatibility | all 15 migrations + 7 pgTAP files + 78 vitest tests pass on 15.19 and 17.11 |
-| Code still matches the docs | yes; batch cap is still 200 in code (`MAX_BATCH_ROWS`), lockfile still untracked, one docs commit unpushed |
+| Code still matches the docs | yes; batch cap is still 200 in code (`MAX_BATCH_ROWS`), lockfile still untracked, nothing merged or tagged |
 
 Fixes made to the documents in this pass:
 

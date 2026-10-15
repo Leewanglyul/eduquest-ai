@@ -173,6 +173,7 @@ Principle: roll back the **smallest** thing that fixes the problem. There are no
 | R10 | Consent, retention and an approved erasure procedure for student data (no delete/export feature exists) | Signed decision D6 |
 | R11 | On-call named; support contacts; teacher one-page guide; pilot constraints (`07` §2) accepted by the PM | Names, document, sign-off |
 | R12 | HTTPS only; security headers configured at the host | `curl -sI` output |
+| R13 | **Auth errors vs lockout:** S9 shows no `429` at 60 sign-ins in five minutes and no student locked afterwards; the mass-unlock SQL (`10` §3.7) rehearsed; limits/staggering recorded (`studentSignInAction` counts any Auth error as a failed password) | S9 record, rehearsal note |
 
 ### Recommended before pilot
 
@@ -186,6 +187,7 @@ Principle: roll back the **smallest** thing that fixes the problem. There are no
 | C6 | Alert on Auth/API error rates; daily review of the monitoring queries during week 1 | Early warning |
 | C7 | Link `docs/pilot` from the repository README; fix the 2 lint warnings; plan the `next lint` migration | Housekeeping |
 | C8 | Tighten Node version (`engines` is `>=20`; everything was tested on 24.19) | Reproducibility |
+| C9 | Treat non-credential Auth errors (429, 5xx, network) as "try again later" without consuming a lockout attempt; show a distinct message | Removes the rate-limit-causes-lockout interaction (`10` risk A1); small code change |
 
 ### Can defer to M2
 
@@ -201,4 +203,4 @@ Staff password change in the app and MFA; bulk password reissue and credential r
 - *Why not READY.* Everything hosted is still unproven: the `.invalid` auth email on the hosted project, the real rate limit under a class log-in, the actual Auth setting values, the Security Advisor output and a backup restore. The "30 students per CSV" assumption is **not enforced by the product** (200 in code) and rests on a process rule. Release hygiene (lockfile, merge, tag) and the non-engineering items (consent and erasure, on-call, restore drill) are open.
 - *Why not NOT READY.* None of these needs new features or an architecture change. One small code change (the batch cap, R2) and one dependency commit (R9) are the only engineering work; the rest is configuration, rehearsal and sign-off, and each has a written procedure and a recorded pass criterion.
 
-**Condition for GO:** R1–R12 closed with the evidence listed, starting with the staging acceptance run.
+**Condition for GO:** R1–R13 closed with the evidence listed, starting with the staging acceptance run.

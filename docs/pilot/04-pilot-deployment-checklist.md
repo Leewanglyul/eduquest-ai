@@ -57,7 +57,7 @@ Use two browsers/profiles (teacher, student). Record result and time for each st
 | S7 | Student sets a new password | Lands on `/student`; sees only the active classroom |
 | S8 | Lockout: 5 wrong passwords for one student | 5th shows "5회 실패하여 15분간 잠겼습니다"; correct password refused while locked |
 | S8b | Fire the 5 wrong attempts as a burst (parallel) | Still locks, never more than 5 password checks (see `tests/access/student-auth-hardening.test.ts`) |
-| S9 | **Class login test:** 30 students (or scripted equivalent) sign in within one minute, then repeat with 60 within five minutes | No rate-limit errors. Record the number of sign-ins accepted before the first `429` and which limit tripped (`06` §4.4). If errors appear, raise the limits or stagger log-ins before going on |
+| S9 | **Class login test:** 30 students (or scripted equivalent) sign in within one minute, then repeat with 60 within five minutes | No rate-limit errors. Record the number of sign-ins accepted before the first `429` and which limit tripped (`06` §4.4). If errors appear, raise the limits or stagger log-ins before going on; afterwards **no student account is locked** (`10` risk A1) |
 | S10 | Teacher reissues a student password | Shown once; old password and sessions dead; student is forced to change it |
 | S11 | Archive a classroom as owner; a co-teacher tries the same | Owner succeeds; co-teacher refused; student no longer sees it |
 | S12 | Add/remove/transfer a student; co-teacher of only one side tries a transfer | Allowed/refused as designed |
@@ -89,6 +89,7 @@ Any failure → fix, redeploy to staging, rerun the whole table.
 |---|---|
 | "Student forgot password" | Teacher → classroom → 학생 명단 관리 → 비밀번호 재발급; give the new temporary password in person |
 | "Student locked out" | Waits 15 minutes, or the teacher reissues (clears the lock) |
+| "Many students locked at once" | Stop retries, find the cause first (Auth logs for `429`/outage; `06` §4.4), then bulk-unlock the classroom with the SQL in `10` §3.7 and stagger log-ins |
 | "Lost the credential sheet" | Reissue, same as above (the old password stops working) |
 | "Import timed out / error mid-batch" | Teacher checks the roster; accounts that exist are listed there; reissue passwords for them; operator marks the stuck batch (query below) |
 | "Teacher forgot password" | Operator sets a new one in the Dashboard (runbook F) |
