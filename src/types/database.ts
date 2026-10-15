@@ -123,14 +123,14 @@ isOneToOne: false
                   ]
                 },"classrooms": {
                   Row: {
-                    "archived_at": string | null,"created_at": string,"id": string,"name": string,"owner_id": string,"school_id": string,"updated_at": string
+                    "archived_at": string | null,"code": string,"created_at": string,"id": string,"name": string,"owner_id": string,"school_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "archived_at"?: string | null,"created_at"?: string,"id"?: string,"name": string,"owner_id": string,"school_id": string,"updated_at"?: string
+                    "archived_at"?: string | null,"code"?: string,"created_at"?: string,"id"?: string,"name": string,"owner_id": string,"school_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "archived_at"?: string | null,"created_at"?: string,"id"?: string,"name"?: string,"owner_id"?: string,"school_id"?: string,"updated_at"?: string
+                    "archived_at"?: string | null,"code"?: string,"created_at"?: string,"id"?: string,"name"?: string,"owner_id"?: string,"school_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -229,7 +229,10 @@ isOneToOne: true
                 }
           }
           Functions: {
-            "fn_transfer_enrollment":
+            "fn_generate_classroom_code":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"fn_transfer_enrollment":
 { Args: { "actor_id": string,"source_classroom_id": string,"student_id": string,"target_classroom_id": string }; Returns: string
                            }
           }
