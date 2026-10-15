@@ -17,6 +17,9 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
     "test:access": "vitest run",
+    "env:local": "node scripts/env-profile.mjs local",
+    "env:hosted": "node scripts/env-profile.mjs hosted",
+    "env:status": "node scripts/env-profile.mjs status",
     "db:types": "supabase gen types typescript --local > src/types/database.ts"
   },
   "dependencies": {
