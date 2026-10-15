@@ -5,6 +5,7 @@ export type AccountProvisioningErrorCode =
   | "STUDENT_CREATE_FAILED"
   | "ACCOUNT_CREATE_FAILED"
   | "DUPLICATE_STUDENT_NO"
+  | "PASSWORD_REISSUE_FAILED"
   | "UNKNOWN_PROVISIONING_ERROR";
 
 export class AccountProvisioningError extends Error {

@@ -14,6 +14,7 @@ export type AuditAction =
   | "student.provisioned"
   | "student.batch_started"
   | "student.batch_completed"
+  | "student.password_reissued"
   | "classroom.created"
   | "classroom.updated"
   | "classroom.archived"

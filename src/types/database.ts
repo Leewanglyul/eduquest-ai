@@ -232,6 +232,9 @@ isOneToOne: true
             "fn_generate_classroom_code":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"fn_revoke_user_sessions":
+{ Args: { "p_user_id": string }; Returns: number
+                           },
 "fn_student_login_begin":
 { Args: { "p_account_id": string,"p_limit": number }; Returns: {
               "allowed": boolean,"locked_until": string
@@ -247,7 +250,7 @@ isOneToOne: true
                            }
           }
           Enums: {
-            "account_batch_status": "previewed"|"running"|"completed"|"expired","audit_action": "student.provisioned"|"student.batch_started"|"student.batch_completed"|"classroom.created"|"classroom.updated"|"classroom.archived"|"classroom.unarchived"|"classroom.co_teacher_added"|"classroom.co_teacher_removed"|"enrollment.added"|"enrollment.removed"|"enrollment.reactivated"|"enrollment.transferred","audit_resource": "profile"|"student"|"account"|"batch"|"classroom"|"classroom_teacher"|"enrollment","enrollment_status": "active"|"removed","profile_status": "active"|"suspended","user_role": "teacher"|"student"|"admin"
+            "account_batch_status": "previewed"|"running"|"completed"|"expired","audit_action": "student.provisioned"|"student.batch_started"|"student.batch_completed"|"classroom.created"|"classroom.updated"|"classroom.archived"|"classroom.unarchived"|"classroom.co_teacher_added"|"classroom.co_teacher_removed"|"enrollment.added"|"enrollment.removed"|"enrollment.reactivated"|"enrollment.transferred"|"student.password_reissued","audit_resource": "profile"|"student"|"account"|"batch"|"classroom"|"classroom_teacher"|"enrollment","enrollment_status": "active"|"removed","profile_status": "active"|"suspended","user_role": "teacher"|"student"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -363,7 +366,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_batch_status": ["previewed", "running", "completed", "expired"],"audit_action": ["student.provisioned", "student.batch_started", "student.batch_completed", "classroom.created", "classroom.updated", "classroom.archived", "classroom.unarchived", "classroom.co_teacher_added", "classroom.co_teacher_removed", "enrollment.added", "enrollment.removed", "enrollment.reactivated", "enrollment.transferred"],"audit_resource": ["profile", "student", "account", "batch", "classroom", "classroom_teacher", "enrollment"],"enrollment_status": ["active", "removed"],"profile_status": ["active", "suspended"],"user_role": ["teacher", "student", "admin"]
+            "account_batch_status": ["previewed", "running", "completed", "expired"],"audit_action": ["student.provisioned", "student.batch_started", "student.batch_completed", "classroom.created", "classroom.updated", "classroom.archived", "classroom.unarchived", "classroom.co_teacher_added", "classroom.co_teacher_removed", "enrollment.added", "enrollment.removed", "enrollment.reactivated", "enrollment.transferred", "student.password_reissued"],"audit_resource": ["profile", "student", "account", "batch", "classroom", "classroom_teacher", "enrollment"],"enrollment_status": ["active", "removed"],"profile_status": ["active", "suspended"],"user_role": ["teacher", "student", "admin"]
           }
         }
 } as const
