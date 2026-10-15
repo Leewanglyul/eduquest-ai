@@ -27,7 +27,7 @@ supabase test db                  # pgTAP
 pnpm test:access                  # vitest, refuses to run against a non-local URL
 ```
 
-All must pass. Last recorded result on the current head: typecheck clean, pgTAP PASS (7 files), vitest 77/77 plus 1 location test, build lists the middleware.
+All must pass. Last recorded result on the current head: typecheck clean, pgTAP PASS (7 files), vitest 78/78, build lists the middleware.
 
 Housekeeping to settle before the tag: uncommitted `next-env.d.ts` noise and the untracked `pnpm-*` files; CRLF/LF warnings on commit (an optional `.gitattributes`).
 
@@ -51,13 +51,13 @@ Use two browsers/profiles (teacher, student). Record result and time for each st
 | S2 | `/teacher` as a signed-out visitor, and `/student` as the teacher | Redirected to the matching sign-in |
 | S3 | Create a classroom, note the code, rename it, copy the code | Works; code cannot be edited |
 | S4 | Create one student with "학생 계정 만들기" | Account created and enrolled; username shown once. **This proves the `.invalid` email is accepted (checklist 3.6)** |
-| S5 | Import a CSV of exactly the cap (see plan 01) | Preview shows rows; commit succeeds; credential CSV downloads; all rows on the roster |
-| S5b | Import cap + 1 rows | Refused at preview, nothing created |
+| S5 | Import a CSV of exactly the cap (see plan 01). **Until the cap is implemented the code still allows 200 rows: use 30 rows** | Preview shows rows; commit succeeds; credential CSV downloads; all rows on the roster. Record seconds per row |
+| S5b | Import cap + 1 rows | Refused at preview, nothing created. **Blocked until the cap is implemented (production blocker B2): record "blocked", do not mark as passed** |
 | S6 | Student first login with the temporary password | Forced to `/student/set-password`; opening `/student` directly bounces back; a too-short password shows a clear message |
 | S7 | Student sets a new password | Lands on `/student`; sees only the active classroom |
 | S8 | Lockout: 5 wrong passwords for one student | 5th shows "5회 실패하여 15분간 잠겼습니다"; correct password refused while locked |
 | S8b | Fire the 5 wrong attempts as a burst (parallel) | Still locks, never more than 5 password checks (see `tests/access/student-auth-hardening.test.ts`) |
-| S9 | **Class login test:** 30 students (or scripted equivalent) sign in within one minute | No rate-limit errors. If errors appear, fix checklist 6.1 before going on |
+| S9 | **Class login test:** 30 students (or scripted equivalent) sign in within one minute, then repeat with 60 within five minutes | No rate-limit errors. Record the number of sign-ins accepted before the first `429` and which limit tripped (`06` §4.4). If errors appear, raise the limits or stagger log-ins before going on |
 | S10 | Teacher reissues a student password | Shown once; old password and sessions dead; student is forced to change it |
 | S11 | Archive a classroom as owner; a co-teacher tries the same | Owner succeeds; co-teacher refused; student no longer sees it |
 | S12 | Add/remove/transfer a student; co-teacher of only one side tries a transfer | Allowed/refused as designed |

@@ -152,7 +152,7 @@ Stop rule
 | R3 | Batch cap implemented and its value chosen from a staging measurement | Code + measurement | **Open** |
 | R4 | Lockfile committed; dependency advisories resolved or consciously accepted | Commit + decision note | **Open** |
 | R5 | Docs pushed, branch merged through a reviewed PR, release tagged | PR link, tag | **Open** |
-| R6 | Hosted checklist (`03`) complete on staging and production, including Security Advisor | Filled checklist | **Open** |
+| R6 | Hosted configuration (`06`, with checklist `03`) applied and verified on staging and production, including Security Advisor | Filled checklist, outputs of `06` Part B | **Open** |
 | R7 | Backup restore drill completed; alert recipient set | Drill record | **Open** |
 | R8 | Staff bootstrapped on production with the two-person rule; test accounts removed | Ops log | **Open** |
 | R9 | Decisions D1–D6 recorded (host, staff recovery route, lockfile, scope, audit contract extension, consent) | Decision log | **Open** |

@@ -8,6 +8,7 @@
 | 4 | [Pilot deployment checklist](04-pilot-deployment-checklist.md) | Decisions, gates, staging smoke test, go-live, support playbook, monitoring SQL, rollback, sign-off |
 | 5 | [Pilot readiness report](05-readiness-report.md) | Verdict (Ready with Conditions), evidence, P0/P1/P2 findings, pilot constraints, readiness criteria |
 | 6 | [Hosted pilot configuration and deployment procedure](06-hosted-pilot-configuration.md) | Exact environment variables, Supabase Auth/JWT/refresh/signup/rate-limit settings, and the step-by-step staging→production procedure with verification commands |
+| 7 | [Final pilot package](07-final-pilot-package.md) | Review of `docs/pilot/*`, final pilot constraints, the single ordered staging checklist, and the final production blockers |
 
 ## What was verified, and how
 

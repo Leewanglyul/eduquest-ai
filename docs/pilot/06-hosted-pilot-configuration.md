@@ -21,7 +21,7 @@ Scope: the exact hosted configuration, the exact Supabase settings and the step-
 | Anonymous sign-in attempt | `422 anonymous_provider_disabled` |
 | Password sign-in response | `expires_in = 3600` |
 | 170 rapid wrong-password sign-ins from one IP | all `400`, none `429`: **local rate limiting is not enforced**, so limits can only be measured on staging |
-| `NEXT_PUBLIC_*` values | substituted at **build time** into the middleware bundle (the local URL appears in `.next/server/middleware.js`) |
+| `NEXT_PUBLIC_*` values | substituted at **build time** into the middleware bundle when present (the local URL appears in the compiled middleware). When they are **absent at build**, the compiled middleware keeps a runtime lookup instead (verified by building with the variables unset): whether sessions then refresh depends on the host exposing env to middleware, so always provide them at build time |
 | Browser Supabase client (`src/lib/supabase/browser.ts`) | not imported anywhere; Supabase is called only from server code and the middleware |
 | Service key in client bundle | absent (0 files in `.next/static`) |
 
@@ -64,7 +64,7 @@ Source for all three: Dashboard → Project Settings → API (Project URL, anon/
 
 Rules:
 
-1. Set the two `NEXT_PUBLIC_*` variables in the host's **build** environment (not only runtime), because the middleware uses the inlined values.
+1. Set the two `NEXT_PUBLIC_*` variables in the host's **build** environment (not only runtime), because the middleware uses the inlined values. A build without them still succeeds; do not rely on that. Test S13 (session soak) is what proves refresh works on the deployed build.
 2. The code reads the variables lazily, so a missing value fails on the **first request**, not at boot. Smoke test S1 is the check.
 3. Do not copy any value from the local stack or from the earlier committed `.env.local`; those are the shared local defaults.
 4. Use the host's secret store. Do not commit `.env*` files (`.env.local` is untracked and ignored; `.env.example` has names only).
