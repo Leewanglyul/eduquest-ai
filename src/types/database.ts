@@ -232,6 +232,16 @@ isOneToOne: true
             "fn_generate_classroom_code":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"fn_student_login_begin":
+{ Args: { "p_account_id": string,"p_limit": number }; Returns: {
+              "allowed": boolean,"locked_until": string
+            }[]
+                           },
+"fn_student_login_fail":
+{ Args: { "p_account_id": string,"p_limit": number,"p_lock_minutes": number }; Returns: {
+              "locked": boolean,"locked_until": string
+            }[]
+                           },
 "fn_transfer_enrollment":
 { Args: { "actor_id": string,"source_classroom_id": string,"student_id": string,"target_classroom_id": string }; Returns: string
                            }

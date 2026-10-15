@@ -46,30 +46,46 @@ export function remainingLockMinutes(
   return ms > 0 ? Math.ceil(ms / 60_000) : 0;
 }
 
+export type LoginAttemptStart =
+  | { allowed: true }
+  | { allowed: false; lockedUntil: string | null };
+
 /**
- * Records a failed attempt. Locks the account for STUDENT_ACCOUNT_LOCK_MINUTES
- * once STUDENT_ACCOUNT_LOCK_LIMIT consecutive failures are reached.
- * If a previous lock has already expired, the counter restarts from 1.
+ * Atomically RESERVES a sign-in attempt (one SQL UPDATE, see fn_student_login_begin). Call it
+ * BEFORE verifying the password. Parallel requests serialize on the row, so at most
+ * STUDENT_ACCOUNT_LOCK_LIMIT password checks can happen per window. `lockedUntil` is null when
+ * the window is exhausted but the lock has not been written yet.
  */
-export async function recordFailedAttempt(account: StudentAccountLookup, now = new Date()) {
+export async function beginLoginAttempt(accountId: string): Promise<LoginAttemptStart> {
   const admin = createSupabaseAdminClient();
-
-  const previous = account.locked_until && !isLocked(account, now) ? 0 : account.failed_attempts;
-  const attempts = previous + 1;
-  const shouldLock = attempts >= STUDENT_ACCOUNT_LOCK_LIMIT;
-
-  const lockedUntil = shouldLock
-    ? new Date(now.getTime() + STUDENT_ACCOUNT_LOCK_MINUTES * 60_000).toISOString()
-    : null;
-
-  const { error } = await admin
-    .from("student_accounts")
-    .update({ failed_attempts: attempts, locked_until: lockedUntil })
-    .eq("id", account.id);
-
+  const { data, error } = await admin.rpc("fn_student_login_begin", {
+    p_account_id: accountId,
+    p_limit: STUDENT_ACCOUNT_LOCK_LIMIT,
+  });
   if (error) throw error;
 
-  return { attempts, locked: shouldLock, lockedUntil };
+  const row = data?.[0];
+  if (!row) throw new Error("fn_student_login_begin returned no row");
+  return row.allowed ? { allowed: true } : { allowed: false, lockedUntil: row.locked_until };
+}
+
+/**
+ * Records a failed password check. Locks the account for STUDENT_ACCOUNT_LOCK_MINUTES once the
+ * LOCK_LIMIT reserved attempts have failed (atomic, see fn_student_login_fail).
+ */
+export async function recordLoginFailure(
+  accountId: string,
+): Promise<{ locked: boolean; lockedUntil: string | null }> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("fn_student_login_fail", {
+    p_account_id: accountId,
+    p_limit: STUDENT_ACCOUNT_LOCK_LIMIT,
+    p_lock_minutes: STUDENT_ACCOUNT_LOCK_MINUTES,
+  });
+  if (error) throw error;
+
+  const row = data?.[0];
+  return { locked: row?.locked ?? false, lockedUntil: row?.locked_until ?? null };
 }
 
 export async function resetFailedAttempts(accountId: string) {

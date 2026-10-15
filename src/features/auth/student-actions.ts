@@ -16,9 +16,9 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  beginLoginAttempt,
   findStudentAccountByUsername,
-  isLocked,
-  recordFailedAttempt,
+  recordLoginFailure,
   remainingLockMinutes,
   resetFailedAttempts,
 } from "./lockout";
@@ -148,9 +148,14 @@ export async function studentSignInAction(
     return { error: GENERIC_SIGN_IN_ERROR };
   }
 
-  if (isLocked(account)) {
+  // Atomically reserve an attempt BEFORE checking the password: parallel requests cannot all
+  // slip past the lock (see fn_student_login_begin). Only LOCK_LIMIT password checks can run.
+  const attempt = await beginLoginAttempt(account.id);
+  if (!attempt.allowed) {
     return {
-      error: `로그인 시도가 너무 많습니다. ${remainingLockMinutes(account)}분 후 다시 시도해 주세요.`,
+      error: attempt.lockedUntil
+        ? `로그인 시도가 너무 많습니다. ${remainingLockMinutes({ locked_until: attempt.lockedUntil })}분 후 다시 시도해 주세요.`
+        : "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
 
@@ -161,7 +166,7 @@ export async function studentSignInAction(
   });
 
   if (error) {
-    const result = await recordFailedAttempt(account);
+    const result = await recordLoginFailure(account.id);
     if (result.locked) {
       return {
         error: "로그인 시도가 5회 실패하여 15분간 잠겼습니다.",
