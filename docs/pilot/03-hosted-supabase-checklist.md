@@ -93,7 +93,7 @@ The app lockout (5 failures → 15 minutes) protects the app path. Because auth 
 
 | # | Item | Required |
 |---|---|---|
-| 9.1 | Method | `supabase link --project-ref <ref>` then `supabase db push`. 15 migration files (`20261014000001` … `20261016000002`) apply in order |
+| 9.1 | Method | `supabase link --project-ref <ref>` then `supabase db push`. 16 migration files (`20261014000001` … `20261016000003`) apply in order |
 | 9.2 | Never | `supabase db reset`, running `seed.sql`, or editing applied migrations |
 | 9.3 | Verify | After push, run the catalog checks in section 8 and `select count(*) from supabase_migrations.schema_migrations;` (expect 15) |
 | 9.4 | Types | `src/types/database.ts` is generated from local; regenerate against staging only if migrations change |

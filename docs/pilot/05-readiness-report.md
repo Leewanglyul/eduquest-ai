@@ -17,7 +17,7 @@ For GO:
 
 - Every control the product promises was exercised and held: teacher and student workflows end to end, forced first-login password reset, 5-failure lockout (including a parallel burst), student-only and teacher-area guards, owner/co-teacher/admin permissions, archived-classroom protection, school boundary, one-time credentials, audit trail.
 - The security defects found during review were fixed and are pinned by tests that fail when the fix is removed (section 3).
-- Database state is reproducible: a clean `db reset` applies all 15 migrations; RLS covers every table; no client write policies exist.
+- Database state is reproducible: a clean `db reset` applies all 16 migrations; RLS covers every table; no client write policies exist.
 - Operational documentation exists (`docs/pilot/01`–`04`) and its SQL was executed against the database.
 
 For "with conditions":
@@ -38,13 +38,13 @@ All results are from this review session on the head above unless stated.
 | Typecheck | `tsc --noEmit` | Clean |
 | Build | `pnpm build` | Passes; output lists **Middleware** (93.7 kB) |
 | Lint | `pnpm lint` | 0 errors, 2 warnings (`_role` unused, `src/features/classrooms/domain.ts:52–53`). `next lint` is deprecated in Next 16 |
-| Migrations | `supabase db reset` from empty | All 15 files applied; 15 rows in `supabase_migrations.schema_migrations` |
+| Migrations | `supabase db reset` from empty | All 16 files applied; 16 rows in `supabase_migrations.schema_migrations` |
 | RLS coverage | catalog query on `public` | 8 of 8 tables have RLS: `account_batches`, `audit_logs`, `classroom_enrollments`, `classroom_teachers`, `classrooms`, `profiles`, `student_accounts`, `students`. Policies are SELECT-only (0 write policies). `account_batches` and `audit_logs` have none (service role only) |
 | Views | catalog query | `v_students_safe`, `v_classroom_activity_safe` are `security_invoker=true` |
 | Function privileges | catalog query | `fn_transfer_enrollment`, `fn_revoke_user_sessions`, `fn_student_login_begin/_fail`: no `anon`/`authenticated` EXECUTE. Two helpers (`fn_generate_classroom_code`, `fn_classrooms_code_immutable`) are executable by them: harmless (random code generator, trigger function) |
 | SECURITY DEFINER | catalog query | `search_path` pinned on both |
-| DB tests | `supabase test db` | PASS, 7 files |
-| App tests | `vitest run` | **78/78**, 6 files (authorization matrix, lockout race, forced reset, opaque email, session refresh, password reissue, page guards) |
+| DB tests | `supabase test db` | PASS, 8 files |
+| App tests | `vitest run` | **116/116**, 7 files (authorization matrix, lockout race, forced reset, opaque email, session refresh, password reissue, page guards) |
 | Mutation checks | break the fix, rerun | Tests failed for: lockout, forced reset, session middleware, enrollment check, session-revocation function, archive permission |
 | Key exposure | grep `.next/static` for the service key | 0 files. Key referenced only in `src/lib/env.ts` and `src/lib/supabase/admin.ts` |
 | Dependency audit | `pnpm audit --prod` | 4 advisories (2 high, 2 moderate), **all one `postcss` 8.4.31 copy bundled inside Next**; build-time tool needing attacker-controlled CSS/source maps, which the app does not accept |

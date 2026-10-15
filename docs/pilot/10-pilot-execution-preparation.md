@@ -6,8 +6,8 @@ Hosted staging preparation checklist, pilot operator runbook, pilot risk registe
 
 | | |
 |---|---|
-| Repository state | `m1/issue-005-student-provisioning` @ `0833cac`, pushed; 48 commits ahead of `origin/main` (130 files), merges cleanly; no PR, no tag, no CI; lockfile untracked; `MAX_BATCH_ROWS` is **200** in code; 15 migrations |
-| Code gates | green on the last full run (typecheck, lint, production build, clean 15-migration apply, pgTAP 7 files, vitest 78/78; Postgres 15 and 17) |
+| Repository state | `m1/issue-005-student-provisioning`; application code last changed in `48d07cd` (A1 lockout classification); 50+ commits ahead of `origin/main`, merges cleanly; no PR, no tag, no CI; lockfile untracked; `MAX_BATCH_ROWS` is **200** in code; **16** migrations |
+| Code gates | green on the last full run (typecheck, lint, production build, clean 16-migration apply, pgTAP 8 files, vitest 116/116; Postgres 15 and 17) |
 | Evidence tags | **[V-local]** verified on the local stack; **[V-code]** established by reading the code; **[staging]** can only be proven on a hosted project |
 
 ### Review of `docs/pilot/01`–`09`
@@ -18,7 +18,7 @@ Links: 0 broken. Smoke-test ids, decisions D1–D6 and the numbers in `01`, `04`
 |---|---|---|
 | F-1 | Two different lists were both numbered R1…: `05` readiness criteria (R1–R10) and the "required before pilot" items of `08`/`09` (R1–R12) | `05` criteria renamed **RC1–RC10**; `09` mapping column updated |
 | F-2 | Statements that had become false ("docs commit unpushed", baseline commit and counts) in `05`, `07`, `09` | Corrected to the current state |
-| F-3 | **New risk, not in earlier documents:** `studentSignInAction` treats *any* Auth error as a wrong password [V-code `src/features/auth/student-actions.ts:168`]. A rate-limit `429`, an Auth outage or a network error calls `recordLoginFailure`, so a class log-in burst above the hosted limit would also lock students for 15 minutes | Added as risk **A1**, required item **R13** (`08`, `09`), recommended fix **C9** (`08`), S9 criterion (`04`), and recovery SQL §3.7 |
+| F-3 | **New risk, not in earlier documents:** `studentSignInAction` treats *any* Auth error as a wrong password [V-code `src/features/auth/student-actions.ts:168`]. A rate-limit `429`, an Auth outage or a network error calls `recordLoginFailure`, so a class log-in burst above the hosted limit would also lock students for 15 minutes | **Fixed** by the A1 classification patch (commit `48d07cd`, migration 16, `fn_student_login_release`): infrastructure errors no longer count. Kept as residual risk **A1**, required item **R13** (hosted proof), the S9 criterion (`04`) and recovery SQL §3.7 |
 | F-4 | **New risk:** Korean-locale Excel saves "CSV" as EUC-KR. The importer reads UTF-8, so `홍길동` arrives as `ȫ�浿` [V-local, decoding test] | Added as risk **B5**; the import steps (§3.5) tell teachers how to save and what to look for in the preview |
 | F-5 | No click-level procedures existed for classroom creation, student import and emergency recovery | §3 below (recovery SQL validated on the local database) |
 
@@ -83,7 +83,7 @@ Rules and checks:
 |---|---|---|
 | ☐ | C1 Decisions D1–D6 recorded (`04`) | Written outcomes |
 | ☐ | C2 Create the project; apply section A | Dashboard equals the table |
-| ☐ | C3 `supabase link`; `migration list --linked`; `db push --dry-run`; `db push` (never `--include-seed`) | 15/15 matched; RLS and policy queries as `06` Part C |
+| ☐ | C3 `supabase link`; `migration list --linked`; `db push --dry-run`; `db push` (never `--include-seed`) | 16/16 matched; RLS and policy queries as `06` Part C |
 | ☐ | C4 Set section B variables in the host (public ones in the **build** environment) | Variables present |
 | ☐ | C5 Deploy the tagged commit; HTTPS + security headers (`06` §3.3) | Build log lists `ƒ Middleware`; headers visible |
 | ☐ | C6 Bootstrap one admin and one teacher (§3.2–3.3) | Both sign in |
@@ -157,7 +157,7 @@ Single student: classroom page → **학생 계정 만들기** (same one-time cr
 
 ### 3.7 Emergency lockout recovery
 
-Rule: **find the cause before unlocking many accounts.** Check the Auth logs for `429` (rate limit) or errors (outage) first, because every failed or errored sign-in counts toward the 5-failure lock (risk A1). Run SQL in the Dashboard SQL editor. Statements (a)–(c) were executed against the local database and behaved as described [V-local].
+Rule: **find the cause before unlocking many accounts.** Check the Auth logs for `429` (rate limit) or errors (outage) first, but note that since commit `48d07cd` rate-limit, outage, network and timeout errors no longer count toward the 5-failure lock (only credential-side errors do), so a mass lockout now points at repeated wrong passwords rather than at the rate limit (risk A1). The server logs one line (status, name, code) per uncounted error. Run SQL in the Dashboard SQL editor. Statements (a)–(c) were executed against the local database and behaved as described [V-local].
 
 | Situation | Action |
 |---|---|
@@ -178,7 +178,7 @@ Rating = likelihood × impact with the pilot constraints in force (`07` §2). **
 
 | ID | Category | Risk | Mitigation | Owner | Closed by |
 |---|---|---|---|---|---|
-| **A1** | Auth × rate limit | Any Auth error (rate-limit `429`, outage, network) counts as a wrong password [V-code]; a class log-in burst above the hosted limit locks students for 15 minutes and repeats on retry | Measure the limit (S9) and raise it; stagger log-ins; bulk-unlock SQL (3.7); recommended fix: don't consume an attempt on non-credential errors (`08` C9) | Ops, Eng, PM | R13, R1 |
+| **A1** | Auth × rate limit | **Mitigated by commit `48d07cd`:** rate-limit `429`, Auth outage, network failure and timeout no longer count toward the lock (credential errors still do). Residual: a `429` still delays sign-in until the window clears, and the fix is unproven on a hosted project | Measure and raise the limit (S9); stagger log-ins; confirm on staging that no student is locked after the burst; bulk-unlock SQL (3.7) as a fallback | Ops, PM | R13, R1 |
 | **L1** | Rate limit | The whole school shares one egress IP; the documented default of 30 sign-ins per 5 minutes per IP is below one class | Set 300 if the plan allows; otherwise stagger (about 25 per minute); measure in S9 | Ops | R1, R3 |
 | **G1** | Data governance | Consent, retention and erasure undecided; no student delete/export feature | Signed decision D6; approved, staging-tested SQL erasure procedure: deleting a student's auth user cascades to profile, student record, account and enrollments [V-local FK rules]; audit rows remain with ids/usernames | School, PM, Eng | R10 |
 | **B1** | Batch import | Cap is not implemented (200 in code): a large import can time out and lose the one-time passwords | Pilot rule ≤ 30 rows; implement the cap and measure (`01`); recovery = reissue | Eng, PM | R2 |
@@ -237,14 +237,14 @@ Effort is active hands-on time (see `09` for elapsed time and dependencies).
 | R3 | Production settings applied and verified | `1.A`, `06` §4 | Ops | 2–3 h |
 | R4 | Security Advisor matches the expected list | `1.A` table | Ops | 1 h (+0–2 h) |
 | R5 | Environment variables correct; service key never in the client | `1.B` | Ops, Eng | 1 h per environment |
-| R6 | 15 migrations deployed, no seed | `08` §2 C | Ops | 1 h per environment |
+| R6 | 16 migrations deployed, no seed | `08` §2 C | Ops | 1 h per environment |
 | R7 | Production staff bootstrapped, two-person rule, test accounts removed | §3.2–3.3, `02` | Ops + second person | 1–2 h |
 | R8 | Backups, restore drill, alert recipient | `06` §3, `04` phase 8 | Ops | 3–5 h |
 | R9 | Lockfile, advisory decision, reviewed PR, tag | `09` R9 | Eng, Reviewer, PM | 2–3 days elapsed (review dominates) |
 | R10 | Consent, retention, erasure procedure | D6 and risk G1 | School, PM, Eng | Eng 3–4 h; decision days to weeks |
 | R11 | On-call, contacts, teacher guide (include the UTF-8 CSV and credential-handling steps), constraints accepted | §3, `07` §2 | PM, On-call, Eng | about 1 day |
 | R12 | HTTPS and security headers | `06` §3.3 | Ops | 1–2 h per environment |
-| R13 | Auth errors vs lockout: S9 clean at 60 sign-ins in five minutes and no student locked; unlock SQL rehearsed; optional fix C9 | §3.7, `08` C9 | Ops, PM (Eng for the fix) | 1 h (fix 0.5 day) |
+| R13 | Auth errors vs lockout: patch shipped (`48d07cd`); remaining proof: migration 16 applied, S9 clean at 60 sign-ins in five minutes with no student locked, unlock SQL rehearsed | §3.7, `08` C9 | Ops, PM | 1 h |
 
 Estimated total: about **6–8 working days elapsed** with an engineer, an operator and a reviewer in parallel, assuming the consent decision (D6) does not block.
 

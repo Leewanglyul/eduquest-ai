@@ -16,7 +16,7 @@ What this pass checked, and the result:
 | Contradictions between documents | 4 found and fixed in this pass (below) |
 | Auth client refresh margin (the "90 s" rule) | confirmed in source: `EXPIRY_MARGIN_MS = 3 × 30 s = 90 s` (auth-js 2.117.3) |
 | `NEXT_PUBLIC_*` variables | inlined into the middleware at build time when present; when absent, the compiled middleware keeps a runtime lookup (build still succeeds). Provide them at build time |
-| Postgres compatibility | all 15 migrations + 7 pgTAP files + 78 vitest tests pass on 15.19 and 17.11 |
+| Postgres compatibility | all 16 migrations + 8 pgTAP files + 116 vitest tests pass on 15.19 and 17.11 (re-run after the A1 patch) |
 | Code still matches the docs | yes; batch cap is still 200 in code (`MAX_BATCH_ROWS`), lockfile still untracked, nothing merged or tagged |
 
 Fixes made to the documents in this pass:
@@ -86,8 +86,8 @@ One ordered list. Tick each box, write the result and evidence in the right-hand
 | ☐ | `pnpm typecheck` | clean |
 | ☐ | `pnpm lint` | 0 errors (2 known warnings) |
 | ☐ | `pnpm build` | success; log lists `ƒ Middleware` |
-| ☐ | `supabase start`, `supabase db reset` (local only), `supabase test db` | PASS, 7 files |
-| ☐ | `pnpm test:access` | 78/78 |
+| ☐ | `supabase start`, `supabase db reset` (local only), `supabase test db` | PASS, 8 files |
+| ☐ | `pnpm test:access` | 116/116 |
 | ☐ | `pnpm audit --prod` | 4 known `postcss` advisories inside Next, or fewer; decision recorded |
 
 ### Step 2: staging project
@@ -110,9 +110,9 @@ One ordered list. Tick each box, write the result and evidence in the right-hand
 
 | ☐ | Command / query | Expected |
 |---|---|---|
-| ☐ | `supabase link --project-ref <ref>`; `supabase migration list --linked` | 15 local, none remote |
-| ☐ | `supabase db push --dry-run` | exactly the 15 migrations |
-| ☐ | `supabase db push` (never `--include-seed`) | applied; list shows 15/15 |
+| ☐ | `supabase link --project-ref <ref>`; `supabase migration list --linked` | 16 local, none remote |
+| ☐ | `supabase db push --dry-run` | exactly the 16 migrations |
+| ☐ | `supabase db push` (never `--include-seed`) | applied; list shows 16/16 |
 | ☐ | RLS, policy-count and `auth.users` queries from `06` Part C | no table without RLS; `account_batches`/`audit_logs` 0 policies; 0 users |
 | ☐ | Dashboard → Advisors → Security | every finding resolved or accepted in writing |
 

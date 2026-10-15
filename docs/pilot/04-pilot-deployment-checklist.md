@@ -27,7 +27,7 @@ supabase test db                  # pgTAP
 pnpm test:access                  # vitest, refuses to run against a non-local URL
 ```
 
-All must pass. Last recorded result on the current head: typecheck clean, pgTAP PASS (7 files), vitest 78/78, build lists the middleware.
+All must pass. Last recorded result on the current head: typecheck clean, pgTAP PASS (8 files), vitest 116/116, build lists the middleware.
 
 Housekeeping to settle before the tag: uncommitted `next-env.d.ts` noise and the untracked `pnpm-*` files; CRLF/LF warnings on commit (an optional `.gitattributes`).
 
@@ -36,7 +36,7 @@ Housekeeping to settle before the tag: uncommitted `next-env.d.ts` noise and the
 Exact settings and commands: see `06-hosted-pilot-configuration.md` (Parts A–F).
 
 1. Create the staging Supabase project and apply section 1–5, 7–8, 10 of `03-hosted-supabase-checklist.md`.
-2. `supabase link` → `supabase db push`. Verify 15 migrations and the catalog checks (checklist section 9).
+2. `supabase link` → `supabase db push`. Verify 16 migrations and the catalog checks (checklist section 9).
 3. Deploy the app to a staging URL with the three environment variables from the staging project.
 4. Bootstrap one admin and one teacher (`02-staff-bootstrap-runbook.md`) using the staging project.
 5. Confirm the build log shows "Middleware" and that the client bundle does not contain the service key.
@@ -70,7 +70,7 @@ Any failure → fix, redeploy to staging, rerun the whole table.
 ## Phase 4: production
 
 1. Create the production project; apply the hosted checklist; do **not** copy staging data.
-2. `supabase link` (prod ref) → `supabase db push`; verify 15 migrations; no seed.
+2. `supabase link` (prod ref) → `supabase db push`; verify 16 migrations; no seed.
 3. Deploy the tagged commit with production variables.
 4. Bootstrap admin(s) and teachers via the runbook (two-person rule, ops log).
 5. Repeat S1, S4, S6, S7, S8, S10 on production with **test accounts**, then remove the test classroom, test students and test staff with a reviewed SQL clean-up approved by two people (record it in the ops log).

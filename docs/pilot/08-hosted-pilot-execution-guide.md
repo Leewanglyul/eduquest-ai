@@ -10,8 +10,8 @@ Validated on commit `1370e16` (the pushed head), local stack, Node 24.19.0, pnpm
 |---|---|
 | `tsc --noEmit` | clean |
 | `pnpm lint` | 0 errors, 2 warnings (unused `_role`) |
-| Clean `supabase db reset` + `supabase test db` | 15 migrations; pgTAP PASS, 7 files |
-| `vitest run` | 78/78, 6 files |
+| Clean `supabase db reset` + `supabase test db` | 16 migrations; pgTAP PASS, 8 files |
+| `vitest run` | 116/116, 7 files |
 | Production `pnpm build` | success; lists `ƒ Middleware` |
 | Postgres compatibility | 15.19 and 17.11 both pass the full suite (earlier run) |
 | Public functions pin `search_path` | 7 of 7 |
@@ -86,7 +86,7 @@ Source: Dashboard → Project Settings → API. Names: `src/lib/env.ts`.
 
 ### C. Migration deployment order
 
-The 15 files apply strictly in this order; `supabase db push` handles it. Never run `db reset`, never run `seed.sql`, never pass `--include-seed` (the flag exists in CLI 2.120 and `seed.sql` creates a known-password teacher).
+The 16 files apply strictly in this order; `supabase db push` handles it. Never run `db reset`, never run `seed.sql`, never pass `--include-seed` (the flag exists in CLI 2.120 and `seed.sql` creates a known-password teacher).
 
 | # | File | Adds |
 |---|---|---|
@@ -105,17 +105,18 @@ The 15 files apply strictly in this order; `supabase db push` handles it. Never 
 | 13 | `20261015000006_classroom_code.sql` | read-only classroom code |
 | 14 | `20261016000001_student_login_attempts.sql` | atomic lockout RPCs |
 | 15 | `20261016000002_password_reissue.sql` | reissue audit action, session-revoke RPC |
+| 16 | `20261016000003_student_login_release.sql` | refund of a reserved sign-in attempt on infrastructure errors (A1) |
 
 ```bash
 supabase login
 supabase link --project-ref <project-ref>        # prompts for the database password
-supabase migration list --linked                 # 15 local, none remote
-supabase db push --dry-run                       # exactly the 15 files above
+supabase migration list --linked                 # 16 local, none remote
+supabase db push --dry-run                       # exactly the 16 files above
 supabase db push                                 # confirm; stops at the first failing file
 supabase migration list --linked                 # 15 / 15 matched
 ```
 
-Then in the SQL editor: `select count(*) from supabase_migrations.schema_migrations;` → 15; `select tablename from pg_tables where schemaname='public' and not rowsecurity;` → no rows; `select count(*) from auth.users;` → 0. Run Dashboard → Advisors → Security and compare to section 1.
+Then in the SQL editor: `select count(*) from supabase_migrations.schema_migrations;` → 16; `select tablename from pg_tables where schemaname='public' and not rowsecurity;` → no rows; `select count(*) from auth.users;` → 0. Run Dashboard → Advisors → Security and compare to section 1.
 
 ### D. Teacher bootstrap (full detail: `02`)
 
@@ -166,14 +167,14 @@ Principle: roll back the **smallest** thing that fixes the problem. There are no
 | R3 | Section 2 B applied and verified on production (every value, plus the three `curl` checks) | Command outputs |
 | R4 | Security Advisor compared with section 1; anything unexpected resolved or accepted in writing | Advisor export |
 | R5 | Environment variables correct: public ones at build time, service key server-only; client bundle search for the key is empty | Deploy log, search result |
-| R6 | All 15 migrations deployed by `db push`; no seed; verification queries as listed | `migration list` output |
+| R6 | All 16 migrations deployed by `db push`; no seed; verification queries as listed | `migration list` output |
 | R7 | Staff bootstrapped on production with the two-person rule; test accounts removed | Ops log |
 | R8 | Backups on; a restore drill completed into a scratch project; alert recipient set | Drill record |
 | R9 | Release hygiene: lockfile committed, `postcss` advisories (inside Next, build-time) resolved or accepted in writing, branch merged by reviewed PR, release tagged | PR, tag, decision note |
 | R10 | Consent, retention and an approved erasure procedure for student data (no delete/export feature exists) | Signed decision D6 |
 | R11 | On-call named; support contacts; teacher one-page guide; pilot constraints (`07` §2) accepted by the PM | Names, document, sign-off |
 | R12 | HTTPS only; security headers configured at the host | `curl -sI` output |
-| R13 | **Auth errors vs lockout:** S9 shows no `429` at 60 sign-ins in five minutes and no student locked afterwards; the mass-unlock SQL (`10` §3.7) rehearsed; limits/staggering recorded (`studentSignInAction` counts any Auth error as a failed password) | S9 record, rehearsal note |
+| R13 | **Auth errors vs lockout (A1):** the classification patch (migration 16, `lockout.ts`, `student-actions.ts`) is deployed; S9 shows no `429` at 60 sign-ins in five minutes and no student locked afterwards; the mass-unlock SQL (`10` §3.7) rehearsed; limits/staggering recorded | S9 record, rehearsal note |
 
 ### Recommended before pilot
 
@@ -187,7 +188,7 @@ Principle: roll back the **smallest** thing that fixes the problem. There are no
 | C6 | Alert on Auth/API error rates; daily review of the monitoring queries during week 1 | Early warning |
 | C7 | Link `docs/pilot` from the repository README; fix the 2 lint warnings; plan the `next lint` migration | Housekeeping |
 | C8 | Tighten Node version (`engines` is `>=20`; everything was tested on 24.19) | Reproducibility |
-| C9 | Treat non-credential Auth errors (429, 5xx, network) as "try again later" without consuming a lockout attempt; show a distinct message | Removes the rate-limit-causes-lockout interaction (`10` risk A1); small code change |
+| C9 | **Implemented** (commit `48d07cd`): 429 and `AuthRetryableFetchError` (5xx, network, timeout) refund the reserved slot and show a distinct message; `invalid_credentials`, `email_not_confirmed`, `user_banned` and other 4xx still count | Done; regression-tested in `lockout-classification.test.ts` |
 
 ### Can defer to M2
 
@@ -199,7 +200,7 @@ Staff password change in the app and MFA; bulk password reissue and credential r
 
 **Justification**
 
-- *What is established.* On the pushed head, typecheck, lint, the production build, a clean 15-migration apply, 7 pgTAP files and 78 vitest tests all pass, on Postgres 15 and 17. Both user workflows were walked end to end in a browser. The two product-level security defects (parallel lockout bypass, bypassable forced password reset), the derivable auth email and the missing session refresh were found, fixed and pinned by tests that fail when the fix is removed. The pilot size assumptions hold locally: 100 students across 4 teachers render in about 0.2 s per page, and 30 simultaneous log-ins completed with no failures. The rollback switches (session revoke, role suspension, session wipe) were exercised and work without touching student data.
+- *What is established.* On the pushed head, typecheck, lint, the production build, a clean 16-migration apply, 8 pgTAP files and 116 vitest tests all pass, on Postgres 15 and 17. Both user workflows were walked end to end in a browser. The two product-level security defects (parallel lockout bypass, bypassable forced password reset), the derivable auth email and the missing session refresh were found, fixed and pinned by tests that fail when the fix is removed. The pilot size assumptions hold locally: 100 students across 4 teachers render in about 0.2 s per page, and 30 simultaneous log-ins completed with no failures. The rollback switches (session revoke, role suspension, session wipe) were exercised and work without touching student data.
 - *Why not READY.* Everything hosted is still unproven: the `.invalid` auth email on the hosted project, the real rate limit under a class log-in, the actual Auth setting values, the Security Advisor output and a backup restore. The "30 students per CSV" assumption is **not enforced by the product** (200 in code) and rests on a process rule. Release hygiene (lockfile, merge, tag) and the non-engineering items (consent and erasure, on-call, restore drill) are open.
 - *Why not NOT READY.* None of these needs new features or an architecture change. One small code change (the batch cap, R2) and one dependency commit (R9) are the only engineering work; the rest is configuration, rehearsal and sign-off, and each has a written procedure and a recorded pass criterion.
 

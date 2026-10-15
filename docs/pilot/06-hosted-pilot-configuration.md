@@ -13,8 +13,8 @@ Scope: the exact hosted configuration, the exact Supabase settings and the step-
 
 | Check | Result |
 |---|---|
-| Migrations + all tests on **Postgres 15.19** (local pin) | 15 migrations; pgTAP PASS (7 files); vitest 78/78 |
-| Migrations + all tests on **Postgres 17.11** | 15 migrations; pgTAP PASS (7 files); vitest 78/78 |
+| Migrations + all tests on **Postgres 15.19** (local pin) | 16 migrations; pgTAP PASS (8 files); vitest 116/116 |
+| Migrations + all tests on **Postgres 17.11** | 16 migrations; pgTAP PASS (8 files); vitest 116/116 |
 | Node used for every test and build | v24.19.0, pnpm 12.11.2 |
 | Public Auth settings endpoint `GET /auth/v1/settings` | `disable_signup:true`, `mailer_autoconfirm:true` (local), only the `email` provider enabled |
 | Signup attempt with email | `422 signup_disabled` |
@@ -92,7 +92,7 @@ Rules:
 |---|---|---|
 | Postgres major version | Whatever the new project reports; **15 and 17 are both verified** | [V-local] full migration + test run on 15.19 and 17.11 |
 | Extensions | `pgcrypto` in schema `extensions` (created by migration 1) | [V-local] |
-| Migrations | 15 files `20261014000001` … `20261016000002`, applied by `supabase db push` only | [V-local] |
+| Migrations | 16 files `20261014000001` … `20261016000003`, applied by `supabase db push` only | [V-local] |
 | Seed | **Never.** `seed.sql` creates `teacher@example.com` with a known password. Never run `db reset`; **never pass `--include-seed`** to `db push` (the flag exists in CLI 2.120) | [V-local] flag present in `db push --help` |
 | RLS | 8 of 8 `public` tables; SELECT-only policies; `account_batches` and `audit_logs` have none | [V-local] catalog query |
 | Function privileges | `fn_transfer_enrollment`, `fn_revoke_user_sessions`, `fn_student_login_begin/_fail`: `EXECUTE` for `service_role` only | [V-local] pgTAP + catalog |
@@ -214,8 +214,8 @@ Set `URL=https://<project-ref>.supabase.co` and `ANON=<anon/publishable key>` in
 ```bash
 supabase login
 supabase link --project-ref <project-ref>          # asks for the database password
-supabase migration list --linked                   # local: 15 rows, Remote column empty
-supabase db push --dry-run                         # must list exactly the 15 migrations
+supabase migration list --linked                   # local: 16 rows, Remote column empty
+supabase db push --dry-run                         # must list exactly the 16 migrations
 supabase db push                                   # confirm; NEVER add --include-seed
 supabase migration list --linked                   # Local and Remote now match for all 15
 ```
@@ -223,7 +223,7 @@ supabase migration list --linked                   # Local and Remote now match 
 Then in the Dashboard SQL editor:
 
 ```sql
-select count(*) from supabase_migrations.schema_migrations;                       -- 15
+select count(*) from supabase_migrations.schema_migrations;                       -- 16
 select tablename from pg_tables where schemaname = 'public' and not rowsecurity;  -- no rows
 select tablename, (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = t.tablename) as policies
 from pg_tables t where schemaname = 'public' order by 1;   -- 8 tables; account_batches and audit_logs = 0
