@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { notFound } from "next/navigation";
+import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { getClassroomForActor } from "@/features/classrooms/queries";
 import { listRoster } from "@/features/enrollments/queries";
 import { ClassroomCodeBadge } from "@/components/teacher/classroom-code-badge";
@@ -15,12 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE_LABEL = { owner: "담임", co_teacher: "공동 담임", admin: "관리자" } as const;
 
 export default async function ClassroomDetailPage({ params }: PageProps) {
-  let actor;
-  try {
-    actor = await requireTeacherArea();
-  } catch {
-    redirect("/teacher/sign-in");
-  }
+  const actor = await requireTeacherAreaPage();
 
   const { classroomId } = await params;
   if (!UUID.test(classroomId)) notFound();

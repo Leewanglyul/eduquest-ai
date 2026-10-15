@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { listClassroomsForActor } from "@/features/classrooms/queries";
 import { ClassroomList } from "@/components/teacher/classroom-list";
 
@@ -11,12 +10,7 @@ type PageProps = {
 };
 
 export default async function ClassroomsPage({ searchParams }: PageProps) {
-  let actor;
-  try {
-    actor = await requireTeacherArea();
-  } catch {
-    redirect("/teacher/sign-in");
-  }
+  const actor = await requireTeacherAreaPage();
 
   const showArchived = (await searchParams).archived === "1";
   const classrooms = await listClassroomsForActor(actor, { archived: showArchived });

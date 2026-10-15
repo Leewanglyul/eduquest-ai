@@ -1,17 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { teacherSignOutAction } from "@/features/auth/teacher-actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherDashboardPage() {
-  let profile;
-  try {
-    profile = await requireTeacherArea();
-  } catch {
-    redirect("/teacher/sign-in");
-  }
+  const profile = await requireTeacherAreaPage();
 
   return (
     <main className="mx-auto max-w-2xl p-8">

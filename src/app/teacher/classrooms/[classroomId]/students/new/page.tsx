@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { CreateStudentForm } from "@/components/teacher/create-student-form";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +8,7 @@ type PageProps = {
 };
 
 export default async function NewStudentPage({ params }: PageProps) {
-  try {
-    await requireTeacherArea();
-  } catch {
-    redirect("/teacher/sign-in");
-  }
+  await requireTeacherAreaPage();
   const { classroomId } = await params;
 
   return (

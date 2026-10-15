@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { notFound } from "next/navigation";
+import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { getClassroomForActor } from "@/features/classrooms/queries";
 import {
   listAddableStudents,
@@ -19,12 +19,7 @@ type PageProps = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function ClassroomStudentsPage({ params }: PageProps) {
-  let actor;
-  try {
-    actor = await requireTeacherArea();
-  } catch {
-    redirect("/teacher/sign-in");
-  }
+  const actor = await requireTeacherAreaPage();
 
   const { classroomId } = await params;
   if (!UUID.test(classroomId)) notFound();

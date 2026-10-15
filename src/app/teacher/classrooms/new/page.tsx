@@ -1,16 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requireTeacherArea } from "@/lib/rbac/guards";
+import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { ClassroomForm } from "@/components/teacher/classroom-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewClassroomPage() {
-  try {
-    await requireTeacherArea();
-  } catch {
-    redirect("/teacher/sign-in");
-  }
+  await requireTeacherAreaPage();
 
   return (
     <main className="mx-auto max-w-xl p-8">
