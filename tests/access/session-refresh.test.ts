@@ -1,7 +1,8 @@
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
-import { middleware } from "../../middleware";
+import { middleware } from "@/middleware";
 
 // Simulates an EXPIRED access token (expires_at in the past, refresh token still valid) and checks
 // that the middleware refreshes it and hands the browser new cookies. The same flow in a Server
@@ -52,6 +53,14 @@ const cookieHeader = (cookies: [string, string][]) =>
   cookies.map(([n, v]) => `${n}=${v}`).join("; ");
 
 describe("session refresh middleware", () => {
+  it("lives where Next.js loads it: src/middleware.ts (the app uses src/app), never the repo root", () => {
+    // A root-level middleware.ts is silently IGNORED when the app lives in src/app: sessions would
+    // never refresh while unit tests that import the file directly still pass.
+    expect(fs.existsSync("src/app")).toBe(true);
+    expect(fs.existsSync("src/middleware.ts")).toBe(true);
+    expect(fs.existsSync("middleware.ts")).toBe(false);
+  });
+
   it("refreshes an expired access token and issues new session cookies", async () => {
     const jar = await signInCookies("teacher@example.com", "DevTeacher#12345");
     const { name, raw, session } = sessionFromJar(jar);

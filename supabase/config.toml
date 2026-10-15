@@ -19,3 +19,7 @@ enabled = true
 enabled = true
 site_url = "http://localhost:3000"
 enable_signup = false
+# Mirror hosted Supabase defaults: rotation on, 10 s reuse tolerance (parallel requests that
+# present the same refresh token converge instead of revoking the session).
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
