@@ -41,6 +41,7 @@ Policy text: `12-d6-data-governance-policy.md` (consent §1, retention §2, eras
 4. The erasure SQL is run by hand by Ops with a second person. There is no delete or export screen in M1.
 5. Ownership transfer of a classroom does not exist in M1, so a suspended owner's class needs a co-teacher or an admin (12 §4.3).
 6. The 7-day SLA counts calendar days from receipt; approval is inside it. A missed SLA is recorded with the reason, not hidden.
+7. Teacher word lists (M2) are free text. They must not contain students' personal data (12 §1); the upload pages say so, and a list found to contain such data is deleted as an erasure case. Sets are deleted in the end-of-pilot run before their owners (12 §3.4) and are transferred, not lost, when a teacher leaves (12 §4.3).
 
 ## 4. Conditions before real students
 

@@ -165,7 +165,7 @@ FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 ```
 
 Design notes:
-- `owner_id … ON DELETE CASCADE` (unlike `classrooms.owner_id`, which is `RESTRICT`): content has no dependants that must block deleting a teacher, and §3.4 of the governance policy deletes teachers last. See §2.9.
+- `owner_id … ON DELETE RESTRICT`, like `classrooms.owner_id` (decision P1: ownership is transferred first). A teacher who owns sets cannot be deleted until Ops transfers the sets to another teacher or deletes them in the end-of-pilot run (§2.9, `12` §3.4, §4.3). Deleting a set cascades to its entries.
 - `classroom_id` is optional. A set with `classroom_id = NULL` is private to the owner. Linking a set to a classroom makes it visible to that classroom's owner and co-teachers. `ON DELETE SET NULL` so deleting or archiving a classroom never destroys content. The same-school rule (`set.school_id = classroom.school_id`) is enforced in the service and in `fn_commit_content_import`, as `fn_transfer_enrollment` does for `TRANSFER_CROSS_SCHOOL`; a plain FK cannot express it.
 - No counter columns (`entry_count`): they drift. Counts come from the view in §2.7.
 - No `language` column: the per-entry `script` already says what the generator needs.
@@ -250,7 +250,7 @@ Scoping rules, all enforced twice (service layer and RLS/function):
 |---|---|
 | School | every row carries `school_id` (sets, batches); every service query filters `.eq("school_id", profile.school_id)`; `fn_commit_content_import` rejects a set from another school |
 | Teacher | `content_sets.owner_id` is the owner. Owner may do everything to the set |
-| Classroom | a set linked to a classroom is **visible** to that classroom's co-teachers (`classroom_teachers`). Co-teachers of the linked classroom manage the set like the owner (decision D3) |
+| Classroom | a set linked to a classroom is **visible** to that classroom's **owner** (`classrooms.owner_id`) and its co-teachers (`classroom_teachers`); all of them manage the set like the set owner (decision D3). The classroom owner is not in `classroom_teachers`, so both are checked in the policy and in `fn_commit_content_import`. **Archived classroom = read-only** (decision P2): readable, but not written by anyone |
 | Student | **no access** in M2-1: no policy, no grant. Answers must not reach a student's browser before play; a later player design must serve clues without answers |
 | Admin | via the service role in server actions, as in M1 (no `authenticated` policy for admins) |
 
@@ -331,7 +331,7 @@ The entry is never silently overwritten: a different definition for an existing 
 Interaction with `docs/pilot/12-d6-data-governance-policy.md` (signature still pending, so this is a **proposal for the next revision**, not an edit of that document):
 
 - **Is content personal data?** Intended no: vocabulary and clues written by a teacher. But it is free text, and §1 of the policy says "No free-text profiles"/"What is not collected". A teacher could paste a student's name into a term or clue. Mitigation: a Korean notice on the import page (§3.6), a data-governance row added to `12` §0.1 ("Content sets and entries — `content_sets`, `content_entries` — teacher-authored, should not contain personal data — removed with the owning teacher's profile (cascade)"), and a sentence in the §1 consent policy that content must not contain students' personal data. The school's data-protection contact must confirm.
-- **End-of-pilot deletion** (`12` §3.4): deleting teachers' `auth.users` cascades profile → `content_sets` → `content_entries` and `content_import_batches`. No ordering problem (`classroom_id` is `SET NULL`; the classrooms are deleted earlier in the run). Add to the verify query: `(select count(*) from public.content_sets where school_id = '<school_id>') as content_sets` expecting 0. Content is deleted at the same time as the teacher unless the teacher exported it first; a "download set as CSV" export is therefore recommended in M2-1 (§10 D7), reusing `escapeCsvCell`.
+- **End-of-pilot deletion** (`12` §3.4): `content_sets.owner_id` is `RESTRICT` (decision P1), so the run deletes `content_sets` (which removes their entries; batches keep only counts and lose `set_id`) **before** it deletes teachers. A single departing teacher's sets are transferred to another teacher first (`12` §4.3). Add `content_sets` to the verify query, expecting 0. Teachers may download their sets first (D14).
 - **Single student erasure** (`12` §3.3): content never references a student, so nothing to do.
 - **Audit logs**: content audit rows hold **no terms or definitions**, only counts, ids and hashes (§2.10). They need no de-identification and fall under the existing 1-year rule.
 - **Backups**: same statement as `12` §3.5.
@@ -423,7 +423,7 @@ Identical mechanism to M1: 32 random bytes, `base64url`, only `sha256` stored, 1
 |---|---|---|---|---|
 | `create` | new set (title required; optional classroom) | none | within file only | new set with N entries |
 | `append` | existing set | kept | already-present answers are **skipped**, not updated | set grows; `position` continues |
-| `replace` | existing set | **archived** (not deleted) with this batch id, then the file's rows inserted | within file only | set content = the file; previous content recoverable until purged (§2.9) |
+| `replace` | existing set | **archived** (not deleted) with this batch id, then the file's rows inserted | within file only | set content = the file; previous content stays archived and recoverable by Ops (archive only, D5) |
 
 Rules:
 - `replace` requires an explicit confirmation checkbox showing the number of entries that will be archived.
@@ -496,8 +496,9 @@ Severity: **error** = the row is left out (file-level errors reject the whole fi
 | answer | longer than `ANSWER_MAX_LEN` (15) | `ANSWER_TOO_LONG` | error |
 | answer | contains a character outside `가-힣 A-Z 0-9` after §4.2 | `ANSWER_INVALID_CHAR` | error (lists up to 5 offending characters) |
 | answer | contains Hangul jamo (ㄱ, ㅏ, conjoining jamo) | `ANSWER_JAMO` | error |
+| answer | numeric-like term (decimal point or comma between digits; digits with signs, dots, commas, hyphens only) | `ANSWER_NUMERIC_LIKE` | error |
 | answer | mixes Hangul with Latin/digits | `ANSWER_MIXED_SCRIPT` | warning |
-| definition | contains the answer text (the clue gives the word away) | `DEFINITION_CONTAINS_ANSWER` | warning |
+| definition | contains the answer text (the clue gives the word away); not checked when the answer has one character, where it would only add noise | `DEFINITION_CONTAINS_ANSWER` | warning |
 | definition | starts with `= + - @` or a tab (spreadsheet formula look-alike) | `FORMULA_PREFIX` | warning |
 | term/definition | control or invisible characters were removed | `CONTROL_CHARS_REMOVED` | warning |
 | term/definition | line breaks or repeated spaces were collapsed | `WHITESPACE_NORMALISED` | warning |
@@ -520,7 +521,7 @@ Result is `term` / `definition` as stored and shown.
 Additionally, for **term only**, to get `answer`:
 
 4. Convert fullwidth ASCII (`U+FF01–FF5E`) to ASCII by code-point offset. (Not full NFKC: NFKC would also turn `①` into `1` and `㈜` into `(주)`, which should be rejected, not rewritten.)
-5. Remove separators that are never grid cells: space, `-`, `U+2010–2015`, `'`, `U+2019`, `.`, `·`, `U+318D (ㆍ)`, `_`.
+5. Remove separators that are never grid cells: space, `-`, `U+2010–2015`, `'`, `U+2019`, `.`, `·`, `U+318D (ㆍ)`, `_`. Before this step, a **numeric-like** term is refused (`ANSWER_NUMERIC_LIKE`, decision P3): a `.` or `,` between two digits anywhere (`1.5`, `3.14`, `1,000`, `v1.2`), or a term made only of digits with signs, dots, commas or hyphens (`-5`, `2024-10-17`, `010-1234-5678`). Otherwise removing the separators would turn `1.5` into `15`. Plain digits and digits next to letters are not numeric-like.
 6. Upper-case Latin letters (locale-independent `toUpperCase`).
 7. Check for jamo on the result of steps 4–6 (separators are gone by then, so `ㆍ` / `U+318D` is not mistaken for a jamo) → `ANSWER_JAMO`. Conjoining jamo that NFC composes into a real syllable are already syllables and pass.
 8. Validate against `^[가-힣A-Z0-9]+$`; collect offending characters for `ANSWER_INVALID_CHAR`.
@@ -553,6 +554,7 @@ Key is `answer`. See §2.8 for the three layers. Messages name the row of the fi
 | UTF-16 BOM | `ENCODING_UTF16` |
 | header is one column that contains `;` or a tab | `DELIMITER_UNSUPPORTED` |
 | unclosed quote | `CSV_MALFORMED` |
+| text right after a closing quote (`"abc"def`) | `CSV_QUOTE_MISPLACED` |
 | `term` or `definition` column missing | `MISSING_HEADER` |
 | a column name appears twice | `DUPLICATE_HEADER` |
 | header only, no data rows | `NO_DATA_ROWS` |
@@ -618,6 +620,7 @@ File-level (`ContentImportErrorCode` → message; `${…}` are filled from the c
 | `ENCODING_UTF16` | UTF-16 형식의 파일입니다. ‘CSV UTF-8(쉼표로 분리)’ 형식으로 다시 저장해 주세요. |
 | `DELIMITER_UNSUPPORTED` | 쉼표(,)로 구분된 CSV 파일만 올릴 수 있습니다. 탭이나 세미콜론으로 구분된 파일은 쉼표로 다시 저장해 주세요. |
 | `CSV_MALFORMED` | 따옴표가 닫히지 않았습니다. |
+| `CSV_QUOTE_MISPLACED` | 따옴표(") 뒤에는 쉼표나 줄바꿈만 올 수 있습니다. 따옴표가 들어가는 글자는 ""처럼 두 번 써 주세요. |
 | `MISSING_HEADER` | 첫 줄에 term(용어)와 definition(뜻) 열이 필요합니다. |
 | `DUPLICATE_HEADER` | 같은 이름의 열이 두 번 있습니다. |
 | `NO_DATA_ROWS` | 단어 행이 없습니다. |
@@ -628,6 +631,7 @@ File-level (`ContentImportErrorCode` → message; `${…}` are filled from the c
 | `TITLE_DUPLICATE` | 같은 이름의 세트가 이미 있습니다. |
 | `SET_NOT_FOUND` | 단어 세트를 찾을 수 없습니다. |
 | `SET_ARCHIVED` | 보관된 세트는 수정할 수 없습니다. |
+| `CLASSROOM_ARCHIVED` | 보관된 학급의 세트는 수정할 수 없습니다. |
 | `SET_TOO_LARGE` | 세트에는 단어를 최대 ${MAX_SET_ENTRIES}개까지 담을 수 있습니다. (현재 ${current}개, 추가 ${add}개) |
 | `REPLACE_NOT_CONFIRMED` | 기존 단어를 보관 처리하려면 확인란을 선택해 주세요. |
 | `FORBIDDEN` | 해당 작업 권한이 없습니다. |
@@ -652,8 +656,9 @@ Row-level (shown in the rejected/warning tables, prefixed in the UI with "{line}
 | `ANSWER_TOO_LONG` | 낱말 퍼즐 정답은 최대 ${ANSWER_MAX_LEN}글자까지 가능합니다. (현재 ${n}글자) |
 | `ANSWER_INVALID_CHAR` | 정답에 쓸 수 없는 문자가 있습니다: ${chars}. 한글, 영문, 숫자만 사용할 수 있습니다. |
 | `ANSWER_JAMO` | 자음/모음만 따로 쓴 글자는 정답에 쓸 수 없습니다. 완성된 글자로 입력해 주세요. |
+| `ANSWER_NUMERIC_LIKE` | 소수점·쉼표·하이픈이 들어간 숫자 형태(1.5, 3.14, 2024-10-17 등)는 정답으로 쓸 수 없습니다. |
 | `ANSWER_MIXED_SCRIPT` (경고) | 한글과 영문/숫자가 섞여 있습니다. 퍼즐 종류에 따라 제외될 수 있습니다. |
-| `DEFINITION_CONTAINS_ANSWER` (경고) | 뜻에 정답이 그대로 들어 있습니다. |
+| `DEFINITION_CONTAINS_ANSWER` (경고) | 뜻에 정답이 그대로 들어 있습니다. (정답이 1글자이면 검사하지 않습니다) |
 | `FORMULA_PREFIX` (경고) | 뜻이 수식 기호(=, +, -, @)로 시작합니다. 그대로 저장되며, 내려받을 때는 안전하게 변환됩니다. |
 | `CONTROL_CHARS_REMOVED` (경고) | 보이지 않는 제어 문자를 제거했습니다. |
 | `WHITESPACE_NORMALISED` (경고) | 줄바꿈이나 반복된 공백을 하나의 공백으로 바꿨습니다. |
@@ -685,7 +690,7 @@ Preview/summary texts: "정상 {a}개 · 경고 {b}개 · 제외 {c}개"; commit
 
 **Derived data is stored, not recomputed per request.** `answer`, `answer_length`, `script` and `normalizer_version` are written once at import. Reads for the generator are an indexed range scan on `(set_id, position)` (partial index on live rows). A change of normalisation rules is a versioned re-derive script, not a runtime recomputation.
 
-**Identity and stability.** `content_entries.id` and `content_sets.id` are immutable UUIDs and the only stable references future features may hold. Entry text can be edited (§6) and entries archived, but an id is never reused for another word. A purged entry invalidates references, which is why generated artifacts must copy what they need (§7).
+**Identity and stability.** `content_entries.id` and `content_sets.id` are immutable UUIDs and the only stable references future features may hold. Entry text can be edited (§6) and entries archived, but an id is never reused for another word. An entry removed by the end-of-pilot deletion invalidates references, which is why generated artifacts must copy what they need (§7).
 
 **Backups and region.** Same as every other table: region and backup retention are recorded in `12` §0 and §2. Purging content does not remove it from backups until they age out (`12` §3.5).
 
@@ -857,3 +862,8 @@ Location and style follow `tests/access/` (vitest, no database, guards and the s
 | D12 | ~~Header line required?~~ **Decided by the PM: header required.** Files without a `term,definition` header (or alias) are refused with `MISSING_HEADER`. A downloadable sample file is offered on the import page | Decided |
 | D13 | ~~Keep the original uploaded CSV?~~ **Decided by the PM: do not retain the original CSV.** Only `source_sha256` / `source_bytes` are stored (§5). Revisit only if the school asks, with a retention line added to `12` | Decided |
 | D14 | ~~Single-entry edit and CSV download in M2-1?~~ **Decided by the PM: both are included** (§6: `updateContentEntryAction`, `archiveContentEntryAction`, `exportContentSetAction`) | Decided |
+
+| D15 | ~~Owner deletion~~ **Decided by the PM (P1): ownership must be transferred first.** `content_sets.owner_id` is `ON DELETE RESTRICT`; a teacher who owns sets cannot be deleted until Ops transfers or deletes them (`12` §3.4, §4.3) | Decided |
+| D16 | ~~Archived classroom~~ **Decided by the PM (P2): read-only.** Sets linked to an archived classroom can be read but not imported into, replaced, renamed or edited by anyone, owner included (`CONTENT_CLASSROOM_ARCHIVED`) | Decided |
+| D17 | ~~Numeric-like terms~~ **Decided by the PM (P3): rejected** (`ANSWER_NUMERIC_LIKE`: `1.5`, `3.14`, `1,000`, `-5`, `2024-10-17`, phone numbers). Plain digits (`2024`) and digits with letters (`3D`, `COVID-19`) stay valid | Decided |
+| D18 | ~~Governance text~~ **Decided by the PM (P4): `docs/pilot/12` is updated before the M2 merge** (content rows in §0.1, §1, §2, §3.4, §4.3, §5) | Decided |
