@@ -1,6 +1,6 @@
 # M2-3. Competition framework (future planning)
 
-Status: **planning note only. Nothing in this document is scheduled or implemented.** Sections 0–10 were written first; the **PM addendum in section 11 (CC-1…CC-10, recorded 2026-10-17, approved by the PM with the clarifications of section 11.7) records PM direction and takes precedence over them where they differ.** Section 11.2 lists exactly what it changes. It preserves the original EduQuest idea of a *classroom game platform* (not only a content system) so that it is not lost while M2-2 stays focused on the crossword. It does not change the scope of M2-1 or M2-2, and no migration, screen or constant follows from it. Owner: engineering, for a later PM decision.
+Status: **planning note only. Nothing in this document is scheduled or implemented.** Sections 0–10 were written first; the **PM addendum in section 11 (CC-1…CC-10, recorded 2026-10-17, approved by the PM with the clarifications of section 11.7) and the PM addendum 2 in section 12 (CE-1…CE-12, approved decisions, with the clarifications of section 12.9) record PM direction and take precedence over them where they differ.** Section 11.2 lists exactly what addendum 1 changes; section 12.3–12.5 compare addendum 2 with addendum 1. It preserves the original EduQuest idea of a *classroom game platform* (not only a content system) so that it is not lost while M2-2 stays focused on the crossword. It does not change the scope of M2-1 or M2-2, and no migration, screen or constant follows from it. Owner: engineering, for a later PM decision.
 
 Relation to other documents: [04-crossword-generator.md](04-crossword-generator.md) (the crossword, whose M2-2.4 play phase creates the data used here) · [05-m2-2-2-teacher-review-plan.md](05-m2-2-2-teacher-review-plan.md) (the current phase) · `docs/pilot/12` and `13` (data governance, D6).
 
@@ -304,4 +304,155 @@ When the M2-2.4 attempt model is designed, keep it open for a later shared-team 
 | K15 | Is the collaborative crossword limited to one team per grid, or may the whole class share one grid? |
 | K16 | CC-8 effects stay exploratory, disabled by default and teacher-controlled (11.7 #4). Open: whether they are ever scheduled |
 
-All of K10–K16 may be deferred until M2-3 implementation planning (11.7 #5).
+All of K10–K16 may be deferred until M2-3 implementation planning (11.7 #5). **Addendum 2 (section 12.7) changes the status of several of them and adds K17–K25.**
+
+---
+
+## 12. PM addendum 2: classroom collaboration and engagement principles
+
+Recorded 2026-10-17. **These are approved PM decisions, not proposals.** They extend the addendum of section 11 (CC-1…CC-10). They do not change the scope of M2-2: nothing here is built before M2-3, and every student-visible item still passes the M2-3.0 gate (section 11.5). Sections 12.3–12.7 (comparison, conflicts, governance questions, K-question updates) are **engineering analysis of the approved text**, not new PM decisions; where they interpret, they say so and ask the PM to confirm.
+
+### 12.1 The decisions
+
+**CE-1 Help request system (Very high).** Students or teams may request assistance (for example a button "🙋 도움이 필요해요"). The teacher dashboard shows the team, the current puzzle, the time stuck and the status of the help request. Purpose: early intervention, less frustration, better participation.
+
+**CE-2 Teacher awareness dashboard (Very high).** Teachers can see the current puzzle, team progress, blocked teams, hint usage and help requests. **Teacher visibility takes priority over leaderboard visibility.** It supports formative assessment.
+
+**CE-3 Puzzle focus tracking (High).** Track the current word, the current clue and the current puzzle area, for example "Blue Team is currently working on 삼권분립". Purpose: support teacher coaching, avoid duplicated effort, improve team coordination.
+
+**CE-4 Shared attempt architecture (Very high).** Future collaborative modes need **one attempt with multiple contributors**, not one attempt owned by one student. **Do not hard-code single-owner assumptions.**
+
+**CE-5 Team resource model (High).** Resources are **team-owned**: 초성 hints, word reveals, help cards, extra clues. Purpose: discussion, collaboration, collective decisions.
+
+**CE-6 Collaborative puzzle mode (Very high).** Shared crossword, shared progress, shared completion. Features: contribution tracking, shared cells, team completion. Primary goal cooperation; secondary goal competition.
+
+**CE-7 Team identity system (High).** Teams may have a colour, a name and a badge. Purpose: engagement, belonging, recognition.
+
+**CE-8 Contribution tracking (High).** Teachers may review solved words, solved cells, puzzle actions and support actions. **Informational only.** The system must explain that verbal collaboration cannot be fully measured.
+
+**CE-9 Progress boards over rankings (Very high).** Preferred: team progress, goal completion, milestones. Over: individual ranking and public score ordering. Example: "Blue Team 82% complete — Next goal: 90%".
+
+**CE-10 Classroom goals (Very high).** Examples: the class reaches 80% completion; all teams complete the puzzle; the class solves 500 cells.
+
+**CE-11 Competition safety principle (High).** **Learning visibility must never be reduced.** Preferred: hints, team boosts, achievement rewards. Exploratory: visual effects, team abilities. These must remain teacher-controlled and disabled by default.
+
+**CE-12 Design principle.** EduQuest optimizes `Cooperation -> Engagement -> Competition`, not `Competition -> Ranking -> Elimination`. The platform supports participation from students with different achievement levels.
+
+### 12.2 Where this lands in the existing design
+
+| Decision | Builds on / touches |
+|---|---|
+| CE-1, CE-2, CE-3 | New teacher-facing live-ish views over play activity. Need data M2-2.4 does not store (focus, stuck time, help state); see 12.4 |
+| CE-4 | Restates and strengthens §11.8 (the requirement carried into M2-2.4). No new M2-2 scope |
+| CE-5 | Changes where hint and reveal counters live in collaborative mode (team, not student) |
+| CE-6 | Same feature as CC-4 (M2-3.4) |
+| CE-7 | Extends CC-3 team identity |
+| CE-8 | Extends CC-2 contribution visibility |
+| CE-9, CE-10 | Same direction as CC-5 and CC-9 (and clarification #2 of §11.7) |
+| CE-11 | Restates CC-7 and CC-8 more strictly |
+| CE-12 | Same principle as §11.1 |
+
+### 12.3 Overlaps with CC-1…CC-10
+
+| CE | Overlaps with | What CE adds |
+|---|---|---|
+| CE-4 Shared attempt | CC-4 and §11.8 (shared-team attempt shape) | Elevates it to Very high and states the rule as "do not hard-code single-owner assumptions" |
+| CE-6 Collaborative mode | CC-4 | Names "shared cells" and "shared completion"; Very high priority (CC-4 was High) |
+| CE-7 Team identity | CC-3 (colour, icon, name) | **Badge** in place of CC-3's icon (see conflict 3 below) |
+| CE-8 Contribution tracking | CC-2 | Adds "puzzle actions" and "support actions" as measures; adds "informational only" and the duty to explain that verbal collaboration is not measurable |
+| CE-9 Progress boards | CC-5, §11.7 #2 | Adds milestones and a "next goal" on the board; explicit "over individual ranking and public score ordering" |
+| CE-10 Classroom goals | CC-9 | Adds the example "all teams complete the puzzle" and the unit "cells" (CC-9 had "words") |
+| CE-11 Safety | CC-7, CC-8 | Adds the absolute rule "learning visibility must never be reduced" |
+| CE-12 Principle | §11.1 PM principle | Same text in different words |
+
+CE-1, CE-2, CE-3 and CE-5 have **no counterpart** in CC-1…CC-10.
+
+### 12.4 Conflicts and tensions
+
+Numbered; each says how the two texts can be read together and what is still open.
+
+1. **CC-8 vs CE-11 (visibility).** CC-8 lists "temporary visibility reduction" among exploratory effects; CE-11 says learning visibility must never be reduced. *Resolved by the PM (12.9 #1, K25 answered):* CE-11 supersedes CC-8. CE-11 is the later and stricter decision, so the "temporary visibility reduction" example of CC-8 is withdrawn. Exploratory effects stay limited to non-obscuring visual effects and team abilities that do not hide puzzle content, all disabled by default and teacher-controlled.
+2. **CC-10 roadmap vs CE priorities.** CC-10 orders badges, class goals, team board, collaborative crossword, nickname leaderboards, team competition, classroom competition, seasons. Addendum 2 rates help requests (CE-1), the teacher awareness dashboard (CE-2), shared attempts (CE-4), collaborative mode (CE-6) and progress boards (CE-9) as Very high, but CE-1, CE-2 and CE-3 do not appear in CC-10 at all and collaborative mode is fourth. The PM has not revised CC-10. See 12.6 for a proposed insertion and K17.
+3. **CC-3 vs CE-7 (icon or badge).** CC-3: colour, icon and name. CE-7: colour, name and badge. "Badge" may mean the team emblem (icon) or an achievement badge as in the M2-3.1 badge system. Not decidable from the text (K18).
+4. **CE-3 and CE-1 vs the privacy stance.** Focus tracking ("current word, clue, area") and "time stuck" are behavioural monitoring of minors, more intrusive than final results. They need a governance decision (12.5 G1) and a retention rule; nothing in CC-1…CC-10 covered this. CE-2 puts teacher visibility above leaderboard visibility, which is consistent with a teacher-only view, but the data still has to exist.
+5. **CE-5 vs the M2-2 presets.** Doc 04 §3.1 gives reveals and checks **per student** (`reveals_used`, `checks_used` on the individual attempt). CE-5 makes hints, reveals, help cards and extra clues **team-owned**. The two modes need different rules: individual assignments keep per-student limits; collaborative assignments use a team pool. This is consistent with §11.8 ("counters belong to the attempt") but means the preset values need a collaborative meaning (K22).
+6. **CE-5 introduces resource types M2-2 does not have.** 초성 hints and word reveals exist in doc 04; "help cards" and "extra clues" do not. "Extra clues" implies additional teacher-authored clue text per word, which is new content and new authoring work (K22).
+7. **C5 (one attempt per student) vs CE-4 (one attempt, many contributors).** Both hold, in different assignment modes: an **individual** assignment has one attempt per student; a **collaborative** assignment has one shared attempt per team. The assignment therefore needs a play mode, and a puzzle may or may not be allowed in both modes (K23).
+8. **CE-1 may reach below M2-3.** "Students or teams may request assistance": a help button for individual play would belong with M2-2.4 play, which this addendum does not change. Treated as M2-3 (needs the teacher dashboard, CE-2, to be useful); M2-2.4 is not extended (K19).
+9. **CC-2 vs CE-8 (visibility and use).** Compatible: contribution data is for teachers (CC-2), informational only (CE-8). New requirement from CE-8: every view of contribution figures carries the explanation that verbal collaboration cannot be measured, and the figures never feed a grade or a ranking.
+10. **CC-9 vs CE-10 (units).** Words versus cells. Not a conflict; a goal metric can be completion %, words solved or cells solved (K24).
+
+No decision in addendum 2 contradicts the approved M2-2 design. CE-4 and CE-5 only add constraints on shape and counters, handled by §11.8.
+
+### 12.5 New governance questions
+
+| # | Question | Why it is new |
+|---|---|---|
+| G1 | **Focus and stuck-time data (CE-1, CE-3).** Is the current word/clue/area and the time stuck stored, or only held live (not persisted, or kept for minutes)? Who may see it (teacher only, teammates)? What does the student or guardian have to be told? | Behavioural monitoring of minors; no counterpart in `docs/pilot/12`. Recommendation: treat as ephemeral by default, teacher-only, and say so in the notice |
+| G2 | **Help requests (CE-1).** Fixed button only, no free text (consistent with `docs/pilot/12` §1)? Status lifecycle (open, acknowledged, resolved), retention, and who is notified. The screen must not imply that a teacher is always watching: a request is not a guarantee of an immediate response | A request is data about a student's difficulty; also a duty-of-care expectation |
+| G3 | **Contribution disclaimer and use (CE-8).** Wording of the explanation; a written rule that contribution and help-request data are never used for grading, ranking or discipline | CE-8 requires the explanation; the prohibition on use is an addition |
+| G4 | **Shared attempts and erasure (CE-4, CE-6).** When one student's data is erased, what happens to the team's shared attempt and to cells they filled: keep the attempt and detach the contributor (the cells and team progress stay, attribution becomes "removed member"), or delete? | The erasure procedure of `docs/pilot/12` cascades from `students`; a shared attempt belongs to several students at once |
+| G5 | **Equity of team resources (CE-5).** Rules for who may spend a team resource and whether a student can be blocked from using the team's help | A governance and classroom-climate question, not only a UI one |
+
+These join the gate of section 11.5: new data categories are help requests, focus data, resource spending and contribution attribution, in addition to those listed there.
+
+### 12.6 Effect on the phase sketch (proposal, needs K17)
+
+The sketch of section 11.6 stays as the PM-approved CC-10 order. Addendum 2 adds teacher-facing work that CC-10 does not place. Proposed placement, for the PM to confirm:
+
+| Proposed phase | Delivers | Needs |
+|---|---|---|
+| M2-3.2b Teacher awareness dashboard | CE-2 for individual play: current puzzle, progress, hint usage, stuck time derived from autosave timestamps (`updated_at`, `active_seconds`); nothing student-visible | M2-2.4 live, M2-3.0 gate (G1, G3) |
+| M2-3.2c Help request | CE-1: fixed-button request, status, teacher inbox on the dashboard | 3.2b, G2 |
+| M2-3.3 (extended) Team progress board | CC-5/CE-9 board with milestones and next goal, team identity (CC-3/CE-7), contribution view with disclaimer (CC-2/CE-8) | 3.2 |
+| M2-3.4 (extended) Collaborative crossword | CE-4/CE-6 shared attempt, CE-5 team resources, CE-3 focus tracking and team-level help request | 3.3, transport decision, G1, G4 |
+
+CE-3 (focus tracking) needs events the M2-2.4 autosave does not produce (current word, clue, area); it cannot be derived and is built with the collaborative mode or with the awareness dashboard, whichever the PM places first.
+
+### 12.7 Updates to the PM questions
+
+Status of K10–K16 after addendum 2, and new questions K17–K25.
+
+| # | Status | Update |
+|---|---|---|
+| K10 Team board form | **Answered in substance (CE-9)** | Progress and goal completion with a "next goal" (example "82% complete — next goal 90%"); public score ordering and individual ranking are disfavoured. Still to settle in implementation: whether any order of teams is shown (the example suggests none) |
+| K11 Students see contribution? | Open | CE-8 only says teachers may review. Student visibility remains a future decision |
+| K12 Nickname form | Open | Generated only (§11.7); assigned vs shortlist, teacher reset still open |
+| K13 Badges cosmetic? | Partly addressed | CE-11 lists achievement rewards as preferred; whether they unlock anything is still open (see K18) |
+| K14 Team boosts | Partly addressed | CE-11: team boosts are preferred; CE-11 also forbids reducing learning visibility, so a boost can never hide another team's content. Which boosts exist is still open (K22) |
+| K15 One team per grid or whole class | Open, **leaning team grid** | CE-6 "shared completion" and CE-10 "all teams complete the puzzle" read most naturally as one grid per team with class goals across teams |
+| K16 CC-8 effects scheduled? | **Narrowed** | Exploratory, disabled by default, teacher-controlled (CE-11); learning visibility is never reduced, so "visibility reduction" effects are out (conflict 1) |
+
+| # | New question |
+|---|---|
+| K17 | Confirm the roadmap: place the teacher awareness dashboard (CE-2) and help request (CE-1) before the team board as proposed in 12.6, and whether collaborative mode (CE-6, Very high) moves earlier than fourth |
+| K18 | CE-7 "badge": team emblem (the icon of CC-3) or an achievement badge of the M2-3.1 system, or both? Does a badge unlock anything? |
+| K19 | CE-1 help request: teams only, or individual play too? Fixed button only (recommended) or any text? Who is notified and for how long is a request kept? |
+| K20 | CE-3 focus tracking: stored or live only? Visible to teachers only or also to teammates? How is "time stuck" defined (inactivity threshold)? |
+| K21 | CE-8 contribution: attribution rule when a cell is overwritten, definition of "support actions", exact disclaimer wording, and a written ban on using the figures for grades or rankings |
+| K22 | CE-5 team resources: size of the pool per preset, who may spend it (any member, by vote, or with teacher approval), and who writes "extra clues" and "help cards" |
+| K23 | Is the play mode (individual or collaborative) chosen per assignment, and can one puzzle be played both ways? |
+| K24 | CE-10 class goals: which metrics (completion %, words, cells), per classroom or across classrooms, set by the teacher or from templates, and what happens when a goal is reached (cosmetic reward only?) |
+| K25 | **Answered (12.9 #1):** CE-11 supersedes CC-8; learning visibility and puzzle readability are never reduced; visual effects may exist |
+
+K11–K24 remain open and may be deferred until M2-3 implementation planning; they do not block M2-2 work (12.9 #3). K25 is answered. G1–G5 remain open governance questions for M2-3 planning and must be answered before the phases that need them (12.6, 12.9 #2).
+
+### 12.8 Constraints for M2-2.4 (no scope change)
+
+**Approved guidance for M2-2.4 (12.9 #4).** CE-4 repeats §11.8; nothing is added to M2-2.4 scope. For completeness, the shape constraints that make addendum 2 possible without redesign:
+
+- Attempt, payload builder and checking are keyed by **attempt and puzzle**, never assume one author (§11.8, CE-4).
+- Keep `updated_at` and `active_seconds` on the attempt as designed: they are the only inputs the individual-mode awareness dashboard (12.6) can use.
+- Keep hint and reveal counters on the attempt, not on the student (CE-5).
+- Do not add focus, presence or help-request fields in M2-2.4: they are M2-3 and need the governance answers G1 and G2 first.
+
+### 12.9 PM review: approval and clarifications
+
+The PM approved the §12 additions. Clarifications recorded with the approval:
+
+| # | Clarification | Effect |
+|---|---|---|
+| 1 | **CE-11 supersedes CC-8.** Learning visibility must never be reduced. **Visual effects may exist. Puzzle readability may not be reduced.** | Answers K25 and resolves conflict 1 (12.4). The "temporary visibility reduction" example of CC-8 is withdrawn. Effects stay exploratory, disabled by default and teacher-controlled (CE-11). Any effect is judged by one test: it must not make the grid, the clues or the clue numbers harder to read. Concretely, an effect may not cover, blur, shrink, fade or reduce the contrast of puzzle cells or clue text, hide a clue, or delay showing the puzzle. Decoration around the puzzle, on team elements or in feedback moments is allowed. The accessibility conditions of §11.4 note 6 (no flashing or rapid motion, respect for reduced-motion settings and for students who need accommodations) still apply |
+| 2 | **G1–G5 remain open governance questions for M2-3 planning.** | No governance answer is assumed. Nothing that needs G1 (focus and stuck-time data), G2 (help requests), G3 (contribution disclaimer and use), G4 (shared attempts and erasure) or G5 (equity of team resources) is built or scheduled before it is answered |
+| 3 | **K17–K25 remain open and must not block current M2-2 work.** (K25 is answered by #1.) | K17–K24 are for M2-3 implementation planning. The phase order of 12.6 stays a proposal until K17 is answered |
+| 4 | **The §12.8 attempt-model constraints remain approved guidance for M2-2.4.** | M2-2.4 design follows them (attempt and puzzle keyed, no single-author assumption, counters on the attempt, no focus, presence or help-request fields). They shape the design only; they add no scope |
