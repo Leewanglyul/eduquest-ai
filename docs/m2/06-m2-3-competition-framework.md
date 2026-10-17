@@ -1,6 +1,6 @@
 # M2-3. Competition framework (future planning)
 
-Status: **planning note only. Nothing in this document is scheduled, decided or implemented.** It preserves the original EduQuest idea of a *classroom game platform* (not only a content system) so that it is not lost while M2-2 stays focused on the crossword. It does not change the scope of M2-1 or M2-2, and no migration, screen or constant follows from it. Owner: engineering, for a later PM decision.
+Status: **planning note only. Nothing in this document is scheduled or implemented.** Sections 0–10 were written first; the **PM addendum in section 11 (CC-1…CC-10, recorded 2026-10-17) records PM direction and takes precedence over them where they differ.** Section 11.2 lists exactly what it changes. It preserves the original EduQuest idea of a *classroom game platform* (not only a content system) so that it is not lost while M2-2 stays focused on the crossword. It does not change the scope of M2-1 or M2-2, and no migration, screen or constant follows from it. Owner: engineering, for a later PM decision.
 
 Relation to other documents: [04-crossword-generator.md](04-crossword-generator.md) (the crossword, whose M2-2.4 play phase creates the data used here) · [05-m2-2-2-teacher-review-plan.md](05-m2-2-2-teacher-review-plan.md) (the current phase) · `docs/pilot/12` and `13` (data governance, D6).
 
@@ -135,9 +135,13 @@ Sketch only, to show how the M2-2 design leaves room. **No table below is create
 
 ## 8. Beyond M2-3: cooperative classroom play
 
+> **Superseded in part by CC-4 (section 11).** The PM wants a collaborative crossword mode inside M2-3 (as M2-3.4). The analysis below (real-time shared state, moderation) still describes the work involved.
+
 Shared solving of one grid by a team or the whole class (live cursors, shared cells) is a different play model: it needs real-time shared state, conflict handling, group moderation and a different results model. It is **not part of M2-3**. If wanted, it is a separate later milestone that can reuse teams (section 2) and events (section 5). The multi-connection design of the earlier escape-room project is the nearest internal reference for the real-time part.
 
 ## 9. Proposed phases (for later)
+
+> **Replaced by the order in CC-10 (section 11.3).** Kept for history and for the dependency reasoning.
 
 | Phase | Delivers | Needs |
 |---|---|---|
@@ -162,3 +166,117 @@ Shared solving of one grid by a team or the whole class (live cursors, shared ce
 | K7 | Seasonal events: manual (a teacher starts each) or scheduled recurrence? |
 | K8 | Who must approve the governance change, and is guardian notice required? |
 | K9 | Is cooperative real-time play wanted, and when? |
+
+---
+
+## 11. PM addendum: competition and collaboration principles
+
+Recorded as PM direction on 2026-10-17. This is **direction, not an implementation commitment**: nothing here changes the scope of M2-2, and every item still passes through the M2-3.0 decision and governance gate (section 11.5).
+
+### 11.1 Background and principle
+
+EduQuest is meant to be more than a content delivery system. The long-term objective is:
+
+```
+Learning + Game mechanics + Classroom collaboration + Healthy competition
+```
+
+Competition should raise engagement without creating excessive pressure or discouraging students with lower achievement. The PM priority order is
+
+```
+Collaboration -> Engagement -> Competition
+```
+
+and **not** `Competition -> Ranking -> Elimination`. The system should motivate every student, including those with lower academic achievement, to take part meaningfully.
+
+### 11.2 What this changes in sections 0–10
+
+| Earlier text | Now |
+|---|---|
+| §1 individual competition and §4 leaderboards come first | Individual ranking is **late** (nickname leaderboards, M2-3.5). The primary classroom interface is the **team progress board** (CC-5) and **class goals** (CC-9) |
+| §2 teams: "teacher-assigned in the first version" | Confirmed (CC-1); teams also get identity (CC-3) |
+| §4 visibility option "named" | Students normally see **nicknames only**; teachers see real name and student number (CC-6). "Named" boards for students are not planned |
+| §8 cooperative play is beyond M2-3 | Collaborative crossword is **in M2-3** as M2-3.4 (CC-4) |
+| §9 phase list (scoring first, then individual standings) | Replaced by the CC-10 order (11.3); badges and class goals come first and need no student-to-student comparison |
+| §10 K1 (is comparison wanted?) | Partly answered: team and class progress yes; ranked comparison of individuals only as nickname boards, late |
+| §10 K3 teams | Answered: teacher-assigned (CC-1) |
+| §10 K6 badges | Answered: badges exist, first deliverable (CC-10, M2-3.1); cosmetic only unless the PM says otherwise |
+| §10 K9 cooperative play | Answered: yes, M2-3.4 (CC-4) |
+| §5 seasonal events | Last in the order (M2-3.8) |
+
+### 11.3 The decisions
+
+**CC-1 Team-based progress competition (High).** Students take part in crossword events as members of a **teacher-assigned team** (Blue, Green, Yellow, Red…). Public progress indicators show a team's completion, for example `Blue Team 82% / Green Team 74% / Yellow Team 65% / Red Team 49%`. Aim: collaboration inside a team, competition between teams.
+
+**CC-2 Team contribution visibility (High).** The system supports contribution tracking per member, for example `A 35% / B 28% / C 22% / D 15%`, measured from correct entries, completed words, solved cells and participation actions. **Visible to teachers.** Whether students may see it is a future PM decision.
+
+**CC-3 Team identity (High).** A team has a **colour, an icon and a name** (Blue Team, Green Team, Red Team…). Puzzle cells may optionally show team-related visual indicators.
+
+**CC-4 Collaborative crossword mode (High, future mode).** Several students solve the **same crossword at the same time**: shared puzzle state, team progress, contribution tracking. This is **not** real-time PvP. Cooperation first, competition second.
+
+**CC-5 Team progress board (High).** Preferred over traditional leaderboards and the **primary classroom competition interface**. Shows team completion %, words solved, remaining words and completion status.
+
+**CC-6 Nickname-based visibility (High).** Teachers may see real name and student number. Students normally see **nicknames only** (for example SilverFox, BlueTiger, ScienceHero). This reduces privacy concerns while keeping engagement.
+
+**CC-7 Competition design principle (High).** Competition promotes learning rather than punishing mistakes. Preferred mechanics: hints, team boosts, achievement rewards, cooperative milestones. Over: strong attack mechanics and direct learning disruption.
+
+**CC-8 Optional classroom game effects (Medium, exploratory).** Teacher-controlled effects may be explored later (temporary visibility reduction, visual distraction effects, team abilities). Learning disruption must stay minimal, teachers must be able to disable them, and support-oriented abilities are preferred over attack-oriented ones.
+
+**CC-9 Class goals (Very high).** Goals such as "the class reaches 80% completion", "the class solves 500 words this month", "all teams finish a puzzle". **Class goals are preferred over individual rankings.**
+
+**CC-10 M2-3 roadmap adjustment.** Recommended order:
+
+| Phase | Delivers |
+|---|---|
+| M2-3.1 | Badge system |
+| M2-3.2 | Class goals |
+| M2-3.3 | Team progress board |
+| M2-3.4 | Collaborative crossword |
+| M2-3.5 | Nickname leaderboards |
+| M2-3.6 | Team competition |
+| M2-3.7 | Classroom competition |
+| M2-3.8 | Seasonal events |
+
+### 11.4 Design notes and tensions to resolve (engineering input, not PM decisions)
+
+These are the points where the addendum meets constraints already in the design. Each needs an answer before its phase starts.
+
+1. **Nicknames and "no free-text profiles".** `docs/pilot/12` §1 keeps free text out of student profiles. Nicknames therefore come from **fixed word lists** (adjective + animal or role, for example SilverFox), generated or picked from a list, unique inside a classroom, resettable by the teacher, never typed by the student. A nickname is still personal data tied to a student (pseudonymisation, not anonymisation): it must cascade from `students` and be covered by D6. Nicknames are needed from **the first view in which one student can see another**, which is the team board with members or the collaborative mode (M2-3.3 / M2-3.4). Recommendation: build the nickname foundation as part of M2-3.0 or at the start of M2-3.3, not at M2-3.5 where the roadmap lists nickname leaderboards.
+2. **Team progress board and stigma (CC-1, CC-5).** Showing 49% beside 82% in public is exactly the pressure the PM wants to avoid for weaker teams. Options the PM can pick: show progress without an order (alphabetical or by colour), show each team's progress against **its own goal** or against the class goal, hide exact percentages below a threshold, or let the teacher choose per event. Whatever is chosen, a teacher can switch the board off (consistent with section 6).
+3. **Team size and fairness (CC-1, CC-2).** Team completion % must be computed per team so that team size does not decide the winner (percentage of the team's own capacity, not totals). Contribution % between members says nothing about quality of effort: it is teacher-only for now (CC-2) and must never feed a student-visible grade.
+4. **Collaborative crossword (CC-4) is a different attempt model.** The M2-2.4 design is one attempt per student and assignment (decision C5). A shared grid needs a **team attempt** (one shared state, many contributors) alongside the individual attempt, a conflict rule for two students typing in one cell, presence, and a transport for live updates (polling, or a real-time channel). The internal multi-connection design of the earlier escape-room project is the nearest reference for the transport. Precaution for M2-2.4: do not hard-code "attempt belongs to exactly one student" into the play API and server checks; keep the checking and payload builders independent of who owns the attempt. This does not change M2-2.
+5. **Contribution measurement (CC-2).** "Participation actions" and "correct entries" need server-side events: a correct cell is attributed to the student who entered the final correct character; an overwrite is attributed to the new author. The rule is versioned like scoring. Measure what the server already verifies; do not log keystrokes.
+6. **Game effects and accessibility (CC-8).** Visibility reduction and distraction effects can conflict with accessibility (low vision, photosensitivity, attention needs) and with the "no time pressure, WCAG AA" stance of doc 04 §5.2. Conditions if this is ever built: **off by default**, enabled per event by the teacher, never applied to a student who has opted out or who needs accommodations, no flashing or rapid motion, and a visible "effects on/off" indicator. CC-8 is Medium and is not in the CC-10 order; treat it as exploratory until the PM schedules it.
+7. **Badges (CC-10 M2-3.1).** They are the safest first deliverable: they need only the individual attempt data of M2-2.4, show to the student alone, and compare nobody. They depend on M2-2.4 being live, not on M2-3.0 competition governance beyond a short D6 note for new data (earned badges).
+8. **Class goals (CC-9).** Goals aggregate over attempts of a classroom and a period ("500 words this month"). They need a goal definition (metric, target, period, classroom), progress computed from attempts and a rule for words counted twice (a word counts once per student and puzzle).
+
+### 11.5 Governance and gate (unchanged requirement, new data)
+
+The M2-3.0 gate of section 9 still applies before anything student-visible beyond a student's own progress: update of `docs/pilot/12` and `13` (D6), a written narrowing of decision C6, and the data-protection contact's agreement. New data categories from this addendum: team membership, team colour/icon/name, contribution figures, nicknames, badges, class goals. Nothing is shown to students except (a) their own progress and badges, (b) team and class progress aggregates, (c) nicknames; real names and student numbers stay teacher-only (CC-6).
+
+### 11.6 Revised phase sketch (replaces section 9 for planning)
+
+| Phase | Delivers | Needs |
+|---|---|---|
+| M2-3.0 Gate | PM answers, governance update (D6), narrowing of C6, nickname rules (11.4 note 1) | M2-2.4 live |
+| M2-3.1 Badge system | badge definitions, awards from attempt data, student sees own badges | 3.0, M2-2.4 data |
+| M2-3.2 Class goals | goal definition, progress from attempts, teacher and student view of class progress | 3.1 |
+| M2-3.3 Team progress board | team table with colour/icon/name, teacher assignment, contribution tracking (teacher view), progress board, nicknames visible | 3.2 |
+| M2-3.4 Collaborative crossword | shared team attempt, live state, contribution tracking | 3.3, transport decision |
+| M2-3.5 Nickname leaderboards | optional boards with nicknames only, teacher can disable | 3.3 |
+| M2-3.6 Team competition | scored events between teams, support-style boosts | 3.4 or 3.3 |
+| M2-3.7 Classroom competition | multi-classroom events, aggregates only | 3.6 |
+| M2-3.8 Seasonal events | events, recurrence, seasons | 3.7 |
+| (exploratory) CC-8 | game effects | accessibility review |
+
+### 11.7 New open questions for the PM
+
+| # | Question |
+|---|---|
+| K10 | Should the team board show an order by progress, or show all teams without a ranking (11.4 note 2)? |
+| K11 | May students ever see contribution figures (CC-2), and if so only their own? |
+| K12 | Nicknames: system-assigned or picked from a list; can a teacher reset one; can a student ask for another? |
+| K13 | Are badges purely cosmetic, or may they unlock anything (for example a team boost)? |
+| K14 | Which team boosts are acceptable (hints, extra reveals)? Must a boost never reduce another team's chances? |
+| K15 | Is the collaborative crossword limited to one team per grid, or may the whole class share one grid? |
+| K16 | Should CC-8 effects be scheduled at all, or stay exploratory? |
