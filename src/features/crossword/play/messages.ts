@@ -68,9 +68,11 @@ export const PLAY_TEXT = {
   wrongSome: "아직 틀린 칸이 있어요. 조금만 더 살펴볼까요?",
   wrongCount: (n: number) => `틀린 칸이 ${n}개 있어요. 조금만 더 살펴볼까요?`,
   closedBanner: "수업에서 닫힌 퍼즐입니다.",
+  // PM SP-3: the three save states
   saveSaved: "저장됨",
   saveSaving: "저장 중",
-  saveFailed: "저장 안 됨",
+  saveOffline: "오프라인 · 아직 저장되지 않았어요",
+  saveOfflineHelp: "연결되면 자동으로 저장돼요. 이 화면을 닫지 마세요.",
   composing: "조합 중",
   nextPuzzle: (title: string) => `다음 퍼즐 풀기: ${title}`,
   otherPuzzles: "다른 퍼즐 보기",

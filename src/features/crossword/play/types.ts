@@ -23,6 +23,10 @@ export type PlayWord = {
 
 export type AttemptStatus = "in_progress" | "completed";
 
+/** What the save indicator shows (PM SP-3): saving, saved, or offline (the changes are kept and will be retried). */
+export const SAVE_STATES = ["saving", "saved", "offline"] as const;
+export type SaveState = (typeof SAVE_STATES)[number];
+
 export type PlayLimits = {
   checkMode: CheckMode;
   /** null = unlimited */

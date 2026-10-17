@@ -462,6 +462,17 @@ Order inside a step is test-first for the pure layers (the IME controller is wri
 
 ---
 
+## F3 status (2026-10-18)
+
+Built: server modules (`play/errors|access|payload|service|api-guard|schemas`), six handlers under `/student/crosswords/[assignmentId]/api/`, the page `/student/crosswords/[assignmentId]` and the bare board (`components/student/crossword-play-board`, `use-grid-input`, `save-queue`, `play-api`). Not built (2.4b): list page, result page, completion moment, `/student` block, final layout and accessibility work.
+
+- **PM SP-3 (save state).** The board and the `SaveQueue` expose three states: `saving`, `saved`, `offline` (texts in `PLAY_TEXT`: 저장 중, 저장됨, 오프라인 · 아직 저장되지 않았어요). `offline` means the last request failed on the network or the browser reports it is offline; nothing is lost and it retries with back-off and at once when the connection returns. A refusal by the server (closed, read-only) is not "offline": it is `blocked` with the stable code, and the board shows the closed notice instead of the indicator. The indicator is a polite live region with `data-save-state`.
+- **Identity.** The student id comes only from the session profile (`getStudentIdForProfile(profile.id)`); no handler, schema or client code accepts a student id or an attempt id (the attempt is found from the URL's assignment id and the session). Tests send `studentId`, `attemptId`, `selected`, `currentWord`, `currentClue` and `focus` in every body and expect 400.
+- **Answers.** The payload is built field by field from explicit columns; the key never leaves the database except one counted reveal and the `given` cells. Tests assert no answer string of two or more characters appears in the payload or any reply, and that check replies carry no letter.
+- **Concurrency.** Ten parallel reveals at one base revision give exactly one success (the rest `STALE`), and parallel saves from two devices merge.
+- **Not automated.** The hook and the board have no browser test (E.7 is not decided). Input on real devices is the G.5 validation, to be done on the bare board: Galaxy S24 and Tab S9 (Samsung Internet, Chrome) and Windows (Chrome, Edge), against SC1 to SC6.
+- **Opening the board.** It needs a published assignment for a classroom the student is enrolled in, and a student account with the forced password change done. Do not use real students before the governance gate (doc 14 approved, doc 13 re-signed). There is no link to the page from the student home on purpose.
+
 ## Appendix: the 14 design items
 
 | # | Item | Section |

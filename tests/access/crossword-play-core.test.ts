@@ -260,8 +260,10 @@ describe("play code never handles an answer (static)", () => {
     }
   });
 
+  // F3 added the server modules next to the pure core; they are checked by crossword-play-static.test.ts.
+  const SERVER_MODULES = new Set(["errors.ts", "access.ts", "payload.ts", "service.ts", "api-guard.ts"]);
   it("no database client, no select-star and no browser storage in the pure play core", () => {
-    for (const f of files(dir)) {
+    for (const f of files(dir).filter((x) => !SERVER_MODULES.has(path.basename(x)))) {
       const c = code(f);
       expect(c, f).not.toMatch(/supabase|createClient|server-only|select\(\s*["']\*/);
       expect(c, f).not.toMatch(/localStorage|sessionStorage|indexedDB/);
