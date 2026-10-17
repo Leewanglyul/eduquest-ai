@@ -87,7 +87,7 @@ Preview result: `{ valid: PreparedContentRow[]; invalid: ContentPreviewIssue[]; 
 | 3 | 도서관 | 도서관 | 3 | hangul | ok |
 | 4 | ice cream | ICECREAM | 8 | latin | ok (space removed in the answer only) |
 | 5 | e-mail | EMAIL | 5 | latin | ok |
-| 6 | 3D 프린터 | 3D프린터 | 6 | mixed | ok, warning `ANSWER_MIXED_SCRIPT` |
+| 6 | 3D 프린터 | 3D프린터 | 5 | mixed | ok, warning `ANSWER_MIXED_SCRIPT` |
 | 7 | 물 | 물 | 1 | hangul | **error** `ANSWER_TOO_SHORT` (min 2) |
 | 8 | 사과(과일) | | | | **error** `ANSWER_INVALID_CHAR` (`(`, `)`) |
 | 9 | ㄱㄴㄷ | | | | **error** `ANSWER_JAMO` |
@@ -521,7 +521,7 @@ Additionally, for **term only**, to get `answer`:
 4. Convert fullwidth ASCII (`U+FF01–FF5E`) to ASCII by code-point offset. (Not full NFKC: NFKC would also turn `①` into `1` and `㈜` into `(주)`, which should be rejected, not rewritten.)
 5. Remove separators that are never grid cells: space, `-`, `U+2010–2015`, `'`, `U+2019`, `.`, `·`, `U+318D (ㆍ)`, `_`.
 6. Upper-case Latin letters (locale-independent `toUpperCase`).
-7. Check for jamo (before step 4, on the NFC text) → `ANSWER_JAMO`.
+7. Check for jamo on the result of steps 4–6 (separators are gone by then, so `ㆍ` / `U+318D` is not mistaken for a jamo) → `ANSWER_JAMO`. Conjoining jamo that NFC composes into a real syllable are already syllables and pass.
 8. Validate against `^[가-힣A-Z0-9]+$`; collect offending characters for `ANSWER_INVALID_CHAR`.
 9. `answerLength` = number of code points; check bounds; compute `script`: all 가-힣 → `hangul`, all A-Z → `latin`, all 0-9 → `digit`, else `mixed` (+ warning).
 
@@ -843,7 +843,7 @@ Location and style follow `tests/access/` (vitest, no database, guards and the s
 | # | Decision | Recommendation / status |
 |---|---|---|
 | D1 | Limits: rows per file `100`, bytes `128 KB`, words per set `200`. Or reuse `30` for symmetry with M1? | 100 / 128 KB / 200: M1's 30 comes from account-creation time, which does not apply here |
-| D2 | Answer length bounds `2–15`; digits allowed in answers; mixed Hangul+Latin allowed with a warning | Keep. Confirm with whoever designs the generator whether 15 matches the grid size |
+| D2 | Answer length bounds `2–15`; digits allowed in answers; mixed Hangul+Latin allowed with a warning | Keep, but note: with min 2, common one-syllable words (배, 물, 눈, 산) are rejected as `ANSWER_TOO_SHORT` (found while writing the M2-1.3 tests). Decide whether 1 is allowed for Hangul; the database CHECK already allows 1. Also confirm 15 matches the grid size |
 | D3 | Who may write to a set linked to a classroom: owner only, or co-teachers too? | Owner: everything. Co-teachers: read and `append`; only owner may `replace`, rename, archive |
 | D4 | Wrong encoding (CP949 from Excel): reject with instructions, or auto-convert? | Reject for the pilot (no silent guessing); revisit if teachers hit it often |
 | D5 | Retention of archived (replaced) entries: purge 30 days after archiving, or keep until the pilot-end deletion? | 30 days, by Ops SQL with two-person rule. Needs the 교무기획팀장's agreement because it adds a purge step to `12` |
