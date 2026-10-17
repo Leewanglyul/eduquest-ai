@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(200);
+SELECT plan(209);
 
 -- M2-2.4a F1: student crossword attempts, members, events and the fn_crossword_play_* functions
 -- (docs/m2/07 B and G.3, docs/m2/08 B and H).
@@ -372,6 +372,9 @@ SELECT isnt((SELECT completed_at FROM public.crossword_attempts WHERE id = curre
 SELECT is(pg_temp.sub(1, current_setting('t.h1')::uuid), '{"result":"completed","justCompleted":false}'::jsonb, 'a repeat submit is a no-op and never replays the celebration');
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.save(1, %L, '{"2,3":"가"}')$f$, current_setting('t.h1'))), 'CROSSWORD_PLAY_READONLY', 'a completed attempt is read-only');
 SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.h1')::uuid AND kind = 'completed' AND source = 'submit'), 1, 'one completed event with source submit');
+SELECT is((SELECT detail FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.h1')::uuid AND kind = 'completed'), '{"wordsCompleted":5}'::jsonb, 'the completed event records wordsCompleted once, computed by the server (five words)');
+SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.h1')::uuid AND detail ? 'wordsCompleted'), 1, 'wordsCompleted is written once, not on the repeat submit');
+SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE kind <> 'completed' AND detail ? 'wordsCompleted'), 0, 'no other event kind carries wordsCompleted');
 SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.h1')::uuid AND kind = 'submit_wrong' AND source = 'submit'), 1, 'one wrong-submit event');
 -- prefilled and revealed cells count as correct on submit
 SELECT pg_temp.save(1, current_setting('t.e1')::uuid, '{"0,1":"과","1,1":"일","2,3":"례"}'::jsonb);
@@ -414,11 +417,17 @@ SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_
 SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'check', 'hint', '{"words":[{"number":1,"direction":"sideways"}]}')$f$, current_setting('t.a1')), '23514', NULL, 'detail: bad direction refused');
 SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'check', 'hint', '[]')$f$, current_setting('t.a1')), '23514', NULL, 'detail: non-object refused');
 SELECT lives_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'check', 'hint', '{"scope":"word","words":[{"number":1,"direction":"across"}]}')$f$, current_setting('t.a1')), 'detail: a valid shape is accepted');
+SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'check', 'hint', '{"wordsCompleted":3}')$f$, current_setting('t.a1')), '23514', NULL, 'wordsCompleted is refused on a check event');
+SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'completed', 'submit', '{"wordsCompleted":"5"}')$f$, current_setting('t.a1')), '23514', NULL, 'wordsCompleted must be a number');
+SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'completed', 'submit', '{"wordsCompleted":-1}')$f$, current_setting('t.a1')), '23514', NULL, 'wordsCompleted cannot be negative');
+SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'completed', 'submit', '{"wordsCompleted":1000}')$f$, current_setting('t.a1')), '23514', NULL, 'wordsCompleted is at most three digits');
+SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'completed', 'submit', '{"wordsCompleted":2,"letter":"가"}')$f$, current_setting('t.a1')), '23514', NULL, 'wordsCompleted does not open the door to other keys');
+SELECT lives_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source, detail) VALUES (%L, 'completed', 'submit', '{"wordsCompleted":2}')$f$, current_setting('t.a1')), 'wordsCompleted is accepted on a completed event');
 SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source) VALUES (%L, 'reveal', 'hint')$f$, current_setting('t.a1')), '23514', NULL, 'kind and source must agree (reveal/hint refused)');
 SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source) VALUES (%L, 'completed', 'autosave')$f$, current_setting('t.a1')), '23514', NULL, 'kind and source must agree (completed/autosave refused)');
 SELECT lives_ok(format($f$INSERT INTO public.crossword_attempt_events (attempt_id, kind, source) VALUES (%L, 'entry', 'manual_entry'), (%L, 'entry', 'autosave')$f$, current_setting('t.a1'), current_setting('t.a1')), 'entry events are allowed with manual_entry or autosave (reserved)');
 DELETE FROM public.crossword_attempt_events WHERE actor_student_id IS NULL;
-SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE detail::text ~ '[가-힣A-Z]'), 0, 'no event detail anywhere holds a Hangul or upper-case character');
+SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE replace(detail::text, 'wordsCompleted', '') ~ '[가-힣A-Z]'), 0, 'no event detail anywhere holds a Hangul or upper-case character (apart from the key name wordsCompleted)');
 SELECT is((SELECT count(*)::int FROM public.crossword_attempts WHERE EXISTS (SELECT 1 FROM unnest(prefill_keys || revealed_keys) k WHERE k !~ '^[0-9]+,[0-9]+$')), 0, 'prefill and revealed keys are keys, never letters');
 SELECT is((SELECT count(*)::int FROM public.crossword_attempt_events WHERE actor_student_id IS DISTINCT FROM (SELECT student_id FROM public.crossword_attempt_members m WHERE m.attempt_id = crossword_attempt_events.attempt_id)), 0, 'in individual play the actor is always the single member');
 

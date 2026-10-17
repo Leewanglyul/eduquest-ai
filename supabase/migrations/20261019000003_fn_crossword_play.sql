@@ -548,6 +548,7 @@ $$;
 -- ---------------------------------------------------------------------------------------------------------
 
 -- {result:'completed', justCompleted} | {result:'incomplete', empty} | {result:'wrong', wrongCells?}.
+-- The completed event records wordsCompleted (a count of fully correct words, never returned to the student).
 -- Completed twice is a no-op with justCompleted=false (a celebration never replays). A wrong submit counts and, on
 -- hard (and after the third wrong submit on other levels), starts a 30 s cooldown: CROSSWORD_PLAY_SUBMIT_COOLDOWN
 -- with the remaining whole seconds in HINT. The wrong-cell count is returned on easy and normal only.
@@ -563,6 +564,7 @@ DECLARE
   v_now timestamptz := pg_catalog.now();
   v_empty integer;
   v_wrong integer;
+  v_words_done integer;
   v_remaining integer;
 BEGIN
   r := public.fn_crossword_play_enter(p_student_id, p_attempt_id, 'read');
@@ -592,8 +594,16 @@ BEGIN
     UPDATE public.crossword_attempts a
     SET status = 'completed', completed_at = v_now, revision = a.revision + 1
     WHERE a.id = r.id;
+    -- words_completed (PM 2026-10-18): computed once, here, from the saved cells; kept in the event, never returned.
+    SELECT pg_catalog.count(*)::integer INTO v_words_done FROM (
+      SELECT wc.num, wc.dir
+      FROM public.fn_crossword_play_wordcells(v_puzzle) wc
+      GROUP BY wc.num, wc.dir
+      HAVING pg_catalog.bool_and(
+        CASE WHEN wc.key = ANY (r.prefill_keys) OR wc.key = ANY (r.revealed_keys) THEN wc.ch
+             ELSE r.cells ->> wc.key END = wc.ch)) w;
     INSERT INTO public.crossword_attempt_events (attempt_id, actor_student_id, kind, source, detail)
-    VALUES (r.id, p_student_id, 'completed', 'submit', '{}'::jsonb);
+    VALUES (r.id, p_student_id, 'completed', 'submit', pg_catalog.jsonb_build_object('wordsCompleted', v_words_done));
     RETURN pg_catalog.jsonb_build_object('result', 'completed', 'justCompleted', true);
   END IF;
 

@@ -88,6 +88,9 @@ EXECUTE FUNCTION public.fn_crossword_attempt_members_cleanup();
 --   {"scope": "cell" | "word" | "puzzle", "words": [{"number": <int>, "direction": "across" | "down"}]}
 -- with at most two word references (a cell lies on at most two words). No letter, answer, cell key or other key
 -- can be stored.
+-- Exception (PM 2026-10-18): a 'completed' event may also carry {"wordsCompleted": <int>}, the number of words that were
+-- fully correct when the student submitted, written once by the server. It is a count, never shown to the student, and
+-- only allowed on kind 'completed' (chk_crossword_event_words_completed).
 CREATE FUNCTION public.fn_crossword_event_detail_ok(p_detail jsonb)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -101,8 +104,13 @@ BEGIN
   IF p_detail IS NULL OR pg_catalog.jsonb_typeof(p_detail) <> 'object' THEN RETURN false; END IF;
   IF pg_catalog.length(p_detail::text) > 200 THEN RETURN false; END IF;
   FOR v_key IN SELECT pg_catalog.jsonb_object_keys(p_detail) LOOP
-    IF v_key NOT IN ('scope', 'words') THEN RETURN false; END IF;
+    IF v_key NOT IN ('scope', 'words', 'wordsCompleted') THEN RETURN false; END IF;
   END LOOP;
+  IF p_detail ? 'wordsCompleted' THEN
+    IF pg_catalog.jsonb_typeof(p_detail -> 'wordsCompleted') <> 'number' OR (p_detail ->> 'wordsCompleted') !~ '^[0-9]{1,3}$' THEN
+      RETURN false;
+    END IF;
+  END IF;
   IF p_detail ? 'scope' THEN
     IF pg_catalog.jsonb_typeof(p_detail -> 'scope') <> 'string' OR (p_detail ->> 'scope') NOT IN ('cell', 'word', 'puzzle') THEN
       RETURN false;
@@ -139,6 +147,7 @@ CREATE TABLE public.crossword_attempt_events (
   detail jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
   CONSTRAINT chk_crossword_event_detail CHECK (public.fn_crossword_event_detail_ok(detail)),
+  CONSTRAINT chk_crossword_event_words_completed CHECK (NOT (detail ? 'wordsCompleted') OR kind = 'completed'),
   CONSTRAINT chk_crossword_event_kind_source CHECK (
     (kind IN ('check', 'chosung') AND source = 'hint')
     OR (kind = 'reveal' AND source = 'reveal')
