@@ -1,11 +1,14 @@
 -- M2-1.1: word sets and their entries (docs/m2/01-csv-content-pipeline.md §2.4, §2.5, §2.7).
--- Teachers own sets (owner_id). A set may be linked to one classroom so its co-teachers can see it.
+-- Teachers own sets (owner_id). A set may be linked to one classroom so the classroom's owner and
+-- co-teachers can see and manage it (decision D3). A set linked to an archived classroom is read-only (P2).
 -- Soft delete/archive: archived_at IS NOT NULL. All writes go through the service role.
 
 CREATE TABLE public.content_sets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id uuid NOT NULL,
-  owner_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  -- RESTRICT like classrooms.owner_id (decision P1): a teacher who owns sets cannot be deleted until the
+  -- sets are transferred to another teacher (or deleted by the end-of-pilot run). See docs/pilot/12 §3.4, §4.3.
+  owner_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
   classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL,
   title text NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 80),
   archived_at timestamptz,
@@ -62,18 +65,27 @@ ALTER TABLE public.content_import_batches
 ALTER TABLE public.content_sets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.content_entries ENABLE ROW LEVEL SECURITY;
 
--- Owners always; co-teachers of the linked classroom. Students and anon: no policy => no access.
--- classroom_teachers has a self-only select policy, so there is no policy cycle.
+-- Set owner; the owner and the co-teachers of the linked classroom (the classroom owner lives in
+-- classrooms.owner_id, not in classroom_teachers, so both are checked). Students and anon: no policy
+-- => no access. Reading stays possible when the classroom is archived (archived = read-only).
+-- No policy cycle: classroom_teachers is self-only and classrooms policies never read content_sets.
 CREATE POLICY content_sets_select_staff ON public.content_sets
   FOR SELECT TO authenticated
   USING (
     owner_id = (SELECT auth.uid())
     OR (
       classroom_id IS NOT NULL
-      AND EXISTS (
-        SELECT 1 FROM public.classroom_teachers ct
-        WHERE ct.classroom_id = content_sets.classroom_id
-          AND ct.teacher_id = (SELECT auth.uid())
+      AND (
+        EXISTS (
+          SELECT 1 FROM public.classrooms c
+          WHERE c.id = content_sets.classroom_id
+            AND c.owner_id = (SELECT auth.uid())
+        )
+        OR EXISTS (
+          SELECT 1 FROM public.classroom_teachers ct
+          WHERE ct.classroom_id = content_sets.classroom_id
+            AND ct.teacher_id = (SELECT auth.uid())
+        )
       )
     )
   );

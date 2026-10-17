@@ -1,20 +1,23 @@
 BEGIN;
-SELECT plan(46);
+SELECT plan(54);
 
 -- Fixtures (rolled back). Teacher t1 (owner) comes from seed.sql, school a1.
--- b2 = co-teacher of classroom d1, b3 = outsider teacher, b5 = suspended teacher.
+-- b2 = co-teacher of classroom d1 (owned by t1), b3 = outsider teacher, b5 = suspended teacher,
+-- b6 = teacher who is added to and removed from d1 during the test.
 INSERT INTO auth.users (id, instance_id, aud, role, email)
 SELECT v.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', v.email
 FROM (VALUES
   ('00000000-0000-4000-8000-0000000000b2', 't2@t.invalid'),
   ('00000000-0000-4000-8000-0000000000b3', 't3@t.invalid'),
-  ('00000000-0000-4000-8000-0000000000b5', 't5@t.invalid')
+  ('00000000-0000-4000-8000-0000000000b5', 't5@t.invalid'),
+  ('00000000-0000-4000-8000-0000000000b6', 't6@t.invalid')
 ) AS v(id, email);
 
 INSERT INTO public.profiles (id, school_id, role, display_name, status) VALUES
   ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000a1', 'teacher', 'T2', 'active'),
   ('00000000-0000-4000-8000-0000000000b3', '00000000-0000-4000-8000-0000000000a1', 'teacher', 'T3', 'active'),
-  ('00000000-0000-4000-8000-0000000000b5', '00000000-0000-4000-8000-0000000000a1', 'teacher', 'T5', 'suspended');
+  ('00000000-0000-4000-8000-0000000000b5', '00000000-0000-4000-8000-0000000000a1', 'teacher', 'T5', 'suspended'),
+  ('00000000-0000-4000-8000-0000000000b6', '00000000-0000-4000-8000-0000000000a1', 'teacher', 'T6', 'active');
 
 INSERT INTO public.classrooms (id, school_id, owner_id, name, archived_at) VALUES
   ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000001', 'A', NULL),
@@ -23,10 +26,13 @@ INSERT INTO public.classroom_teachers (classroom_id, teacher_id)
 VALUES ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000b2');
 
 -- e1: linked to d1 (co-teacher b2 manages it: append and replace). e3: archived. e4: other school.
+-- e5: created by co-teacher b2 in d1 (owned by t1). e6: linked to the ARCHIVED classroom d2 (read-only).
 INSERT INTO public.content_sets (id, school_id, owner_id, classroom_id, title, archived_at) VALUES
   ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000d1', 'Linked', NULL),
   ('00000000-0000-4000-8000-0000000000e3', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000001', NULL, 'Archived', now()),
-  ('00000000-0000-4000-8000-0000000000e4', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-000000000001', NULL, 'Other school', NULL);
+  ('00000000-0000-4000-8000-0000000000e4', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-000000000001', NULL, 'Other school', NULL),
+  ('00000000-0000-4000-8000-0000000000e5', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000d1', 'By co-teacher', NULL),
+  ('00000000-0000-4000-8000-0000000000e6', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000d2', 'Archived room set', NULL);
 
 -- Helpers (session-local). b(n): batch id. mk: insert a previewed batch. r: rows json from answers.
 -- c: call the commit function as school a1 with a fixed rows hash 'rh'.
@@ -179,7 +185,7 @@ SELECT throws_ok(
   'P0001', 'CONTENT_TITLE_INVALID', 'blank title is refused');
 SELECT throws_ok(
   $$SELECT pg_temp.c(13, '00000000-0000-4000-8000-000000000001', 'tk', 'create', NULL, 'Archived room', pg_temp.r(ARRAY['사과']), 200, 'rh', '00000000-0000-4000-8000-0000000000d2')$$,
-  'P0001', 'CONTENT_CLASSROOM_INVALID', 'archived classroom is refused');
+  'P0001', 'CONTENT_CLASSROOM_ARCHIVED', 'a new set cannot be linked to an archived classroom');
 SELECT pg_temp.mk(14, '00000000-0000-4000-8000-0000000000b3', 'create', NULL);
 SELECT throws_ok(
   $$SELECT pg_temp.c(14, '00000000-0000-4000-8000-0000000000b3', 'tk', 'create', NULL, 'Not mine', pg_temp.r(ARRAY['사과']), 200, 'rh', '00000000-0000-4000-8000-0000000000d1')$$,
@@ -196,6 +202,45 @@ SELECT is((SELECT owner_id FROM public.content_sets WHERE title = 'Mine'), '0000
 SELECT throws_ok(
   $$SELECT pg_temp.c(13, '00000000-0000-4000-8000-000000000001', 'tk', 'create', NULL, 'Empty', '[]'::jsonb)$$,
   'P0001', 'CONTENT_NO_ROWS', 'an empty row list is refused');
+
+-- N. The classroom OWNER (t1) manages a set that a co-teacher (b2) created in the owner's classroom.
+SELECT pg_temp.mk(15, '00000000-0000-4000-8000-000000000001', 'append', '00000000-0000-4000-8000-0000000000e5');
+SELECT lives_ok(
+  $$SELECT pg_temp.c(15, '00000000-0000-4000-8000-000000000001', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['운동장']))$$,
+  'classroom owner can append to a co-teacher set');
+SELECT pg_temp.mk(16, '00000000-0000-4000-8000-000000000001', 'replace', '00000000-0000-4000-8000-0000000000e5');
+SELECT lives_ok(
+  $$SELECT pg_temp.c(16, '00000000-0000-4000-8000-000000000001', 'tk', 'replace', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['교실']))$$,
+  'classroom owner can replace a co-teacher set');
+
+-- O. A co-teacher can write while a member and loses the right once removed; an outsider never had it.
+INSERT INTO public.classroom_teachers (classroom_id, teacher_id)
+VALUES ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000b6');
+SELECT pg_temp.mk(17, '00000000-0000-4000-8000-0000000000b6', 'append', '00000000-0000-4000-8000-0000000000e5');
+SELECT lives_ok(
+  $$SELECT pg_temp.c(17, '00000000-0000-4000-8000-0000000000b6', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['복도']))$$,
+  'a co-teacher who is a member can append');
+DELETE FROM public.classroom_teachers
+WHERE classroom_id = '00000000-0000-4000-8000-0000000000d1' AND teacher_id = '00000000-0000-4000-8000-0000000000b6';
+SELECT pg_temp.mk(18, '00000000-0000-4000-8000-0000000000b6', 'append', '00000000-0000-4000-8000-0000000000e5');
+SELECT throws_ok(
+  $$SELECT pg_temp.c(18, '00000000-0000-4000-8000-0000000000b6', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['강당']))$$,
+  'P0001', 'CONTENT_FORBIDDEN', 'a removed co-teacher cannot append');
+SELECT pg_temp.mk(19, '00000000-0000-4000-8000-0000000000b3', 'replace', '00000000-0000-4000-8000-0000000000e5');
+SELECT throws_ok(
+  $$SELECT pg_temp.c(19, '00000000-0000-4000-8000-0000000000b3', 'tk', 'replace', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['강당']))$$,
+  'P0001', 'CONTENT_FORBIDDEN', 'an outsider cannot replace');
+
+-- P. Archived classroom = read-only, even for the owner.
+SELECT pg_temp.mk(20, '00000000-0000-4000-8000-000000000001', 'append', '00000000-0000-4000-8000-0000000000e6');
+SELECT throws_ok(
+  $$SELECT pg_temp.c(20, '00000000-0000-4000-8000-000000000001', 'tk', 'append', '00000000-0000-4000-8000-0000000000e6', NULL, pg_temp.r(ARRAY['사과']))$$,
+  'P0001', 'CONTENT_CLASSROOM_ARCHIVED', 'append into a set of an archived classroom is refused');
+SELECT pg_temp.mk(21, '00000000-0000-4000-8000-000000000001', 'replace', '00000000-0000-4000-8000-0000000000e6');
+SELECT throws_ok(
+  $$SELECT pg_temp.c(21, '00000000-0000-4000-8000-000000000001', 'tk', 'replace', '00000000-0000-4000-8000-0000000000e6', NULL, pg_temp.r(ARRAY['사과']))$$,
+  'P0001', 'CONTENT_CLASSROOM_ARCHIVED', 'replace in a set of an archived classroom is refused');
+SELECT is((SELECT status::text FROM public.content_import_batches WHERE id = pg_temp.b(20)), 'previewed', 'the refused batch stays previewed');
 
 -- M. Summary view (service role reads everything).
 SELECT is((SELECT entry_count FROM public.v_content_sets_summary

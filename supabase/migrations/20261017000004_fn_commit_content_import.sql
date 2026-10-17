@@ -6,7 +6,8 @@
 -- Errors are raised as P0001 with a stable message code the TypeScript service maps to Korean text:
 --   CONTENT_BATCH_NOT_FOUND, CONTENT_TOKEN_INVALID, CONTENT_ROWS_CHANGED, CONTENT_FORBIDDEN,
 --   CONTENT_MODE_INVALID, CONTENT_NO_ROWS, CONTENT_TITLE_INVALID, CONTENT_TITLE_DUPLICATE,
---   CONTENT_CLASSROOM_INVALID, CONTENT_SET_NOT_FOUND, CONTENT_SET_ARCHIVED, CONTENT_SET_TOO_LARGE.
+--   CONTENT_CLASSROOM_INVALID, CONTENT_CLASSROOM_ARCHIVED, CONTENT_SET_NOT_FOUND, CONTENT_SET_ARCHIVED,
+--   CONTENT_SET_TOO_LARGE.
 -- An expired preview is NOT raised (the status change to 'expired' must survive): the function returns
 -- {"status":"expired"} instead.
 CREATE OR REPLACE FUNCTION public.fn_commit_content_import(
@@ -36,7 +37,7 @@ DECLARE
   v_set public.content_sets%ROWTYPE;
   v_set_id uuid;
   v_is_owner boolean;
-  v_is_coteacher boolean;
+  v_is_classroom_staff boolean;
   v_accepted integer;
   v_skipped integer;
   v_archived integer := 0;
@@ -90,7 +91,7 @@ BEGIN
 
     IF p_classroom_id IS NOT NULL THEN
       SELECT * INTO v_classroom FROM public.classrooms c WHERE c.id = p_classroom_id;
-      IF NOT FOUND OR v_classroom.school_id <> p_school_id OR v_classroom.archived_at IS NOT NULL THEN
+      IF NOT FOUND OR v_classroom.school_id <> p_school_id THEN
         RAISE EXCEPTION 'CONTENT_CLASSROOM_INVALID' USING ERRCODE = 'P0001';
       END IF;
       IF v_actor_role <> 'admin' AND NOT (
@@ -99,6 +100,10 @@ BEGIN
           WHERE ct.classroom_id = v_classroom.id AND ct.teacher_id = p_actor_id)
       ) THEN
         RAISE EXCEPTION 'CONTENT_CLASSROOM_INVALID' USING ERRCODE = 'P0001';
+      END IF;
+      -- Archived classroom = read-only (decision P2): no new content is linked to it.
+      IF v_classroom.archived_at IS NOT NULL THEN
+        RAISE EXCEPTION 'CONTENT_CLASSROOM_ARCHIVED' USING ERRCODE = 'P0001';
       END IF;
     END IF;
 
@@ -128,18 +133,30 @@ BEGIN
       RAISE EXCEPTION 'CONTENT_SET_ARCHIVED' USING ERRCODE = 'P0001';
     END IF;
 
-    -- Rights (decision D3): the owner, an admin and a co-teacher of the linked classroom manage the set
-    -- alike, so all of them may append and replace.
+    -- Rights (decision D3): the set owner, an admin, the owner of the linked classroom and its
+    -- co-teachers manage the set alike, so all of them may append and replace. The classroom owner is
+    -- stored in classrooms.owner_id, not in classroom_teachers, so both are checked.
     v_is_owner := (v_set.owner_id = p_actor_id);
-    v_is_coteacher := v_set.classroom_id IS NOT NULL AND EXISTS (
-      SELECT 1 FROM public.classroom_teachers ct
-      WHERE ct.classroom_id = v_set.classroom_id AND ct.teacher_id = p_actor_id);
+    v_is_classroom_staff := v_set.classroom_id IS NOT NULL AND (
+      EXISTS (
+        SELECT 1 FROM public.classrooms c
+        WHERE c.id = v_set.classroom_id AND c.owner_id = p_actor_id)
+      OR EXISTS (
+        SELECT 1 FROM public.classroom_teachers ct
+        WHERE ct.classroom_id = v_set.classroom_id AND ct.teacher_id = p_actor_id));
     IF NOT (
       v_actor_role = 'admin'
       OR v_is_owner
-      OR v_is_coteacher
+      OR v_is_classroom_staff
     ) THEN
       RAISE EXCEPTION 'CONTENT_FORBIDDEN' USING ERRCODE = 'P0001';
+    END IF;
+
+    -- Archived classroom = read-only (decision P2), for everyone including the owner.
+    IF v_set.classroom_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.classrooms c
+      WHERE c.id = v_set.classroom_id AND c.archived_at IS NOT NULL) THEN
+      RAISE EXCEPTION 'CONTENT_CLASSROOM_ARCHIVED' USING ERRCODE = 'P0001';
     END IF;
     v_set_id := v_set.id;
 
