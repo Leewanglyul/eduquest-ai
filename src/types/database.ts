@@ -377,8 +377,14 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "fn_commit_content_import":
+            "fn_cleanup_content_import_batches":
+{ Args: { "p_grace"?: string }; Returns: number
+                           },
+"fn_commit_content_import":
 { Args: { "p_actor_id": string,"p_batch_id": string,"p_classroom_id": string,"p_max_entries": number,"p_mode": Database["public"]['Enums']["content_import_mode"],"p_new_title": string,"p_rows": Json,"p_rows_hash": string,"p_school_id": string,"p_set_id": string,"p_token_hash": string }; Returns: Json
+                           },
+"fn_content_rows_hash":
+{ Args: { "p_classroom_id": string,"p_mode": Database["public"]['Enums']["content_import_mode"],"p_new_title": string,"p_rows": Json,"p_set_id": string }; Returns: string
                            },
 "fn_generate_classroom_code":
 { Args: Record<PropertyKey, never>; Returns: string

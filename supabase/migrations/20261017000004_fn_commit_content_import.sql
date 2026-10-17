@@ -10,6 +10,48 @@
 --   CONTENT_SET_TOO_LARGE.
 -- An expired preview is NOT raised (the status change to 'expired' must survive): the function returns
 -- {"status":"expired"} instead.
+-- Canonical hash that binds a commit token to what was previewed. The application builds the SAME text
+-- (src/features/content/import/rows-hash.ts) and a test compares both against the database:
+--   header = normalizerVersion US mode US setId US newTitle US classroomId      (US = chr(31))
+--   body   = term US definition, joined by RS (chr(30)), in row order
+--   hash   = sha256_hex(header GS body)                                         (GS = chr(29))
+-- fn_commit_content_import recomputes it from the rows it is about to insert, so the rows can no
+-- longer differ from the previewed ones even if a caller passes a matching p_rows_hash.
+CREATE OR REPLACE FUNCTION public.fn_content_rows_hash(
+  p_mode public.content_import_mode,
+  p_set_id uuid,
+  p_new_title text,
+  p_classroom_id uuid,
+  p_rows jsonb
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, public
+AS $$
+  SELECT pg_catalog.encode(
+    pg_catalog.sha256(
+      pg_catalog.convert_to(
+        pg_catalog.concat_ws(E'\x1f',
+          COALESCE(p_rows -> 0 ->> 'normalizerVersion', ''),
+          p_mode::text,
+          COALESCE(p_set_id::text, ''),
+          COALESCE(p_new_title, ''),
+          COALESCE(p_classroom_id::text, ''))
+        || E'\x1d'
+        || COALESCE((
+          SELECT pg_catalog.string_agg((el.value ->> 'term') || E'\x1f' || (el.value ->> 'definition'), E'\x1e' ORDER BY el.ord)
+          FROM pg_catalog.jsonb_array_elements(p_rows) WITH ORDINALITY AS el(value, ord)
+        ), ''),
+        'UTF8')),
+    'hex')
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_content_rows_hash(public.content_import_mode, uuid, text, uuid, jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_content_rows_hash(public.content_import_mode, uuid, text, uuid, jsonb)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.fn_commit_content_import(
   p_batch_id uuid,
   p_actor_id uuid,
@@ -69,7 +111,8 @@ BEGIN
   END IF;
   IF v_batch.rows_hash <> p_rows_hash
      OR v_batch.mode <> p_mode
-     OR v_batch.set_id IS DISTINCT FROM p_set_id THEN
+     OR v_batch.set_id IS DISTINCT FROM p_set_id
+     OR v_batch.rows_hash <> public.fn_content_rows_hash(p_mode, p_set_id, p_new_title, p_classroom_id, p_rows) THEN
     RAISE EXCEPTION 'CONTENT_ROWS_CHANGED' USING ERRCODE = 'P0001';
   END IF;
 

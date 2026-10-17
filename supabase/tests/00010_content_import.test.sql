@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(54);
+SELECT plan(63);
 
 -- Fixtures (rolled back). Teacher t1 (owner) comes from seed.sql, school a1.
 -- b2 = co-teacher of classroom d1 (owned by t1), b3 = outsider teacher, b5 = suspended teacher,
@@ -52,12 +52,31 @@ $$ SELECT jsonb_agg(jsonb_build_object(
      'term', a, 'definition', 'd', 'answer', a, 'script', 'hangul', 'normalizerVersion', 1, 'line', ord + 1))
    FROM unnest(answers) WITH ORDINALITY AS u(a, ord) $$;
 
+-- c: with the default hash, a placeholder ('rh') batch is first given the correct hash for exactly the rows,
+-- mode, target, title and classroom being committed. Tests that need a real binding use mkr() and pass the
+-- hash explicitly or leave a real hash in place (the placeholder is only replaced when it is still 'rh').
 CREATE FUNCTION pg_temp.c(
   n int, actor uuid, token text, mode public.content_import_mode, target uuid, title text, rows jsonb,
-  max_entries int DEFAULT 200, hash text DEFAULT 'rh', classroom uuid DEFAULT NULL
-) RETURNS jsonb LANGUAGE sql AS
-$$ SELECT public.fn_commit_content_import(
-     pg_temp.b(n), actor, '00000000-0000-4000-8000-0000000000a1'::uuid, token, hash, mode, target, title, classroom, rows, max_entries) $$;
+  max_entries int DEFAULT 200, hash text DEFAULT NULL, classroom uuid DEFAULT NULL
+) RETURNS jsonb LANGUAGE plpgsql AS
+$$
+DECLARE
+  h text := public.fn_content_rows_hash(mode, target, title, classroom, rows);
+BEGIN
+  IF hash IS NULL THEN
+    UPDATE public.content_import_batches SET rows_hash = h WHERE id = pg_temp.b(n) AND rows_hash = 'rh';
+    hash := h;
+  END IF;
+  RETURN public.fn_commit_content_import(
+    pg_temp.b(n), actor, '00000000-0000-4000-8000-0000000000a1'::uuid, token, hash, mode, target, title, classroom, rows, max_entries);
+END
+$$;
+
+-- mkr: a previewed batch whose stored hash is the real hash of the previewed rows.
+CREATE FUNCTION pg_temp.mkr(
+  n int, actor uuid, mode public.content_import_mode, target uuid, title text, classroom uuid, rows jsonb
+) RETURNS void LANGUAGE sql AS
+$$ SELECT pg_temp.mk(n, actor, mode, target, 'tk', public.fn_content_rows_hash(mode, target, title, classroom, rows)) $$;
 
 -- A. Only the service role may execute the function.
 SELECT ok(NOT has_function_privilege('authenticated',
@@ -184,11 +203,11 @@ SELECT throws_ok(
   $$SELECT pg_temp.c(13, '00000000-0000-4000-8000-000000000001', 'tk', 'create', NULL, '   ', pg_temp.r(ARRAY['사과']))$$,
   'P0001', 'CONTENT_TITLE_INVALID', 'blank title is refused');
 SELECT throws_ok(
-  $$SELECT pg_temp.c(13, '00000000-0000-4000-8000-000000000001', 'tk', 'create', NULL, 'Archived room', pg_temp.r(ARRAY['사과']), 200, 'rh', '00000000-0000-4000-8000-0000000000d2')$$,
+  $$SELECT pg_temp.c(13, '00000000-0000-4000-8000-000000000001', 'tk', 'create', NULL, 'Archived room', pg_temp.r(ARRAY['사과']), 200, NULL, '00000000-0000-4000-8000-0000000000d2')$$,
   'P0001', 'CONTENT_CLASSROOM_ARCHIVED', 'a new set cannot be linked to an archived classroom');
 SELECT pg_temp.mk(14, '00000000-0000-4000-8000-0000000000b3', 'create', NULL);
 SELECT throws_ok(
-  $$SELECT pg_temp.c(14, '00000000-0000-4000-8000-0000000000b3', 'tk', 'create', NULL, 'Not mine', pg_temp.r(ARRAY['사과']), 200, 'rh', '00000000-0000-4000-8000-0000000000d1')$$,
+  $$SELECT pg_temp.c(14, '00000000-0000-4000-8000-0000000000b3', 'tk', 'create', NULL, 'Not mine', pg_temp.r(ARRAY['사과']), 200, NULL, '00000000-0000-4000-8000-0000000000d1')$$,
   'P0001', 'CONTENT_CLASSROOM_INVALID', 'a classroom the actor does not teach is refused');
 SELECT throws_ok(
   $$SELECT pg_temp.c(13, '00000000-0000-4000-8000-000000000001', 'tk', 'create', '00000000-0000-4000-8000-0000000000e1', 'X', pg_temp.r(ARRAY['사과']))$$,
@@ -241,6 +260,33 @@ SELECT throws_ok(
   $$SELECT pg_temp.c(21, '00000000-0000-4000-8000-000000000001', 'tk', 'replace', '00000000-0000-4000-8000-0000000000e6', NULL, pg_temp.r(ARRAY['사과']))$$,
   'P0001', 'CONTENT_CLASSROOM_ARCHIVED', 'replace in a set of an archived classroom is refused');
 SELECT is((SELECT status::text FROM public.content_import_batches WHERE id = pg_temp.b(20)), 'previewed', 'the refused batch stays previewed');
+
+-- Q. Rows-hash binding: the rows inserted are the rows that were previewed.
+SELECT pg_temp.mkr(22, '00000000-0000-4000-8000-000000000001', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, NULL, pg_temp.r(ARRAY['운동장앞']));
+SELECT throws_ok(
+  $$SELECT pg_temp.c(22, '00000000-0000-4000-8000-000000000001', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['다른 단어']))$$,
+  'P0001', 'CONTENT_ROWS_CHANGED', 'other rows with their own hash are refused');
+SELECT throws_ok(
+  $$SELECT pg_temp.c(22, '00000000-0000-4000-8000-000000000001', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['다른 단어']), 200,
+      public.fn_content_rows_hash('append', '00000000-0000-4000-8000-0000000000e5', NULL, NULL, pg_temp.r(ARRAY['운동장앞'])))$$,
+  'P0001', 'CONTENT_ROWS_CHANGED', 'other rows presented with the previewed hash are refused (the function recomputes)');
+SELECT throws_ok(
+  $$SELECT pg_temp.c(22, '00000000-0000-4000-8000-000000000001', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['운동장앞', '추가 행']), 200,
+      public.fn_content_rows_hash('append', '00000000-0000-4000-8000-0000000000e5', NULL, NULL, pg_temp.r(ARRAY['운동장앞'])))$$,
+  'P0001', 'CONTENT_ROWS_CHANGED', 'an added row is refused');
+SELECT is((SELECT status::text FROM public.content_import_batches WHERE id = pg_temp.b(22)), 'previewed', 'refusals leave the batch usable');
+SELECT lives_ok(
+  $$SELECT pg_temp.c(22, '00000000-0000-4000-8000-000000000001', 'tk', 'append', '00000000-0000-4000-8000-0000000000e5', NULL, pg_temp.r(ARRAY['운동장앞']))$$,
+  'the previewed rows commit');
+SELECT pg_temp.mkr(23, '00000000-0000-4000-8000-000000000001', 'create', NULL, 'Bound title', NULL, pg_temp.r(ARRAY['사과']));
+SELECT throws_ok(
+  $$SELECT pg_temp.c(23, '00000000-0000-4000-8000-000000000001', 'tk', 'create', NULL, 'Other title', pg_temp.r(ARRAY['사과']))$$,
+  'P0001', 'CONTENT_ROWS_CHANGED', 'the title is bound to the token');
+SELECT is(public.fn_content_rows_hash('create', NULL, 'T', NULL, pg_temp.r(ARRAY['사과'])),
+          public.fn_content_rows_hash('create', NULL, 'T', NULL, pg_temp.r(ARRAY['사과'])), 'the rows hash is deterministic');
+SELECT isnt(public.fn_content_rows_hash('create', NULL, 'T', NULL, pg_temp.r(ARRAY['사과'])),
+            public.fn_content_rows_hash('replace', NULL, 'T', NULL, pg_temp.r(ARRAY['사과'])), 'the mode is part of the hash');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.fn_content_rows_hash(public.content_import_mode,uuid,text,uuid,jsonb)', 'EXECUTE'), 'authenticated cannot execute the hash function');
 
 -- M. Summary view (service role reads everything).
 SELECT is((SELECT entry_count FROM public.v_content_sets_summary

@@ -16,6 +16,9 @@ import { describe, expect, it } from "vitest";
 import {
   ANSWER_MAX_LEN,
   ANSWER_MIN_LEN,
+  COMMIT_TOKEN_TTL_MINUTES,
+  MAX_ACTIVE_PREVIEWS,
+  PREVIEW_CLEANUP_GRACE_HOURS,
   DB_ANSWER_MAX_LEN,
   DB_ANSWER_MIN_LEN,
   DEFINITION_MAX_CHARS,
@@ -60,6 +63,9 @@ describe("M2-1.3 caps: constants", () => {
     expect(ANSWER_MIN_LEN).toBe(1);
     expect(ANSWER_MAX_LEN).toBe(15);
     expect(NORMALIZER_VERSION).toBe(1);
+    expect(COMMIT_TOKEN_TTL_MINUTES).toBe(15);
+    expect(MAX_ACTIVE_PREVIEWS).toBe(10);
+    expect(PREVIEW_CLEANUP_GRACE_HOURS).toBe(24);
   });
 
   it("keep the answer bounds inside the database CHECK bounds", () => {
@@ -169,7 +175,12 @@ describe("M2-1.3 caps: run schema", () => {
 describe("M2-1.3 validation modules are database free", () => {
   it("import nothing from supabase or the audit log", () => {
     const dir = path.resolve(import.meta.dirname, "../../src/features/content/import");
-    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".ts"))) {
+    // The validation modules of M2-1.3 (the I/O modules of M2-1.2 are import-service.ts, actions.ts, limits.ts).
+    const pure = [
+      "content-schemas.ts", "csv-decode.ts", "csv-records.ts", "csv-parse.ts", "import-errors.ts",
+      "normalize.ts", "row-rules.ts", "preview.ts", "rows-hash.ts", "read-file.ts",
+    ];
+    for (const file of pure) {
       const source = fs.readFileSync(path.join(dir, file), "utf8");
       expect(source, file).not.toMatch(/from\s+["']@\/lib\/(supabase|audit)/);
       expect(source, file).not.toMatch(/from\s+["']@supabase\//);

@@ -17,6 +17,11 @@ export const ANSWER_MIN_LEN = 1;
 export const ANSWER_MAX_LEN = 15;
 export const SET_TITLE_MAX_CHARS = 80;
 
+/** Preview tickets (docs/m2/01 §3.4): lifetime, live previews per teacher, and the grace before stale ones are deleted. */
+export const COMMIT_TOKEN_TTL_MINUTES = 15;
+export const MAX_ACTIVE_PREVIEWS = 10;
+export const PREVIEW_CLEANUP_GRACE_HOURS = 24;
+
 /** Bump when the normalisation rules change; it is part of the rows hash and stored per entry. */
 export const NORMALIZER_VERSION = 1;
 

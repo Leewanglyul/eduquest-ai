@@ -20,7 +20,14 @@ export type ContentPreviewOptions = {
 };
 
 export type ContentPreview = {
+  /** Rows that will be added: valid in the file and not already in the set. */
   valid: PreparedContentRow[];
+  /**
+   * Rows sent to the commit function and covered by the rows hash: every row valid inside the file, whether
+   * or not the set already has its answer. The database skips an answer that is already live, so the hash
+   * does not depend on what else happens to the set between preview and commit.
+   */
+  commitRows: PreparedContentRow[];
   invalid: ContentPreviewIssue[];
   counts: { total: number; accepted: number; withWarnings: number; rejected: number };
   /** Size of the set after the import would run. `exceeds` means SET_TOO_LARGE. */
@@ -40,6 +47,7 @@ const issueOf = (line: number, term: string, errors: ContentRowError[]): Content
  */
 export function buildContentPreview(raw: RawContentRow[], options: ContentPreviewOptions): ContentPreview {
   const valid: PreparedContentRow[] = [];
+  const commitRows: PreparedContentRow[] = [];
   const invalid: ContentPreviewIssue[] = [];
   const seen = new Map<string, { line: number; definition: string }>();
 
@@ -64,12 +72,14 @@ export function buildContentPreview(raw: RawContentRow[], options: ContentPrevie
       continue;
     }
 
+    seen.set(row.answer, { line: row.line, definition: row.definition });
+    commitRows.push(row);
+
     if (options.mode === "append" && options.existingAnswers?.has(row.answer)) {
       invalid.push(issueOf(row.line, row.term, [{ code: "DUP_EXISTING" }]));
       continue;
     }
 
-    seen.set(row.answer, { line: row.line, definition: row.definition });
     valid.push(row);
   }
 
@@ -78,6 +88,7 @@ export function buildContentPreview(raw: RawContentRow[], options: ContentPrevie
 
   return {
     valid,
+    commitRows,
     invalid,
     counts: {
       total: raw.length,

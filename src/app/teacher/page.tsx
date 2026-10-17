@@ -17,6 +17,9 @@ export default async function TeacherDashboardPage() {
         <Link href="/teacher/classrooms" className="text-sm underline">
           내 학급
         </Link>
+        <Link href="/teacher/content/import" className="ml-4 text-sm underline">
+          단어 세트 만들기 (CSV)
+        </Link>
       </nav>
       <form action={teacherSignOutAction} className="mt-6">
         <button type="submit" className="rounded-md border border-slate-300 px-3 py-1 text-sm">

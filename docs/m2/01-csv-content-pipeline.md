@@ -397,9 +397,14 @@ The client sends the **same file again** plus `batchId`, `commitToken`, `mode`, 
 Rows hash (same idea as `hashRows` in `batch-service.ts`, which includes the classroom so a token cannot be replayed elsewhere):
 
 ```
-sha256(JSON.stringify([NORMALIZER_VERSION, mode, setId | null, newSetTitle | null, classroomId | null,
-                       valid.map(r => [r.term, r.definition])]))
+header = normalizerVersion US mode US setId US newTitle US classroomId     (missing values are empty; US = U+001F)
+body   = term US definition, rows joined by RS (U+001E), in row order
+hash   = sha256_hex(header GS body)                                        (GS = U+001D)
 ```
+
+*Implemented in M2-1.2:* `canonicalRowsText()` in `rows-hash.ts` builds this text and `public.fn_content_rows_hash()` builds the **same** text in SQL. `fn_commit_content_import` recomputes the hash from the rows it is about to insert and compares it with the stored one, so the rows can no longer differ from the previewed ones even if a caller passes a matching `p_rows_hash` (review finding F5). A test compares the TypeScript and SQL results on the real database. The hash covers the rows that are valid inside the file, **including** answers the set already has (the database skips those), so it does not change when another import lands between preview and commit.
+
+*Preview tickets (M2-1.2):* at most `MAX_ACTIVE_PREVIEWS` (10) live previews per teacher (the oldest are marked expired); tickets that were never committed are deleted 24 hours after they expire by `fn_cleanup_content_import_batches()`, which runs whenever a preview is created. Completed batches are kept as the import history.
 
 `fn_commit_content_import(p_batch_id, p_actor_id, p_school_id, p_token_hash, p_rows_hash, p_mode, p_set_id, p_new_title, p_classroom_id, p_rows jsonb, p_max_entries int)` runs **in one transaction** and does, in order:
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { NORMALIZER_VERSION } from "@/features/content/import/content-schemas";
-import { hashContentRows, sha256Hex, type RowsHashInput } from "@/features/content/import/rows-hash";
+import { canonicalRowsText, hashContentRows, sha256Hex, type RowsHashInput } from "@/features/content/import/rows-hash";
 import { mapDatabaseErrorCode } from "@/features/content/import/import-errors";
 
 const base: RowsHashInput = {
@@ -39,15 +39,19 @@ describe("M2-1.3 rows hash (commit token binding)", () => {
     expect(hashContentRows({ ...base, rows: [base.rows[0]] })).not.toBe(h);
   });
 
-  it("includes the normaliser version, so a changed rule set fails closed", () => {
-    const withoutVersion = sha256Hex(
-      JSON.stringify([base.mode, base.setId, base.newSetTitle, base.classroomId, base.rows.map((r) => [r.term, r.definition])]),
-    );
-    expect(hashContentRows(base)).not.toBe(withoutVersion);
-    const withVersion = sha256Hex(
-      JSON.stringify([NORMALIZER_VERSION, base.mode, base.setId, base.newSetTitle, base.classroomId, base.rows.map((r) => [r.term, r.definition])]),
-    );
-    expect(hashContentRows(base)).toBe(withVersion);
+  it("hashes a documented canonical text that includes the normaliser version", () => {
+    const text = canonicalRowsText(base);
+    expect(text).toBe(`${NORMALIZER_VERSION}\x1fappend\x1fset-1\x1f\x1f\x1d사과\x1f과일\x1e배\x1f과일`);
+    expect(hashContentRows(base)).toBe(sha256Hex(text));
+  });
+
+  it("cannot be confused by field boundaries", () => {
+    const a = hashContentRows({ ...base, rows: [{ term: "가", definition: "나다" }] });
+    const b = hashContentRows({ ...base, rows: [{ term: "가나", definition: "다" }] });
+    expect(a).not.toBe(b);
+    const c = hashContentRows({ ...base, rows: [{ term: "가", definition: "나" }, { term: "다", definition: "라" }] });
+    const d = hashContentRows({ ...base, rows: [{ term: "가", definition: "나\x1e다" }, { term: "라", definition: "" }] });
+    expect(c).not.toBe(d);
   });
 
   it("does not depend on fields outside term and definition (line numbers, warnings)", () => {

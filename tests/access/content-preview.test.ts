@@ -70,6 +70,23 @@ describe("M2-1.3 preview: against the existing set", () => {
     expect(p.invalid[0]).toMatchObject({ errors: ["DUP_EXISTING"], messages: ["이미 세트에 있는 단어입니다. 건너뜁니다."] });
   });
 
+  it("keeps an answer that is already in the set among the commit rows, so the hash does not depend on it", () => {
+    const withExisting = buildContentPreview(rows(["사과", "과일"], ["포도", "과일"]), {
+      mode: "append",
+      existingAnswers: existing,
+      liveCount: 1,
+    });
+    const withoutExisting = buildContentPreview(rows(["사과", "과일"], ["포도", "과일"]), { mode: "append" });
+    expect(withExisting.valid.map((r) => r.term)).toEqual(["포도"]);
+    expect(withExisting.commitRows.map((r) => r.term)).toEqual(["사과", "포도"]);
+    expect(withoutExisting.commitRows).toEqual(withExisting.commitRows);
+  });
+
+  it("does not put rejected rows among the commit rows", () => {
+    const p = buildContentPreview(rows(["사과", "과일"], ["사과", "과일"], ["", "x"]), { mode: "create" });
+    expect(p.commitRows.map((r) => r.line)).toEqual([2]);
+  });
+
   it("create and replace ignore the existing set", () => {
     for (const mode of ["create", "replace"] as const) {
       const p = buildContentPreview(rows(["사과", "과일"]), { mode, existingAnswers: existing, liveCount: 150 });
