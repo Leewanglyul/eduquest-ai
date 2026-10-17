@@ -30,6 +30,22 @@ describe("M2-1.3 tokenizer", () => {
     expect(row.cells).toEqual(["a, b", 'say "hi"', "line1\nline2"]);
   });
 
+  it("refuses text right after a closing quote instead of merging it into the value (R4)", () => {
+    expect(codeOf(() => tokenizeCsv('"abc"def,x'))).toBe("CSV_QUOTE_MISPLACED");
+    expect(codeOf(() => tokenizeCsv('a,"abc"def'))).toBe("CSV_QUOTE_MISPLACED");
+    expect(codeOf(() => tokenizeCsv('"abc" ,x'))).toBe("CSV_QUOTE_MISPLACED");
+    expect(codeOf(() => tokenizeCsv('"",x\n"" "y"'))).toBe("CSV_QUOTE_MISPLACED");
+  });
+
+  it("accepts a closing quote followed by a comma, a line end or the end of the file", () => {
+    expect(tokenizeCsv('"a","b"\n"c","d"\r\n"e","f"').map((r) => r.cells)).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["e", "f"],
+    ]);
+    expect(tokenizeCsv('"say ""hi""",x')[0].cells).toEqual(['say "hi"', "x"]);
+  });
+
   it("refuses an unclosed quote", () => {
     expect(() => tokenizeCsv('a,"b')).toThrowError(ContentImportError);
     expect(codeOf(() => tokenizeCsv('a,"b'))).toBe("CSV_MALFORMED");
@@ -117,6 +133,10 @@ describe("M2-1.3 rows", () => {
     expect(rows[0].tooFewColumns).toBe(true);
     expect(rows[1].tooFewColumns).toBeUndefined();
     expect(rows[1].definition).toBe("");
+  });
+
+  it("reports a misplaced quote as a file error", () => {
+    expect(codeOf(() => parseContentCsv('term,definition\n"사과"x,과일'))).toBe("CSV_QUOTE_MISPLACED");
   });
 
   it("reads the example from the PM brief once it has a header", () => {

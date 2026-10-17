@@ -15,6 +15,8 @@ export type RowEvaluation =
   | { ok: false; line: number; term: string; errors: ContentRowError[] };
 
 const FORMULA_START = /^[=+\-@]/;
+/** Shorter answers are not checked against the clue (decision D2 allows one-character answers). */
+const CLUE_CHECK_MIN_ANSWER_LEN = 2;
 
 /**
  * Applies every per-row rule (docs/m2/01-csv-content-pipeline.md §4.1) to one raw row and returns
@@ -47,9 +49,9 @@ export function evaluateRow(raw: RawContentRow): RowEvaluation {
     const result = deriveAnswer(term.text);
     if (!result.ok) {
       errors.push(
-        result.code === "ANSWER_JAMO"
-          ? { code: "ANSWER_JAMO" }
-          : { code: "ANSWER_INVALID_CHAR", context: { chars: result.chars } },
+        result.code === "ANSWER_INVALID_CHAR"
+          ? { code: "ANSWER_INVALID_CHAR", context: { chars: result.chars } }
+          : { code: result.code },
       );
     } else if (result.length < ANSWER_MIN_LEN) {
       errors.push({ code: "ANSWER_TOO_SHORT" });
@@ -65,7 +67,10 @@ export function evaluateRow(raw: RawContentRow): RowEvaluation {
   }
 
   if (derived.script === "mixed") warnings.push("ANSWER_MIXED_SCRIPT");
-  if (squash(definition.text).includes(derived.answer)) warnings.push("DEFINITION_CONTAINS_ANSWER");
+  // A one-character answer occurs inside almost any clue, so the check would only add noise (R6).
+  if (derived.length >= CLUE_CHECK_MIN_ANSWER_LEN && squash(definition.text).includes(derived.answer)) {
+    warnings.push("DEFINITION_CONTAINS_ANSWER");
+  }
   if (/^[\t\r]/.test(raw.definition) || FORMULA_START.test(definition.text)) warnings.push("FORMULA_PREFIX");
 
   return {

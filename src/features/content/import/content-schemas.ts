@@ -43,6 +43,7 @@ export type ContentRowErrorCode =
   | "ANSWER_TOO_LONG"
   | "ANSWER_INVALID_CHAR"
   | "ANSWER_JAMO"
+  | "ANSWER_NUMERIC_LIKE"
   | "DUP_IN_FILE"
   | "DUP_IN_FILE_CONFLICT"
   | "DUP_EXISTING";

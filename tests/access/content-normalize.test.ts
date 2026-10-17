@@ -9,7 +9,7 @@ import {
   type RawContentRow,
 } from "@/features/content/import/content-schemas";
 import { ContentImportError } from "@/features/content/import/import-errors";
-import { cleanText, deriveAnswer, normalizeSetTitle } from "@/features/content/import/normalize";
+import { cleanText, deriveAnswer, isNumericLike, normalizeSetTitle } from "@/features/content/import/normalize";
 import { evaluateRow } from "@/features/content/import/row-rules";
 
 const raw = (term: string, definition = "뜻", line = 2): RawContentRow => ({ line, term, definition });
@@ -73,7 +73,11 @@ describe("M2-1.3 answer derivation (examples from the design)", () => {
     ["O'Neil", "ONEIL", 5, "latin"],
     ["O’Neil", "ONEIL", 5, "latin"],
     ["ＡＢＣ", "ABC", 3, "latin"],
-    ["3.14", "314", 3, "digit"],
+    ["2024", "2024", 4, "digit"],
+    ["3D", "3D", 2, "mixed"],
+    ["COVID-19", "COVID19", 7, "mixed"],
+    ["U.S.A.", "USA", 3, "latin"],
+    ["제1조", "제1조", 3, "mixed"],
     ["3D 프린터", "3D프린터", 5, "mixed"],
     ["대한 민국", "대한민국", 4, "hangul"],
     ["물", "물", 1, "hangul"],
@@ -120,6 +124,26 @@ describe("M2-1.3 answer derivation (examples from the design)", () => {
     expect(rejectCodes("ᄀᄀ")).toEqual(["ANSWER_JAMO"]);
     // A conjoining L+V+T sequence is composed by NFC into one real syllable (각), so it is not jamo.
     expect(accept("각가").answer).toBe("각가");
+  });
+
+  it("rejects numeric-like terms (decision P3) instead of turning them into other numbers", () => {
+    for (const term of [
+      "1.5", "3.14", "0.5", "1,000", "1.000,5", "-5", "+7", "2024-10-17", "010-1234-5678",
+      "１．５", "1 . 5", "제1.5조", "v1.2", "-", "1-2",
+    ]) {
+      const codes = rejectCodes(term);
+      expect(codes, term).toContain(term === "-" ? "ANSWER_TOO_SHORT" : "ANSWER_NUMERIC_LIKE");
+    }
+    // 1.5 must never collide with 15.
+    expect(accept("15").answer).toBe("15");
+    expect(isNumericLike("1.5")).toBe(true);
+    expect(isNumericLike("15")).toBe(false);
+  });
+
+  it("keeps digits that are not numbers in disguise", () => {
+    for (const term of ["2024", "3D", "A1", "COVID-19", "U.S.A.", "e-mail", "1학년", "제1조"]) {
+      expect(rejectCodes(term), term).toEqual([]);
+    }
   });
 
   it("warns on mixed script but still accepts", () => {
@@ -192,6 +216,12 @@ describe("M2-1.3 field rules", () => {
 });
 
 describe("M2-1.3 warnings", () => {
+  it("does not check one-character answers against the clue (R6)", () => {
+    expect(accept("물", "마시는 물").warnings).not.toContain("DEFINITION_CONTAINS_ANSWER");
+    expect(accept("A", "the letter A").warnings).not.toContain("DEFINITION_CONTAINS_ANSWER");
+    expect(accept("사과", "빨간 사과").warnings).toContain("DEFINITION_CONTAINS_ANSWER");
+  });
+
   it("warns when the clue contains the answer", () => {
     expect(accept("사과", "빨간 사과 맛").warnings).toContain("DEFINITION_CONTAINS_ANSWER");
     expect(accept("ice cream", "Ice  Cream is cold").warnings).toContain("DEFINITION_CONTAINS_ANSWER");

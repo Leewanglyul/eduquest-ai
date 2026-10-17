@@ -163,6 +163,7 @@ describe("M2-1.3 messages", () => {
     "ENCODING_UTF16",
     "DELIMITER_UNSUPPORTED",
     "CSV_MALFORMED",
+    "CSV_QUOTE_MISPLACED",
     "MISSING_HEADER",
     "DUPLICATE_HEADER",
     "NO_DATA_ROWS",
@@ -176,6 +177,7 @@ describe("M2-1.3 messages", () => {
     "SET_TOO_LARGE",
     "REPLACE_NOT_CONFIRMED",
     "CLASSROOM_INVALID",
+    "CLASSROOM_ARCHIVED",
     "FORBIDDEN",
     "BATCH_NOT_FOUND",
     "COMMIT_TOKEN_INVALID",
@@ -201,6 +203,8 @@ describe("M2-1.3 messages", () => {
       DELIMITER_UNSUPPORTED:
         "쉼표(,)로 구분된 CSV 파일만 올릴 수 있습니다. 탭이나 세미콜론으로 구분된 파일은 쉼표로 다시 저장해 주세요.",
       CSV_MALFORMED: "따옴표가 닫히지 않았습니다.",
+      CSV_QUOTE_MISPLACED: "따옴표(\") 뒤에는 쉼표나 줄바꿈만 올 수 있습니다. 따옴표가 들어가는 글자는 \"\"처럼 두 번 써 주세요.",
+      CLASSROOM_ARCHIVED: "보관된 학급의 세트는 수정할 수 없습니다.",
       MISSING_HEADER: "첫 줄에 term(용어)와 definition(뜻) 열이 필요합니다.",
       DUPLICATE_HEADER: "같은 이름의 열이 두 번 있습니다.",
       NO_DATA_ROWS: "단어 행이 없습니다.",
@@ -244,6 +248,9 @@ describe("M2-1.3 messages", () => {
       "정답에 쓸 수 없는 문자가 있습니다: ( ). 한글, 영문, 숫자만 사용할 수 있습니다.",
     );
     expect(rowIssueMessage("ANSWER_JAMO")).toBe("자음/모음만 따로 쓴 글자는 정답에 쓸 수 없습니다. 완성된 글자로 입력해 주세요.");
+    expect(rowIssueMessage("ANSWER_NUMERIC_LIKE")).toBe(
+      "소수점·쉼표·하이픈이 들어간 숫자 형태(1.5, 3.14, 2024-10-17 등)는 정답으로 쓸 수 없습니다.",
+    );
     expect(rowIssueMessage("ANSWER_MIXED_SCRIPT")).toBe("한글과 영문/숫자가 섞여 있습니다. 퍼즐 종류에 따라 제외될 수 있습니다.");
     expect(rowIssueMessage("DEFINITION_CONTAINS_ANSWER")).toBe("뜻에 정답이 그대로 들어 있습니다.");
     expect(rowIssueMessage("FORMULA_PREFIX")).toBe(
@@ -265,6 +272,7 @@ describe("M2-1.3 database error mapping", () => {
     expect(mapDatabaseErrorCode("CONTENT_TITLE_INVALID")).toBe("TITLE_INVALID");
     expect(mapDatabaseErrorCode("CONTENT_TITLE_DUPLICATE")).toBe("TITLE_DUPLICATE");
     expect(mapDatabaseErrorCode("CONTENT_CLASSROOM_INVALID")).toBe("CLASSROOM_INVALID");
+    expect(mapDatabaseErrorCode("CONTENT_CLASSROOM_ARCHIVED")).toBe("CLASSROOM_ARCHIVED");
     expect(mapDatabaseErrorCode("CONTENT_SET_NOT_FOUND")).toBe("SET_NOT_FOUND");
     expect(mapDatabaseErrorCode("CONTENT_SET_ARCHIVED")).toBe("SET_ARCHIVED");
     expect(mapDatabaseErrorCode("CONTENT_SET_TOO_LARGE")).toBe("SET_TOO_LARGE");

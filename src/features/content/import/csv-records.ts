@@ -21,6 +21,7 @@ export function tokenizeCsv(input: string): CsvRecord[] {
   let field = "";
   let inQuotes = false;
   let touched = false; // the current record has any character at all
+  let closedQuote = false; // a quoted field just ended: only a delimiter or a line end may follow
 
   const endRecord = () => {
     row.push(field);
@@ -28,6 +29,7 @@ export function tokenizeCsv(input: string): CsvRecord[] {
     row = [];
     field = "";
     touched = false;
+    closedQuote = false;
   };
 
   for (let i = 0; i < text.length; i += 1) {
@@ -39,10 +41,14 @@ export function tokenizeCsv(input: string): CsvRecord[] {
           i += 1;
         } else {
           inQuotes = false;
+          closedQuote = true;
         }
       } else {
         field += ch;
       }
+    } else if (closedQuote && ch !== "," && ch !== "\n" && ch !== "\r") {
+      // `"abc"def` would otherwise be read as the single value abcdef: refuse instead of merging silently.
+      throw new ContentImportError("CSV_QUOTE_MISPLACED");
     } else if (ch === '"' && field === "") {
       inQuotes = true;
       touched = true;
@@ -50,6 +56,7 @@ export function tokenizeCsv(input: string): CsvRecord[] {
       row.push(field);
       field = "";
       touched = true;
+      closedQuote = false;
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i += 1;
       endRecord();

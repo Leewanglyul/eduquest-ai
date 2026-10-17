@@ -20,6 +20,7 @@ export type ContentImportErrorCode =
   | "ENCODING_UTF16"
   | "DELIMITER_UNSUPPORTED"
   | "CSV_MALFORMED"
+  | "CSV_QUOTE_MISPLACED"
   | "MISSING_HEADER"
   | "DUPLICATE_HEADER"
   | "NO_DATA_ROWS"
@@ -33,6 +34,7 @@ export type ContentImportErrorCode =
   | "SET_TOO_LARGE"
   | "REPLACE_NOT_CONFIRMED"
   | "CLASSROOM_INVALID"
+  | "CLASSROOM_ARCHIVED"
   | "FORBIDDEN"
   | "BATCH_NOT_FOUND"
   | "COMMIT_TOKEN_INVALID"
@@ -67,6 +69,8 @@ export function contentErrorMessage(code: ContentImportErrorCode, ctx: ErrorMess
       return "쉼표(,)로 구분된 CSV 파일만 올릴 수 있습니다. 탭이나 세미콜론으로 구분된 파일은 쉼표로 다시 저장해 주세요.";
     case "CSV_MALFORMED":
       return "따옴표가 닫히지 않았습니다.";
+    case "CSV_QUOTE_MISPLACED":
+      return "따옴표(\") 뒤에는 쉼표나 줄바꿈만 올 수 있습니다. 따옴표가 들어가는 글자는 \"\"처럼 두 번 써 주세요.";
     case "MISSING_HEADER":
       return "첫 줄에 term(용어)와 definition(뜻) 열이 필요합니다.";
     case "DUPLICATE_HEADER":
@@ -93,6 +97,8 @@ export function contentErrorMessage(code: ContentImportErrorCode, ctx: ErrorMess
       return "기존 단어를 보관 처리하려면 확인란을 선택해 주세요.";
     case "CLASSROOM_INVALID":
       return "학급을 찾을 수 없거나 사용할 수 없습니다.";
+    case "CLASSROOM_ARCHIVED":
+      return "보관된 학급의 세트는 수정할 수 없습니다.";
     case "FORBIDDEN":
       return "해당 작업 권한이 없습니다.";
     // Same wording as the M1 batch flow (batch-service.ts) on purpose.
@@ -143,6 +149,8 @@ export function rowIssueMessage(
       return `정답에 쓸 수 없는 문자가 있습니다: ${(ctx.chars ?? []).join(" ")}. 한글, 영문, 숫자만 사용할 수 있습니다.`;
     case "ANSWER_JAMO":
       return "자음/모음만 따로 쓴 글자는 정답에 쓸 수 없습니다. 완성된 글자로 입력해 주세요.";
+    case "ANSWER_NUMERIC_LIKE":
+      return "소수점·쉼표·하이픈이 들어간 숫자 형태(1.5, 3.14, 2024-10-17 등)는 정답으로 쓸 수 없습니다.";
     case "DUP_IN_FILE":
       return `같은 정답이 ${ctx.firstLine ?? 0}행에 이미 있습니다.`;
     case "DUP_IN_FILE_CONFLICT":
@@ -189,6 +197,8 @@ export function mapDatabaseErrorCode(message: string | null | undefined): Conten
       return "TITLE_DUPLICATE";
     case "CONTENT_CLASSROOM_INVALID":
       return "CLASSROOM_INVALID";
+    case "CONTENT_CLASSROOM_ARCHIVED":
+      return "CLASSROOM_ARCHIVED";
     case "CONTENT_SET_NOT_FOUND":
       return "SET_NOT_FOUND";
     case "CONTENT_SET_ARCHIVED":
