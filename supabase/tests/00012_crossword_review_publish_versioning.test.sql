@@ -76,7 +76,7 @@ SELECT has_table('public', 'crossword_puzzles', 'crossword_puzzles exists');
 SELECT has_table('public', 'crossword_words', 'crossword_words exists');
 SELECT has_table('public', 'crossword_assignments', 'crossword_assignments exists');
 SELECT has_table('public', 'crossword_preview_tickets', 'crossword_preview_tickets exists');
-SELECT hasnt_table('public', 'crossword_attempts', 'crossword_attempts is not part of M2-2.2 (student data, M2-2.4)');
+SELECT has_table('public', 'crossword_attempts', 'crossword_attempts exists since M2-2.4a F1 (student data; behaviour pinned in 00013)');
 SELECT ok((SELECT bool_and(relrowsecurity) FROM pg_class WHERE oid IN
   ('public.crossword_puzzles'::regclass, 'public.crossword_words'::regclass, 'public.crossword_assignments'::regclass,
    'public.crossword_preview_tickets'::regclass)), 'RLS on all crossword tables');

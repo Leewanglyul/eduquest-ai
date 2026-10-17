@@ -87,7 +87,13 @@ describe("compatibility with a shared team attempt (M2-2.4 guidance)", () => {
       .filter((f) => /crossword/.test(f))
       .map((f) => fs.readFileSync(path.join(root, "supabase/migrations", f), "utf8"))
       .join("\n");
-    expect(migrations).not.toMatch(/CREATE TABLE public\.crossword_attempts/i);
+    // M2-2.4a F1 added the attempt tables. The attempt names no student; the member table holds the owner, so a
+    // shared (team) attempt stays possible.
+    expect(migrations).toMatch(/CREATE TABLE public\.crossword_attempts/i);
+    const attempts = /CREATE TABLE public\.crossword_attempts \(([\s\S]*?)\n\);/.exec(migrations)?.[1] ?? "";
+    expect(attempts).toContain("assignment_id");
+    expect(attempts).not.toMatch(/student_id|owner_id/i);
+    expect(migrations).toMatch(/CREATE TABLE public\.crossword_attempt_members[\s\S]*?student_id/i);
     const assignments =
       /CREATE TABLE public\.crossword_assignments \(([\s\S]*?)\n\);/.exec(migrations)?.[1] ?? "";
     expect(assignments).toContain("classroom_id");
