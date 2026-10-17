@@ -44,6 +44,11 @@ export default async function ContentSetPage({ params }: PageProps) {
             CSV로 단어 추가하기 / 전체 바꾸기
           </Link>
         ) : null}
+        {!readOnly ? (
+          <Link href={`/teacher/crosswords/new?setId=${set.id}`} className="underline">
+            이 세트로 낱말 퍼즐 만들기
+          </Link>
+        ) : null}
         {/* A plain link: the download is a GET route (it needs response headers), so no JavaScript is needed. */}
         <a href={`/teacher/content/${set.id}/export`} download className="underline">
           CSV로 내려받기

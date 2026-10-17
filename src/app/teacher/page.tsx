@@ -20,6 +20,9 @@ export default async function TeacherDashboardPage() {
         <Link href="/teacher/content" className="ml-4 text-sm underline">
           단어 세트
         </Link>
+        <Link href="/teacher/crosswords" className="ml-4 text-sm underline">
+          낱말 퍼즐
+        </Link>
       </nav>
       <form action={teacherSignOutAction} className="mt-6">
         <button type="submit" className="rounded-md border border-slate-300 px-3 py-1 text-sm">

@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isTeacherArea, type ClassroomActor } from "@/features/classrooms/domain";
 import { canWriteContentSet, getContentSetForActor, isUuid } from "@/features/content/sets/access";
+import { listContentSets } from "@/features/content/sets/service";
+import { listClassroomsForActor } from "@/features/classrooms/queries";
 import type { Json } from "@/types/database";
 import { actorClassroomIds, getCrosswordForActor, type CrosswordRecord } from "../access";
 import { optionsForLevel, settingsForLevel } from "../generator/difficulty";
@@ -138,6 +140,8 @@ export type PreviewSuccess = {
   maskedClueIds: string[];
   truncated: boolean;
   readiness: ReadinessResult;
+  /** Entry id -> answer for every entry of the set, so the screen can name words left out (teacher area). */
+  entryAnswers: Record<string, string>;
 };
 
 export type PreviewFailure = {
@@ -149,6 +153,7 @@ export type PreviewFailure = {
   excluded: ExcludedEntry[];
   unplaced: UnplacedEntry[];
   readiness: ReadinessResult;
+  entryAnswers: Record<string, string>;
 };
 
 export type PreviewResult = PreviewSuccess | PreviewFailure;
@@ -171,6 +176,7 @@ export async function generatePreview(
   const seed = input.seed ?? randomSeed();
   const result = generateCrossword(entries, buildOptions(input, seed));
   const readiness = computeReadiness(entries);
+  const entryAnswers = Object.fromEntries(entries.map((e) => [e.id, e.answer]));
 
   if (!result.ok) {
     const code = result.reason === "NO_ELIGIBLE_WORDS" ? "NO_ELIGIBLE_WORDS" : "NOT_ENOUGH_WORDS";
@@ -183,6 +189,7 @@ export async function generatePreview(
       excluded: result.excluded,
       unplaced: result.unplaced,
       readiness,
+      entryAnswers,
     };
   }
 
@@ -216,6 +223,7 @@ export async function generatePreview(
     maskedClueIds: result.maskedClueIds,
     truncated: result.truncated,
     readiness,
+    entryAnswers,
   };
 }
 
@@ -519,6 +527,12 @@ export async function listPuzzles(
 
 export type CrosswordDetail = {
   puzzle: CrosswordRecord;
+  /** Generation numbers kept with the puzzle (words, crossings, fill ratio, quality, ...). */
+  stats: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  seed: number;
+  /** Classrooms that had the version this one was copied from: a new version is usually published to the same ones. */
+  previousClassroomIds: string[];
   /** Answers included: this is the teacher area. Students never get this shape. */
   words: PreviewWord[];
   assignments: {
@@ -571,8 +585,26 @@ export async function getPuzzleDetail(
     : { data: [] as { id: string; name: string }[] };
   const roomName = new Map((rooms ?? []).map((r) => [r.id, r.name]));
 
+  const { data: extra } = await admin
+    .from("crossword_puzzles")
+    .select("stats, settings, seed")
+    .eq("id", puzzle.id)
+    .single();
+  let previousClassroomIds: string[] = [];
+  if (puzzle.supersedesId) {
+    const { data: prev } = await admin
+      .from("crossword_assignments")
+      .select("classroom_id")
+      .eq("puzzle_id", puzzle.supersedesId);
+    previousClassroomIds = [...new Set((prev ?? []).map((a) => a.classroom_id))];
+  }
+
   return {
     puzzle,
+    stats: (extra?.stats ?? {}) as Record<string, unknown>,
+    settings: (extra?.settings ?? {}) as Record<string, unknown>,
+    seed: Number(extra?.seed ?? 0),
+    previousClassroomIds,
     words: (words ?? []).map((w) => ({
       entryId: w.source_entry_id ?? "",
       number: w.number,
@@ -599,4 +631,52 @@ export async function getPuzzleDetail(
       publishedAt: v.published_at,
     })),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Reads for the screens: sets to generate from, classrooms to publish to, readiness of a set
+// ---------------------------------------------------------------------------------------------------------------
+
+export type GeneratableSet = {
+  id: string;
+  title: string;
+  entryCount: number;
+  classroomName: string | null;
+};
+
+/** Active sets the actor may generate from (writable, classroom not archived), newest first. */
+export async function listGeneratableSets(actor: ClassroomActor): Promise<GeneratableSet[]> {
+  if (!isTeacherArea(actor.role)) return [];
+  const sets = await listContentSets(actor, "active");
+  return sets
+    .filter((s) => !s.classroomArchived)
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      entryCount: s.entryCount,
+      classroomName: s.classroomName,
+    }));
+}
+
+export type AssignableClassroom = { id: string; name: string };
+
+/** Live classrooms the actor owns or co-teaches (admins: the whole school): where a puzzle may be published. */
+export async function listAssignableClassrooms(
+  actor: ClassroomActor,
+): Promise<AssignableClassroom[]> {
+  if (!isTeacherArea(actor.role)) return [];
+  const rooms = await listClassroomsForActor(actor, { archived: false });
+  return rooms.map((r) => ({ id: r.id, name: r.name }));
+}
+
+/** Readiness of a set the actor may generate from; null when the set is not visible or not usable. */
+export async function getSetReadiness(
+  actor: ClassroomActor,
+  setId: string,
+): Promise<{ title: string; readiness: ReadinessResult } | null> {
+  if (!isTeacherArea(actor.role) || !isUuid(setId)) return null;
+  const set = await getContentSetForActor(actor, setId);
+  if (!set || !canWriteContentSet(set.role) || set.archivedAt !== null || set.classroomArchived)
+    return null;
+  return { title: set.title, readiness: computeReadiness(await loadEntries(set.id)) };
 }

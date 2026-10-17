@@ -46,6 +46,9 @@ import {
 import { MAX_LIVE_PREVIEW_TICKETS } from "@/features/crossword/review/constants";
 import {
   getPuzzleDetail,
+  getSetReadiness,
+  listAssignableClassrooms,
+  listGeneratableSets,
   listPuzzles,
   type PreviewSuccess,
 } from "@/features/crossword/review/service";
@@ -968,5 +971,62 @@ describe("M2-2.2c list and detail visibility", () => {
       hasLiveSuccessor: false,
     });
     expect(item.wordCount).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ---- data for the screens ----------------------------------------------------------------------------------
+
+describe("M2-2.2d data for the screens", () => {
+  it("lists the sets a teacher can generate from, not the sets of others or of archived classrooms", async () => {
+    const oldRoom = await makeClassroom(true);
+    const inArchived = await makeSet(owner.id, "in-archived", CHAIN, oldRoom);
+    const mine = (await listGeneratableSets(owner)).map((s) => s.id);
+    expect(mine).toContain(goodSet);
+    expect(mine).not.toContain(inArchived);
+    expect((await listGeneratableSets(coTeacher)).map((s) => s.id)).toContain(goodSet);
+    expect((await listGeneratableSets(outsider)).map((s) => s.id)).not.toContain(goodSet);
+    expect(await listGeneratableSets(student)).toEqual([]);
+  });
+
+  it("lists the classrooms a puzzle may be published to: live ones the teacher owns or co-teaches", async () => {
+    const owned = (await listAssignableClassrooms(owner)).map((c) => c.id);
+    expect(owned).toEqual(expect.arrayContaining([room, room2, roomOther]));
+    expect(owned).not.toContain(roomArchived);
+    const co = (await listAssignableClassrooms(coTeacher)).map((c) => c.id);
+    expect(co).toContain(room);
+    expect(co).not.toContain(room2);
+    expect(await listAssignableClassrooms(student)).toEqual([]);
+  });
+
+  it("gives the readiness of a usable set and null for one that is not visible or usable", async () => {
+    const good = await getSetReadiness(owner, goodSet);
+    expect(good?.readiness.band).toBe("ready");
+    expect((await getSetReadiness(owner, poorSet))?.readiness.band).toBe("blocked");
+    expect(await getSetReadiness(outsider, goodSet)).toBeNull();
+    expect(await getSetReadiness(owner, "not-a-uuid")).toBeNull();
+  });
+
+  it("names every entry of the set in the preview so left-out words can be listed", async () => {
+    as(owner);
+    const r = await generateCrosswordAction(idle, form({ setId: goodSet, level: "normal" }));
+    expect(r.ok && Object.keys(r.data.entryAnswers).length).toBe(CHAIN.length);
+    const poor = await generateCrosswordAction(idle, form({ setId: poorSet, level: "normal" }));
+    expect(poor.ok && Object.keys(poor.data.entryAnswers).length).toBe(POOR.length);
+  });
+
+  it("detail carries stats, settings, seed and the classrooms of the previous version", async () => {
+    const { puzzleId, preview } = await previewAndSave(owner, goodSet, "detail-ui");
+    as(owner);
+    await publishCrosswordAction(idle, form({ puzzleId, classroomIds: [room, room2] }));
+    const made = await createCrosswordVersionAction(idle, form({ id: puzzleId }));
+    const v2 = (made as { ok: true; data: { puzzleId: string } }).data.puzzleId;
+    const d1 = (await getPuzzleDetail(owner, puzzleId))!;
+    expect(d1.seed).toBe(preview.seed);
+    expect(d1.settings).toMatchObject({ level: "normal", generatorVersion: 1 });
+    expect(d1.stats).toMatchObject({ words: expect.any(Number), quality: expect.any(Number) });
+    expect(d1.previousClassroomIds).toEqual([]);
+    const d2 = (await getPuzzleDetail(owner, v2))!;
+    expect([...d2.previousClassroomIds].sort()).toEqual([room, room2].sort());
+    expect(d2.versions.map((v) => v.version)).toEqual([1, 2]);
   });
 });
