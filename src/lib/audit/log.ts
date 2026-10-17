@@ -9,7 +9,8 @@ export type AuditResource =
   | "classroom"
   | "classroom_teacher"
   | "enrollment"
-  | "content_set";
+  | "content_set"
+  | "crossword";
 
 export type AuditAction =
   | "student.provisioned"
@@ -34,7 +35,15 @@ export type AuditAction =
   | "content_set.import_rejected"
   | "content_set.exported"
   | "content_entry.updated"
-  | "content_entry.archived";
+  | "content_entry.archived"
+  | "crossword.created"
+  | "crossword.updated"
+  | "crossword.copied"
+  | "crossword.published"
+  | "crossword.assigned"
+  | "crossword.assignment_closed"
+  | "crossword.archived"
+  | "crossword.unarchived";
 
 export type AuditWrite = {
   actorId: string | null;
