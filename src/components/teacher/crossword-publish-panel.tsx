@@ -7,6 +7,7 @@ import {
   publishCrosswordAction,
 } from "@/features/crossword/review/actions";
 import { useCrosswordAction } from "./use-crossword-action";
+import { BTN_PRIMARY, CHECK_BOX, CHECK_ROW, INPUT } from "./crossword-ui";
 
 type Classroom = { id: string; name: string };
 
@@ -101,9 +102,10 @@ export function CrosswordPublishPanel({
           <ul className="mt-1 space-y-1">
             {classrooms.map((c) => (
               <li key={c.id} className="text-sm">
-                <label>
+                <label className={CHECK_ROW}>
                   <input
                     type="checkbox"
+                    className={CHECK_BOX}
                     checked={selected.has(c.id)}
                     disabled={taken.has(c.id)}
                     onChange={() => toggle(c.id)}
@@ -127,7 +129,7 @@ export function CrosswordPublishPanel({
               type="datetime-local"
               value={opens}
               onChange={(e) => setOpens(e.target.value)}
-              className="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+              className={`mt-1 ${INPUT}`}
             />
           </div>
           <div>
@@ -139,12 +141,12 @@ export function CrosswordPublishPanel({
               type="datetime-local"
               value={closes}
               onChange={(e) => setCloses(e.target.value)}
-              className="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+              className={`mt-1 ${INPUT}`}
             />
           </div>
         </div>
         {windowInvalid ? (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-red-700">
             마감 시각은 시작 시각보다 늦어야 합니다.
           </p>
         ) : null}
@@ -152,6 +154,7 @@ export function CrosswordPublishPanel({
           <label className="block text-sm">
             <input
               type="checkbox"
+              className={CHECK_BOX}
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
             />{" "}
@@ -164,19 +167,30 @@ export function CrosswordPublishPanel({
           </p>
         )}
         {active.state && !active.state.ok ? (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-red-700">
             {active.state.error}
           </p>
         ) : null}
         {active.state?.ok ? (
-          <p role="status" className="text-sm text-green-700">
+          <p role="status" className="text-sm text-green-800">
             {mode === "publish" ? "배포했습니다." : "학급을 추가했습니다."}
           </p>
         ) : null}
+        {/* A disabled button gives no reason: say what is missing, and tie the text to the button. */}
+        <p id={`why-${mode}`} className="text-xs text-slate-700">
+          {selected.size === 0
+            ? "학급을 하나 이상 선택해 주세요."
+            : !confirmed
+              ? "수정할 수 없게 된다는 확인란을 선택해 주세요."
+              : windowInvalid
+                ? "마감 시각을 시작 시각보다 늦게 정해 주세요."
+                : "준비되었습니다."}
+        </p>
         <button
           type="submit"
+          aria-describedby={`why-${mode}`}
           disabled={active.pending || selected.size === 0 || !confirmed || windowInvalid}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+          className={BTN_PRIMARY}
         >
           {active.pending ? "처리 중..." : mode === "publish" ? "배포" : "학급 추가"}
         </button>

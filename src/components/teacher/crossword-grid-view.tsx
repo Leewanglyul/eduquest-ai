@@ -1,3 +1,4 @@
+import { ScrollRegion } from "./crossword-ui";
 import { buildGrid, type ViewWord } from "@/features/crossword/review/view-model";
 
 type Props = {
@@ -27,12 +28,12 @@ export function CrosswordGridView({ rows, cols, words, showSolution, highlightKe
   }
 
   return (
-    <div
-      className="overflow-x-auto"
-      role="group"
-      aria-label={`낱말 퍼즐 미리보기 ${rows}행 ${cols}열`}
-    >
-      <table className="border-collapse" aria-label="퍼즐 칸">
+    <ScrollRegion label={`낱말 퍼즐 미리보기 ${rows}행 ${cols}열, 단어 ${words.length}개`}>
+      <table className="border-collapse">
+        <caption className="sr-only">
+          퍼즐 칸: 흰 칸에 글자가 들어갑니다. 숫자는 힌트 번호입니다. 힌트는 아래 가로·세로 목록에
+          있습니다.
+        </caption>
         <tbody>
           {grid.map((row, r) => (
             <tr key={r}>
@@ -55,7 +56,7 @@ export function CrosswordGridView({ rows, cols, words, showSolution, highlightKe
                     }`}
                   >
                     {cell.number !== null ? (
-                      <span className="absolute left-0.5 top-0 text-[10px] leading-none text-slate-600">
+                      <span className="absolute left-0.5 top-0 text-[11px] leading-none text-slate-600">
                         {cell.number}
                       </span>
                     ) : null}
@@ -71,6 +72,6 @@ export function CrosswordGridView({ rows, cols, words, showSolution, highlightKe
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }

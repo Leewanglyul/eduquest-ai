@@ -17,7 +17,7 @@ export function CrosswordVersionHistory({ versions, currentId }: Props) {
             {v.id === currentId ? (
               <strong aria-current="page">v{v.version} (현재 화면)</strong>
             ) : (
-              <Link href={`/teacher/crosswords/${v.id}`} className="underline">
+              <Link href={`/teacher/crosswords/${v.id}`} className="inline-block py-3 underline">
                 v{v.version}
               </Link>
             )}{" "}

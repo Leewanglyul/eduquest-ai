@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ViewWord } from "@/features/crossword/review/view-model";
 import { CrosswordGridView } from "./crossword-grid-view";
+import { CHECK_BOX, CHECK_ROW } from "./crossword-ui";
 
 type Props = {
   rows: number;
@@ -16,9 +17,10 @@ export function CrosswordGridPanel({ rows, cols, words, highlightKeys }: Props) 
   const [showSolution, setShowSolution] = useState(true);
   return (
     <div className="space-y-2">
-      <label className="text-sm">
+      <label className={CHECK_ROW}>
         <input
           type="checkbox"
+          className={CHECK_BOX}
           checked={showSolution}
           onChange={(e) => setShowSolution(e.target.checked)}
         />{" "}

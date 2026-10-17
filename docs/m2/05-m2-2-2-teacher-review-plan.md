@@ -1,6 +1,6 @@
 # M2-2.2 Teacher review: implementation plan
 
-Status: **plan, canonical document for M2-2.2 (PM decision, 2026-10-17). Step 2a (schema) is committed: migrations 22–24, `supabase/tests/00012_crossword_review_publish_versioning.test.sql` (153 assertions, green), regenerated `src/types/database.ts` and the audit unions in `src/lib/audit/log.ts`. Step 2b (readiness) and step 2c (services and actions: `src/features/crossword/review/`, no screens) are implemented. Steps 2d–2e are not started.** This document absorbed the earlier draft `05-crossword-review-publish-versioning.md` (version lineage, SQL validator, restore rule); that draft is retired. Baseline: `m2/m2-1-content-pipeline` at `f3df0d3` (M2-1 and the M2-2.1 generator are complete and validated). Source of behaviour: [04-crossword-generator.md](04-crossword-generator.md) (called "doc 04"; § numbers refer to it). Owner: engineering. Needs: the answers in §11 before the migration phase starts.
+Status: **plan, canonical document for M2-2.2 (PM decision, 2026-10-17). Step 2a (schema) is committed: migrations 22–24, `supabase/tests/00012_crossword_review_publish_versioning.test.sql` (153 assertions, green), regenerated `src/types/database.ts` and the audit unions in `src/lib/audit/log.ts`. Steps 2b (readiness), 2c (services and actions: `src/features/crossword/review/`), 2d (teacher screens) and 2e (hardening, section 13) are implemented.** This document absorbed the earlier draft `05-crossword-review-publish-versioning.md` (version lineage, SQL validator, restore rule); that draft is retired. Baseline: `m2/m2-1-content-pipeline` at `f3df0d3` (M2-1 and the M2-2.1 generator are complete and validated). Source of behaviour: [04-crossword-generator.md](04-crossword-generator.md) (called "doc 04"; § numbers refer to it). Owner: engineering. Needs: the answers in §11 before the migration phase starts.
 
 ## 1. Scope
 
@@ -289,3 +289,32 @@ Components (client where needed): `crossword-readiness-panel`, `crossword-genera
 ## 12. Recommended order and first step
 
 Start with **M2-2.2a** (migrations 22-24 and the pgTAP file for immutability and publish rules) together with **M2-2.2b** (readiness, pure) in parallel: they touch different files, and the database rules are the part most worth proving early. Wait for the answers to Q1-Q9 (most can be "yes, as recommended") before cutting the branch.
+
+## 13. M2-2.2e hardening record (teacher review)
+
+Scope was the teacher review only. Checked on the local stack with a production build and with the dev server, at 360 and 400 px wide, with axe-core 4.10 (WCAG 2.0/2.1/2.2 A and AA plus best practice) and a script for contrast, target size and accessible names.
+
+**Fixed**
+
+| Area | Finding | Fix |
+|---|---|---|
+| Mobile | Wide tables and the board could widen the page; list table had six columns | Tables and the board sit in a keyboard-focusable, named scroll box (`ScrollRegion`); the list hides difficulty, word count and date columns on phones; page padding is smaller on phones; no horizontal page scroll at 360 or 400 px |
+| Mobile | Clue editor was a three-column table | One labelled field per clue, readable on a phone and by a screen reader |
+| Touch targets | Buttons, links, summary and checkboxes were 18–30 px tall | At least 44 px rows for buttons, links, inputs, checkbox rows and the summary; checkboxes 24 px |
+| Phones | 14 px inputs make iOS zoom in on focus | Inputs are 16 px on phones |
+| Contrast | White text on amber-600 and red-600 text were close to or under 4.5:1 | amber-700, red-700, green-800; all text now passes (checked by script, axe reported none to fix) |
+| Screen reader | Board had no description | Board has a caption and a named region; result changes are announced in a live region; focus moves to the new preview heading or to the failure message |
+| Keyboard | A disabled publish button gave no reason | A line says what is missing (classroom, confirmation, window) and is tied to the button with `aria-describedby`; tab order follows the visual order, no positive tabindex, focus ring visible |
+| Error handling | A rejected request (network down) ended in an error boundary | The hook turns it into a normal error message; the form stays usable and recovers on the next try |
+| Error handling | Old errors stayed after a later success | The latest result replaces older errors |
+| Error handling | Clicking generate before the page was interactive submitted the form natively and reloaded it | The button stays off until the page is interactive |
+| Workflow UX | A preview expires after 15 minutes without notice | The save button turns off and says so when the ticket expires; a note appears when the options changed after the preview; seed is validated on the page |
+| Workflow UX | Unsaved clue edits were lost silently | The browser warns before leaving; a line shows unsaved changes |
+| Governance | The clue editor accepts free text | Notice "학생 이름, 학번 등 개인정보는 넣지 마세요." on the draft editor; `docs/pilot/12` revised (puzzle rows, deletion order, transfer, single-set deletion) |
+| Tests | The flow test left puzzles behind when titles were edited | Cleanup by creation time |
+
+**Measured** (developer machine, local database; medians of 5): generating a puzzle takes 27 ms for 25 words and 117 ms for 200 words (pure); readiness 6 ms and 53 ms; the generate service call (load entries, readiness, generate, ticket) 151 ms and 467 ms; generate plus save 211 ms and 576 ms; detail read about 50 ms; list of 16 puzzles 40 ms. On the production build the pages answer in 230–310 ms, and click to preview takes about 0.35 s for a 25-word set. First-load JS is 106 kB (list) and 113 kB (generate, review). Budgets are pinned (10x margin) in `tests/access/crossword-hardening.test.ts`.
+
+**Shared-attempt compatibility.** Nothing built in M2-2.2 depends on a single student owner: no student column on assignments, no attempts table, no teacher-side code touching attempts (a test pins this). Remaining work belongs to M2-2.4 and the guidance of `06` §11.8 / §12.8 applies; in particular doc 04 §6.2 draws `crossword_attempts` with `student_id NOT NULL` and `UNIQUE (assignment_id, student_id)`, which M2-2.4 must restate (owner as student or, later, team; actor recorded separately) before the table is created. The play mode (individual or collaborative) is a column on the assignment, added with M2-3 (additive, default individual).
+
+**Open (not fixed here)**: no automated component or browser tests exist in the repo (node-only vitest); screen-reader behaviour was checked by structure (names, roles, live regions), not with a real screen reader; the "꼭 넣기/제외" table is on the generate page only; the review of tablets (768 px) and of right-to-left or large-text settings was not done.

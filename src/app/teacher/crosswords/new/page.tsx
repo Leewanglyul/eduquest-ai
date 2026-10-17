@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BTN_SECONDARY, INPUT } from "@/components/teacher/crossword-ui";
 import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { CrosswordGenerateForm } from "@/components/teacher/crossword-generate-form";
 import { CrosswordReadinessPanel } from "@/components/teacher/crossword-readiness-panel";
@@ -18,8 +19,11 @@ export default async function NewCrosswordPage({ searchParams }: PageProps) {
   const detail = chosen && setId ? await getContentSetDetail(profile, setId) : null;
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <Link href="/teacher/crosswords" className="text-sm underline">
+    <main className="mx-auto max-w-4xl p-4 sm:p-8">
+      <Link
+        href="/teacher/crosswords"
+        className="inline-flex min-h-11 items-center text-sm underline"
+      >
         낱말 퍼즐 목록
       </Link>
       <h1 className="mt-4 mb-6 text-xl font-semibold">새 낱말 퍼즐</h1>
@@ -39,7 +43,7 @@ export default async function NewCrosswordPage({ searchParams }: PageProps) {
             name="setId"
             defaultValue={setId ?? ""}
             required
-            className="mt-1 block rounded-md border border-slate-300 px-2 py-1 text-sm"
+            className={`mt-1 ${INPUT}`}
           >
             <option value="" disabled>
               세트를 선택하세요
@@ -51,7 +55,7 @@ export default async function NewCrosswordPage({ searchParams }: PageProps) {
             ))}
           </select>
         </div>
-        <button type="submit" className="rounded-md border border-slate-900 px-3 py-1 text-sm">
+        <button type="submit" className={BTN_SECONDARY}>
           세트 선택
         </button>
       </form>
@@ -59,7 +63,7 @@ export default async function NewCrosswordPage({ searchParams }: PageProps) {
       {sets.length === 0 ? (
         <p className="text-sm text-slate-600" role="status">
           사용할 수 있는 단어 세트가 없습니다. 먼저{" "}
-          <Link href="/teacher/content/import" className="underline">
+          <Link href="/teacher/content/import" className="inline-block py-3 underline">
             CSV로 세트를 만들어
           </Link>{" "}
           주세요.
@@ -67,7 +71,7 @@ export default async function NewCrosswordPage({ searchParams }: PageProps) {
       ) : null}
 
       {setId && !chosen ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-700">
           단어 세트를 찾을 수 없거나 퍼즐을 만들 수 없는 세트입니다.
         </p>
       ) : null}

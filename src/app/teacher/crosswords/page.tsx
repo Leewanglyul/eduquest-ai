@@ -17,15 +17,15 @@ export default async function CrosswordsPage({ searchParams }: PageProps) {
   const items = await listPuzzles(profile, view);
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <Link href="/teacher" className="text-sm underline">
+    <main className="mx-auto max-w-4xl p-4 sm:p-8">
+      <Link href="/teacher" className="inline-flex min-h-11 items-center text-sm underline">
         교사 대시보드
       </Link>
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">낱말 퍼즐</h1>
         <Link
           href="/teacher/crosswords/new"
-          className="rounded-md bg-slate-900 px-3 py-1 text-sm text-white"
+          className="inline-flex min-h-11 items-center rounded-md bg-slate-900 px-4 text-sm text-white"
         >
           새 퍼즐
         </Link>
@@ -35,7 +35,7 @@ export default async function CrosswordsPage({ searchParams }: PageProps) {
           <Link
             key={v}
             href={v === "draft" ? "/teacher/crosswords" : `/teacher/crosswords?view=${v}`}
-            className={view === v ? "font-semibold underline" : "underline"}
+            className={`inline-flex min-h-11 items-center ${view === v ? "font-semibold underline" : "underline"}`}
             aria-current={view === v ? "page" : undefined}
           >
             {STATUS_LABEL[v]}

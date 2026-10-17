@@ -59,6 +59,7 @@ const SCHOOL = "00000000-0000-4000-8000-0000000000a1";
 const RUN = `W${Date.now().toString(36)}`.toUpperCase();
 const PASSWORD = "Tmp#pass12345";
 const admin = createSupabaseAdminClient();
+const startedAt = new Date().toISOString();
 
 const mk = (id: string, role: Role, name: string): SessionProfile => ({
   id,
@@ -253,7 +254,8 @@ afterAll(async () => {
       "owner_id",
       allUsers.map((u) => u.id),
     )
-    .ilike("title", `${RUN}%`);
+    // Puzzles are renamed, copied and re-saved during the tests, so match on creation time, not on the title.
+    .gte("created_at", startedAt);
   await admin
     .from("crossword_preview_tickets")
     .delete()

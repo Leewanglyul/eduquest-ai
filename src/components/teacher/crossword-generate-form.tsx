@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   generateCrosswordAction,
@@ -14,6 +14,14 @@ import { CrosswordClueLists } from "./crossword-clue-lists";
 import { CrosswordGridView } from "./crossword-grid-view";
 import { CrosswordWarningPanel } from "./crossword-warning-panel";
 import { useCrosswordAction } from "./use-crossword-action";
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  CHECK_BOX,
+  CHECK_ROW,
+  INPUT,
+  ScrollRegion,
+} from "./crossword-ui";
 
 type EntryRow = { id: string; answer: string; definition: string };
 
@@ -46,14 +54,28 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
   const regen = useCrosswordAction(regenerateCrosswordAction);
   const save = useCrosswordAction(saveCrosswordDraftAction);
 
-  // The latest result of either action is what is shown.
+  // The latest result of either action is what is shown; the latest error replaces older ones.
   const [shown, setShown] = useState<PreviewResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  // Before the page is interactive a click would submit the form natively and reload the page: keep the button off.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  const previewHeading = useRef<HTMLHeadingElement>(null);
+  const failureBox = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (gen.state?.ok) setShown(gen.state.data);
+    if (!gen.state) return;
+    if (gen.state.ok) setShown(gen.state.data);
+    setError(gen.state.ok ? null : gen.state.error);
   }, [gen.state]);
   useEffect(() => {
-    if (regen.state?.ok) setShown(regen.state.data);
+    if (!regen.state) return;
+    if (regen.state.ok) setShown(regen.state.data);
+    setError(regen.state.ok ? null : regen.state.error);
   }, [regen.state]);
+  useEffect(() => {
+    if (save.state && !save.state.ok) setError(save.state.error);
+  }, [save.state]);
   useEffect(() => {
     if (save.state?.ok) router.push(`/teacher/crosswords/${save.state.data.puzzleId}`);
   }, [save.state, router]);
@@ -69,6 +91,7 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
 
   function onGenerate(e: React.FormEvent) {
     e.preventDefault();
+    if (seedTooBig) return;
     const o = options();
     setUsedOptions(o);
     const seed = seedText.trim() === "" ? undefined : Number(seedText);
@@ -84,13 +107,48 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
   const preview: PreviewSuccess | null = shown && shown.ok ? shown : null;
   const failure = shown && !shown.ok ? shown : null;
   const busy = gen.pending || regen.pending || save.pending;
-  const actionError =
-    (gen.state && !gen.state.ok ? gen.state.error : null) ??
-    (regen.state && !regen.state.ok ? regen.state.error : null) ??
-    (save.state && !save.state.ok ? save.state.error : null);
+  const seedTooBig = seedText !== "" && Number(seedText) > 0xffffffff;
+
+  // A preview is valid for 15 minutes; after that the ticket is refused, so say so before the teacher tries.
+  const expiresAt = preview?.ticket.expiresAt;
+  useEffect(() => {
+    setExpired(false);
+    if (!expiresAt) return;
+    const ms = new Date(expiresAt).getTime() - Date.now();
+    if (ms <= 0) {
+      setExpired(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setExpired(true), ms);
+    return () => window.clearTimeout(timer);
+  }, [expiresAt]);
+
+  // Move focus to the new result so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (preview) previewHeading.current?.focus();
+  }, [preview?.ticket.ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (failure) failureBox.current?.focus();
+  }, [failure]);
+
+  // The preview on screen was made with other options than the form shows now.
+  const optionsChanged =
+    preview !== null &&
+    usedOptions !== null &&
+    JSON.stringify(usedOptions) !== JSON.stringify(options());
+  const announcement =
+    gen.pending || regen.pending
+      ? "퍼즐을 만드는 중입니다."
+      : save.pending
+        ? "초안으로 저장하는 중입니다."
+        : preview
+          ? `미리보기가 준비되었습니다. 단어 ${preview.stats.totalWords}개, ${preview.rows}행 ${preview.cols}열.`
+          : failure
+            ? failure.message
+            : "";
 
   function onSave() {
-    if (!preview || !usedOptions) return;
+    if (!preview || !usedOptions || expired) return;
     save.submit({
       ...usedOptions,
       seed: preview.seed,
@@ -134,9 +192,10 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
           <legend className="text-sm font-medium">난이도</legend>
           <div className="mt-1 flex gap-4">
             {(["easy", "normal", "hard"] as const).map((l) => (
-              <label key={l} className="text-sm">
+              <label key={l} className={CHECK_ROW}>
                 <input
                   type="radio"
+                  className={CHECK_BOX}
                   name="level"
                   value={l}
                   checked={level === l}
@@ -157,11 +216,14 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
           open={advanced}
           onToggle={(e) => setAdvanced((e.target as HTMLDetailsElement).open)}
         >
-          <summary className="cursor-pointer text-sm font-medium">고급 옵션</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">
+            고급 옵션
+          </summary>
           <div className="mt-2 space-y-3">
-            <label className="block text-sm">
+            <label className={CHECK_ROW}>
               <input
                 type="checkbox"
+                className={CHECK_BOX}
                 checked={maskClues}
                 onChange={(e) => setMaskClues(e.target.checked)}
               />{" "}
@@ -177,79 +239,90 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
                 pattern="[0-9]*"
                 value={seedText}
                 onChange={(e) => setSeedText(e.target.value.replace(/\D/g, ""))}
-                className="mt-1 w-48 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                aria-invalid={seedTooBig}
+                aria-describedby={seedTooBig ? "seedError" : undefined}
+                className={`mt-1 max-w-48 ${INPUT}`}
               />
+              {seedTooBig ? (
+                <p id="seedError" role="alert" className="mt-1 text-sm text-red-700">
+                  시드는 0부터 4294967295 사이의 숫자여야 합니다.
+                </p>
+              ) : null}
             </div>
-            <table className="w-full border-collapse text-sm">
-              <caption className="mb-1 text-left text-xs text-slate-600">
-                단어를 직접 고정하거나 제외할 수 있습니다.
-              </caption>
-              <thead>
-                <tr className="bg-slate-100 text-left">
-                  <th scope="col" className="border border-slate-200 px-2 py-1">
-                    정답
-                  </th>
-                  <th scope="col" className="border border-slate-200 px-2 py-1">
-                    뜻
-                  </th>
-                  <th scope="col" className="border border-slate-200 px-2 py-1">
-                    꼭 넣기
-                  </th>
-                  <th scope="col" className="border border-slate-200 px-2 py-1">
-                    제외
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((en) => (
-                  <tr key={en.id}>
-                    <th
-                      scope="row"
-                      className="border border-slate-200 px-2 py-1 text-left font-normal"
-                    >
-                      {en.answer}
+            <ScrollRegion label="단어 고정 및 제외 표">
+              <table className="w-full border-collapse text-sm">
+                <caption className="mb-1 text-left text-xs text-slate-600">
+                  단어를 직접 고정하거나 제외할 수 있습니다.
+                </caption>
+                <thead>
+                  <tr className="bg-slate-100 text-left">
+                    <th scope="col" className="border border-slate-200 px-2 py-1">
+                      정답
                     </th>
-                    <td className="border border-slate-200 px-2 py-1">{en.definition}</td>
-                    <td className="border border-slate-200 px-2 py-1">
-                      <input
-                        type="checkbox"
-                        aria-label={`${en.answer} 꼭 넣기`}
-                        checked={pinned.has(en.id)}
-                        onChange={() => toggle(pinned, setPinned, en.id, [excluded, setExcluded])}
-                      />
-                    </td>
-                    <td className="border border-slate-200 px-2 py-1">
-                      <input
-                        type="checkbox"
-                        aria-label={`${en.answer} 제외`}
-                        checked={excluded.has(en.id)}
-                        onChange={() => toggle(excluded, setExcluded, en.id, [pinned, setPinned])}
-                      />
-                    </td>
+                    <th scope="col" className="border border-slate-200 px-2 py-1">
+                      뜻
+                    </th>
+                    <th scope="col" className="border border-slate-200 px-2 py-1">
+                      꼭 넣기
+                    </th>
+                    <th scope="col" className="border border-slate-200 px-2 py-1">
+                      제외
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {entries.map((en) => (
+                    <tr key={en.id}>
+                      <th
+                        scope="row"
+                        className="border border-slate-200 px-2 py-1 text-left font-normal"
+                      >
+                        {en.answer}
+                      </th>
+                      <td className="border border-slate-200 px-2 py-1">{en.definition}</td>
+                      <td className="border border-slate-200 px-2 py-1">
+                        <input
+                          type="checkbox"
+                          className={CHECK_BOX}
+                          aria-label={`${en.answer} 꼭 넣기`}
+                          checked={pinned.has(en.id)}
+                          onChange={() => toggle(pinned, setPinned, en.id, [excluded, setExcluded])}
+                        />
+                      </td>
+                      <td className="border border-slate-200 px-2 py-1">
+                        <input
+                          type="checkbox"
+                          className={CHECK_BOX}
+                          aria-label={`${en.answer} 제외`}
+                          checked={excluded.has(en.id)}
+                          onChange={() => toggle(excluded, setExcluded, en.id, [pinned, setPinned])}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollRegion>
           </div>
         </details>
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={busy || !ready} className={BTN_PRIMARY}>
           {gen.pending ? "생성 중..." : "생성"}
         </button>
       </form>
 
-      {actionError ? (
-        <p role="alert" className="text-sm text-red-600">
-          {actionError}
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
+      {error ? (
+        <p role="alert" className="text-sm text-red-700">
+          {error}
         </p>
       ) : null}
 
       {failure ? (
-        <div className="space-y-3">
+        <div ref={failureBox} tabIndex={-1} className="space-y-3 outline-none">
           <p role="alert" className="rounded-md border border-red-700 p-3 text-sm text-red-800">
             {failure.message}
           </p>
@@ -265,12 +338,18 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
       {preview ? (
         <section aria-labelledby="preview-title" className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="preview-title" className="text-lg font-semibold">
+            <h2
+              id="preview-title"
+              ref={previewHeading}
+              tabIndex={-1}
+              className="text-lg font-semibold outline-none"
+            >
               미리보기
             </h2>
-            <label className="text-sm">
+            <label className={CHECK_ROW}>
               <input
                 type="checkbox"
+                className={CHECK_BOX}
                 checked={showSolution}
                 onChange={(e) => setShowSolution(e.target.checked)}
               />{" "}
@@ -287,32 +366,32 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
 
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
             <div>
-              <dt className="text-slate-600">단어</dt>
+              <dt className="text-slate-700">단어</dt>
               <dd>
                 {preview.stats.totalWords}개 (가로 {preview.stats.across} · 세로{" "}
                 {preview.stats.down})
               </dd>
             </div>
             <div>
-              <dt className="text-slate-600">겹친 칸</dt>
+              <dt className="text-slate-700">겹친 칸</dt>
               <dd>{preview.stats.crossings}개</dd>
             </div>
             <div>
-              <dt className="text-slate-600">크기</dt>
+              <dt className="text-slate-700">크기</dt>
               <dd>
                 {preview.rows}×{preview.cols}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-600">난이도 점수</dt>
+              <dt className="text-slate-700">난이도 점수</dt>
               <dd>{preview.difficulty}</dd>
             </div>
             <div>
-              <dt className="text-slate-600">시드</dt>
+              <dt className="text-slate-700">시드</dt>
               <dd>{preview.seed}</dd>
             </div>
             <div>
-              <dt className="text-slate-600">완성도</dt>
+              <dt className="text-slate-700">완성도</dt>
               <dd>{preview.score.quality}/100</dd>
             </div>
           </dl>
@@ -325,6 +404,17 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
           />
 
           <div className="space-y-3 rounded-md border border-slate-300 p-4">
+            {expired ? (
+              <p role="alert" className="text-sm text-red-700">
+                이 미리보기는 15분이 지나 만료되었습니다. 다시 생성해 주세요.
+              </p>
+            ) : null}
+            {optionsChanged ? (
+              <p role="status" className="text-sm text-amber-800">
+                옵션을 바꾸었습니다. 화면의 미리보기는 이전 옵션으로 만든 것입니다. 저장하면 이전
+                옵션 그대로 저장되고, 바꾼 옵션을 반영하려면 다시 생성해 주세요.
+              </p>
+            ) : null}
             <div>
               <label htmlFor="puzzleTitle" className="block text-sm font-medium">
                 퍼즐 이름
@@ -335,7 +425,7 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={80}
                 required
-                className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                className={`mt-1 ${INPUT}`}
               />
             </div>
             <div className="flex flex-wrap gap-3">
@@ -343,15 +433,15 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
                 type="button"
                 onClick={onRegenerate}
                 disabled={busy}
-                className="rounded-md border border-slate-900 px-4 py-2 text-sm disabled:opacity-50"
+                className={BTN_SECONDARY}
               >
                 {regen.pending ? "생성 중..." : "다시 생성"}
               </button>
               <button
                 type="button"
                 onClick={onSave}
-                disabled={busy || title.trim() === ""}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+                disabled={busy || expired || title.trim() === ""}
+                className={BTN_PRIMARY}
               >
                 {save.pending ? "저장 중..." : "초안으로 저장"}
               </button>

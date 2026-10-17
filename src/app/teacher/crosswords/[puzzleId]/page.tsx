@@ -38,9 +38,12 @@ export default async function CrosswordReviewPage({ params }: PageProps) {
   const isDraft = puzzle.status === "draft";
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-8">
+    <main className="mx-auto max-w-4xl space-y-8 p-4 sm:p-8">
       <div>
-        <Link href="/teacher/crosswords" className="text-sm underline">
+        <Link
+          href="/teacher/crosswords"
+          className="inline-flex min-h-11 items-center text-sm underline"
+        >
           낱말 퍼즐 목록
         </Link>
         <h1 className="mt-4 text-xl font-semibold">
@@ -86,7 +89,7 @@ export default async function CrosswordReviewPage({ params }: PageProps) {
             <CrosswordDraftEditor puzzleId={puzzle.id} title={puzzle.title} words={words} />
           </section>
           {multiWords < CROSSWORD_MIN_WORDS ? (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-700">
               서로 겹치는 단어가 {CROSSWORD_MIN_WORDS}개 이상이어야 배포할 수 있습니다 (현재{" "}
               {multiWords}개).
             </p>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScrollRegion } from "./crossword-ui";
 import type { CrosswordListItem, CrosswordListView } from "@/features/crossword/review/service";
 import { LEVEL_LABEL, STATUS_LABEL } from "@/features/crossword/review/view-model";
 
@@ -19,49 +20,60 @@ export function CrosswordList({ items, view }: Props) {
     );
   }
   return (
-    <table className="w-full border-collapse text-sm">
-      <caption className="sr-only">{STATUS_LABEL[view]} 낱말 퍼즐</caption>
-      <thead>
-        <tr className="bg-slate-100 text-left">
-          <th scope="col" className="border border-slate-200 px-2 py-1">
-            퍼즐
-          </th>
-          <th scope="col" className="border border-slate-200 px-2 py-1">
-            버전
-          </th>
-          <th scope="col" className="border border-slate-200 px-2 py-1">
-            난이도
-          </th>
-          <th scope="col" className="border border-slate-200 px-2 py-1">
-            단어
-          </th>
-          <th scope="col" className="border border-slate-200 px-2 py-1">
-            배포 학급
-          </th>
-          <th scope="col" className="border border-slate-200 px-2 py-1">
-            수정일
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <tr key={item.id}>
-            <th scope="row" className="border border-slate-200 px-2 py-1 text-left font-normal">
-              <Link href={`/teacher/crosswords/${item.id}`} className="underline">
-                {item.title}
-              </Link>
-              {item.hasLiveSuccessor ? (
-                <span className="ml-2 text-xs text-slate-600">(새 버전 있음)</span>
-              ) : null}
+    <ScrollRegion label={`${STATUS_LABEL[view]} 낱말 퍼즐 표`}>
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only">{STATUS_LABEL[view]} 낱말 퍼즐</caption>
+        <thead>
+          <tr className="bg-slate-100 text-left">
+            <th scope="col" className="border border-slate-200 px-2 py-1">
+              퍼즐
             </th>
-            <td className="border border-slate-200 px-2 py-1">v{item.version}</td>
-            <td className="border border-slate-200 px-2 py-1">{LEVEL_LABEL[item.level]}</td>
-            <td className="border border-slate-200 px-2 py-1">{item.wordCount}</td>
-            <td className="border border-slate-200 px-2 py-1">{item.openAssignments}</td>
-            <td className="border border-slate-200 px-2 py-1">{item.updatedAt.slice(0, 10)}</td>
+            <th scope="col" className="border border-slate-200 px-2 py-1">
+              버전
+            </th>
+            <th scope="col" className="hidden sm:table-cell border border-slate-200 px-2 py-1">
+              난이도
+            </th>
+            <th scope="col" className="hidden sm:table-cell border border-slate-200 px-2 py-1">
+              단어
+            </th>
+            <th scope="col" className="border border-slate-200 px-2 py-1">
+              배포 학급
+            </th>
+            <th scope="col" className="hidden sm:table-cell border border-slate-200 px-2 py-1">
+              수정일
+            </th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <th scope="row" className="border border-slate-200 px-2 py-1 text-left font-normal">
+                <Link
+                  href={`/teacher/crosswords/${item.id}`}
+                  className="inline-block py-3 underline"
+                >
+                  {item.title}
+                </Link>
+                {item.hasLiveSuccessor ? (
+                  <span className="ml-2 text-xs text-slate-600">(새 버전 있음)</span>
+                ) : null}
+              </th>
+              <td className="border border-slate-200 px-2 py-1">v{item.version}</td>
+              <td className="hidden border border-slate-200 px-2 py-1 sm:table-cell">
+                {LEVEL_LABEL[item.level]}
+              </td>
+              <td className="hidden border border-slate-200 px-2 py-1 sm:table-cell">
+                {item.wordCount}
+              </td>
+              <td className="border border-slate-200 px-2 py-1">{item.openAssignments}</td>
+              <td className="hidden border border-slate-200 px-2 py-1 sm:table-cell">
+                {item.updatedAt.slice(0, 10)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </ScrollRegion>
   );
 }

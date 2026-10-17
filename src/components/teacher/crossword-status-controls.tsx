@@ -8,6 +8,7 @@ import {
   unarchiveCrosswordAction,
 } from "@/features/crossword/review/actions";
 import { useCrosswordAction } from "./use-crossword-action";
+import { BTN_PRIMARY, BTN_SECONDARY, BTN_WARN } from "./crossword-ui";
 
 type Props = {
   puzzleId: string;
@@ -51,7 +52,7 @@ export function CrosswordStatusControls({
             type="button"
             disabled={busy}
             onClick={() => version.submit({ id: puzzleId })}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+            className={BTN_PRIMARY}
           >
             {version.pending ? "만드는 중..." : "새 버전 만들기"}
           </button>
@@ -75,7 +76,7 @@ export function CrosswordStatusControls({
             )
               archive.submit({ id: puzzleId });
           }}
-          className="rounded-md bg-amber-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+          className={BTN_WARN}
         >
           {archive.pending ? "처리 중..." : "보관"}
         </button>
@@ -88,13 +89,13 @@ export function CrosswordStatusControls({
           type="button"
           disabled={busy}
           onClick={() => restore.submit({ id: puzzleId })}
-          className="rounded-md border border-slate-900 px-4 py-2 text-sm disabled:opacity-50"
+          className={BTN_SECONDARY}
         >
           {restore.pending ? "처리 중..." : "초안으로 복원"}
         </button>
       )}
       {error && !error.ok ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-700">
           {error.error}
         </p>
       ) : null}

@@ -2,6 +2,8 @@
 
 Status: **final text, awaiting signature.** Not in force until the sign-off in `13-d6-signoff.md` is signed. Closes decision D6 and required item R10 only after signing and after the erasure procedure (§3) has been rehearsed on staging (ST-56 / VER-43). Revised for the M2 word-set (CSV content) feature: new rows in §0.1, a rule in §1, a retention row in §2, deletion order in §3.4, set transfer in §4.3 and assumptions 7-8 in §5.
 
+**Second revision (M2-2.2e, crossword teacher content).** Adds the teacher-side crossword data: puzzles, their words, assignments and preview tickets (rows in §0.1, a rule in §1, a retention row in §2, deletion in §3.4, transfer in §4.3, assumption 9 in §5, evidence in §6). **It does not cover student play.** The table `crossword_attempts` (what a student typed, hints used, time) does not exist yet and no student can play a puzzle. **This policy must be extended and re-signed before any student plays a crossword (M2-2.4).** Because the signed text changes, the sign-off in `13-d6-signoff.md` has to be repeated for the changed sections.
+
 Parts: §1 consent policy · §2 retention policy · §3 erasure policy and procedure · §4 teacher suspension policy and procedure.
 
 This is an operating policy for the M1 pilot. It is not legal advice. The school's data-protection contact (개인정보 보호책임자) must review §1 against the school's own privacy notice and the applicable law before signing.
@@ -38,6 +40,9 @@ This is an operating policy for the M1 pilot. It is not legal advice. The school
 | Audit rows | `public.audit_logs` | `metadata` holds `studentId` and, for `student.provisioned`, the **`username`**; `actor_id` is the acting teacher | **No.** Kept; see §3.3 |
 | Batch records | `public.account_batches` | No names or numbers: only counts, hashes and times | Deleted with the acting teacher's profile (cascade) |
 | Word sets and entries (M2) | `public.content_sets`, `public.content_entries` | Intended no: vocabulary and clues written by teachers. It is free text, so a teacher could type personal data by mistake; the import and edit pages tell them not to (§1) | Not touched by deleting a student. Removed with the **set**: a teacher who owns sets cannot be deleted until the sets are transferred (§4.3) or deleted (§3.4) |
+| Crossword puzzles (M2-2) | `public.crossword_puzzles`, `public.crossword_words`, `public.crossword_assignments` | Intended no. A puzzle holds its own **copy** of the answers and the clues of the word set it was made from, and teachers can rewrite clues, so it is free text like a word set (§1). An assignment links a puzzle to a classroom (no student) | Not touched by deleting a student. **Not removed when the set is deleted:** the copy survives (`set_id` becomes empty). Removed with the **puzzle**: a teacher who owns puzzles cannot be deleted until they are transferred (§4.3) or deleted (§3.4). Deleting a classroom deletes its assignments but not the puzzle |
+| Crossword preview tickets (M2-2) | `public.crossword_preview_tickets` | No content: hashes, ids and times. Expire after 15 minutes and are cleaned up | Deleted with the acting teacher's profile (cascade) and with the set |
+| Crossword audit rows (M2-2) | `public.audit_logs`, actions `crossword.*` | No answers or clues: only ids, counts, classroom ids and field names | Kept 1 year like the other audit rows; nothing to de-identify |
 | Content import records (M2) | `public.content_import_batches` | No content: counts, hashes, sizes and times. The uploaded CSV file is not stored anywhere | Deleted with the acting teacher's profile (cascade) |
 | Content audit rows (M2) | `public.audit_logs`, actions `content_set.*`, `content_entry.*` | No terms or definitions: only ids, counts and hashes | Kept 1 year like the other audit rows; nothing to de-identify |
 | Temporary passwords | Nowhere | n/a | Never stored; shown once to the teacher |
@@ -63,6 +68,8 @@ Staff (teacher and admin) accounts hold a name and a real email address in `prof
 
 **Word lists (M2).** Teachers may upload vocabulary lists (CSV `term,definition`) that later feed quizzes and crosswords. A list must not contain the name, student number or any other personal data of a student, a colleague or anyone else. The upload and edit pages say so in Korean ("학생 이름, 학번 등 개인정보는 넣지 마세요."), and the teacher who uploads is responsible for the content. If personal data is found in a list, it is handled like an erasure request: the whole set is deleted (§3.4 shows the statement), archived entries included, and the ledger records the case.
 
+**Crosswords (M2-2).** A puzzle is built from a word set and keeps its own copy of the answers and clues, so it must follow the same rule and the draft page says so in Korean ("학생 이름, 학번 등 개인정보는 넣지 마세요."). If personal data is found in a word list, **the puzzles made from that set are deleted too, before the set is deleted**: once the set is gone the link from the puzzle to the set is lost and the copies can no longer be found by set (§3.4 shows the order). Published puzzles cannot be edited (a published puzzle is frozen), so the only correction for a published puzzle is deletion.
+
 **Staff.** Teachers and admins consent to hold an account (name and email) when they are bootstrapped (`02`).
 
 ### 1.1 Notice text (Korean; for the school to adapt and issue)
@@ -82,6 +89,7 @@ Staff (teacher and admin) accounts hold a name and a real email address in `prof
 |---|---|
 | Student personal data (profile, student record, account, enrollments, sessions) | Kept while the pilot runs. **Deleted no later than 30 days after the pilot end date** (§3.4) |
 | Teacher word sets and entries (M2) | Kept while the pilot runs. Replaced and archived entries are kept too (archive only, nothing is purged). **Deleted in the end-of-pilot run, before the teachers** (§3.4). Teachers can download their sets before then |
+| Teacher crossword puzzles, words, assignments and tickets (M2-2) | Kept while the pilot runs. Replaced versions are archived, never purged. Tickets expire after 15 minutes and are cleaned up. **Deleted in the end-of-pilot run, before the teachers** (§3.4). No student data is stored by M2-2.2 |
 | Teacher and admin accounts | Suspended on the pilot end date (§4). Deleted in the same deletion run, after the students (§3.4), unless the PM records a reason to keep a named account |
 | Audit logs | Kept after student deletion in the de-identified form of §3.3 for **1 year** from the log row's creation date. After that they are deleted: `delete from public.audit_logs where created_at < now() - interval '1 year';` (run by Ops with a second person, logged) |
 | Ops erasure ledger (§3.2) | Kept for the life of the audit logs; contains no names or usernames |
@@ -169,6 +177,12 @@ where id in (select id from public.profiles where role = 'student' and school_id
 -- (Deleting a classroom cascades to its enrollments and co-teacher rows.)
 delete from public.classrooms where school_id = '<school_id>';
 
+-- Crossword puzzles (M2-2): crossword_puzzles.owner_id is ON DELETE RESTRICT, so the puzzles go before their owners.
+-- Deleting a puzzle cascades to its words and assignments (and the versions of its lineage). Delete the puzzles BEFORE
+-- the sets, so that a puzzle can still be found through its set while it is needed.
+delete from public.crossword_puzzles where school_id = '<school_id>';
+delete from public.crossword_preview_tickets where school_id = '<school_id>';
+
 -- Word sets (M2): content_sets.owner_id is ON DELETE RESTRICT, so the sets go before their owners.
 -- Deleting a set cascades to its entries; content_import_batches keep only counts and lose set_id.
 delete from public.content_sets where school_id = '<school_id>';
@@ -182,9 +196,26 @@ select
   (select count(*) from public.profiles    where school_id = '<school_id>' and role in ('student','teacher')) as profiles,
   (select count(*) from public.students    where school_id = '<school_id>') as students,
   (select count(*) from public.classrooms  where school_id = '<school_id>') as classrooms,
+  (select count(*) from public.crossword_puzzles where school_id = '<school_id>') as crossword_puzzles,
   (select count(*) from public.content_sets where school_id = '<school_id>') as content_sets,
   (select count(*) from public.audit_logs  where metadata ? 'username') as audit_with_username;
 
+commit;
+```
+
+**One word list with personal data (§1).** Delete the puzzles made from the set first, then the set; replace `<set_id>`. Run it as one transaction and record it in the ledger. The first statement must come first: after the set is deleted `set_id` is empty and the puzzles can no longer be found by set.
+
+```sql
+begin;
+-- All versions of every puzzle made from the set (a version keeps the set_id of the puzzle it was copied from).
+delete from public.crossword_puzzles
+where root_id in (select root_id from public.crossword_puzzles where set_id = '<set_id>');
+delete from public.crossword_preview_tickets where set_id = '<set_id>';
+delete from public.content_sets where id = '<set_id>';
+-- Verify: both expect 0.
+select
+  (select count(*) from public.crossword_puzzles where set_id = '<set_id>') as puzzles_left,
+  (select count(*) from public.content_sets where id = '<set_id>') as set_left;
 commit;
 ```
 
@@ -249,6 +280,24 @@ select public.fn_revoke_user_sessions((select id from auth.users where email = '
   select count(*) as still_owned from public.content_sets where owner_id = '<old_owner_id>';  -- expect 0
   commit;
   ```
+- **Crossword puzzles (M2-2).** A teacher who owns puzzles cannot be deleted either. Transfer them to the same active teacher as the word sets (two-person rule). The transfer is the one change a published puzzle allows; everything else about a published puzzle stays frozen. Classroom owners and co-teachers of a classroom the puzzle is assigned to (or of the set's classroom) can already read and manage it.
+
+  ```sql
+  begin;
+  with moved as (
+    update public.crossword_puzzles
+    set owner_id = '<new_owner_id>'
+    where owner_id = '<old_owner_id>' and school_id = '<school_id>'
+    returning id
+  )
+  insert into public.audit_logs (actor_id, action, resource_type, resource_id, metadata)
+  select null, 'crossword.updated', 'crossword', id,
+         jsonb_build_object('fields', jsonb_build_array('owner_id'), 'transferredTo', '<new_owner_id>')
+  from moved;
+  -- Expect one audit row per puzzle.
+  select count(*) as still_owned from public.crossword_puzzles where owner_id = '<old_owner_id>';  -- expect 0
+  commit;
+  ```
 - **Student credentials.** If the teacher had printed credential sheets, ask for them to be returned or destroyed. Reissue passwords for affected students (`student.password_reissued` is audited).
 - **Record** date, reason, approver and who ran it in the ops log.
 
@@ -277,6 +326,7 @@ For an incident, use the emergency stop and resume steps in `08` §F. They suspe
 | 6 | ~~Response time for an erasure request~~ **Decided: 7 days** (calendar days, from receipt, approval included; the 3/6/7-day split in §3.1 is a working guide) | 교무기획팀장 |
 | 7 | Word lists (M2) contain no personal data of students; teachers are told on the import and edit pages (§1) | School data-protection contact |
 | 8 | Teachers download the word sets they want to keep before the end-of-pilot run (§3.4) | PM |
+| 9 | Crossword puzzles (M2-2) contain no personal data of students: they copy teacher text; teachers are told on the draft page (§1). **Student play and attempts (M2-2.4) are not covered and need a new revision first** | School data-protection contact |
 
 ## 6. Closure evidence for D6 / R10
 
@@ -284,6 +334,7 @@ For an incident, use the emergency stop and resume steps in `08` §F. They suspe
 - ☐ §5 assumptions 1, 2, 4, 5, 7 and 8 answered (3 and 6 are decided)
 - ☐ ST-56 / VER-43 run on staging with §3.3; output attached
 - ☐ Word sets (M2) rehearsed on staging: create a set, try to delete its owner (refused), transfer it with §4.3, then run the §3.4 statements; `content_sets` count is 0
+- ☐ Crosswords (M2-2) rehearsed on staging: create a puzzle from a set, try to delete its owner (refused), transfer it with §4.3, delete the puzzles then the set with the single-set block of §3.4, then run the end-of-pilot statements; `crossword_puzzles` count is 0
 - ☐ Consent list process in place with the class teachers
 - ☐ Erasure ledger created (empty)
 - ☐ Ops know §4 (a dry run of suspend and reactivate on a test teacher: ST-29)
