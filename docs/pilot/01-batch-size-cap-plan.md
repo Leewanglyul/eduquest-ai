@@ -1,6 +1,6 @@
 # 1. Batch size cap: implementation plan
 
-Status: **plan only, nothing implemented.** Owner: engineering. Needs: a staging measurement before the final number is fixed.
+Status: **items 1–3 implemented (R2, cap = 30, tests in `tests/access/batch-cap.test.ts`); items 4–7 and the staging measurement are still open.** Owner: engineering. Needs: a staging measurement before the final number is fixed.
 
 ## Why a cap is required
 
@@ -12,12 +12,12 @@ Status: **plan only, nothing implemented.** Owner: engineering. Needs: a staging
 
 Recovery exists now (teacher password reissue), but a timeout still costs a classroom's worth of reissues. The cap keeps a normal batch comfortably inside the host's request limit.
 
-## Current state (from the code)
+## Current state (from the code; the cap rows reflect R2, the rest is unchanged)
 
 | Item | Value | Where |
 |---|---|---|
-| Max rows per batch | **200** | `MAX_BATCH_ROWS`, `src/features/accounts/batch/batch-schemas.ts:4` |
-| Max CSV size | 256 KB | `MAX_CSV_BYTES` (same file) and a duplicated literal `256 * 1024` in `src/components/teacher/batch-upload-form.tsx` |
+| Max rows per batch | **30** (was 200; changed by R2) | `MAX_BATCH_ROWS`, `src/features/accounts/batch/batch-schemas.ts:4` |
+| Max CSV size | 256 KB | `MAX_CSV_BYTES` (same file) (the upload form now receives it as a prop; no duplicated literal) |
 | Processing | **sequential** loop | `commitStudentBatch`, `batch-service.ts` |
 | Preview token lifetime | 15 min | `COMMIT_TOKEN_TTL_MINUTES` |
 | Cap enforced at | CSV parse (`TOO_MANY_ROWS`) and the zod schema `.max()` | `csv-parse.ts`, `batch-schemas.ts` |

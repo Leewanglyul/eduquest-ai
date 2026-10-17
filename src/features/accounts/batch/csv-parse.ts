@@ -76,7 +76,10 @@ export function parseStudentCsv(text: string): RawStudentRow[] {
   const body = table.slice(1);
   if (body.length === 0) throw new BatchError("EMPTY_FILE", "학생 행이 없습니다.");
   if (body.length > MAX_BATCH_ROWS) {
-    throw new BatchError("TOO_MANY_ROWS", `한 번에 최대 ${MAX_BATCH_ROWS}명까지 만들 수 있습니다.`);
+    throw new BatchError(
+      "TOO_MANY_ROWS",
+      `학생이 ${body.length}명입니다. 한 번에 최대 ${MAX_BATCH_ROWS}명까지 만들 수 있습니다. 파일을 ${MAX_BATCH_ROWS}명 이하로 나누어 올려 주세요.`,
+    );
   }
 
   return body.map((cells, i) => ({

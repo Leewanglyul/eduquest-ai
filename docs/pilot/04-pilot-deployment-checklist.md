@@ -51,7 +51,7 @@ Use two browsers/profiles (teacher, student). Record result and time for each st
 | S2 | `/teacher` as a signed-out visitor, and `/student` as the teacher | Redirected to the matching sign-in |
 | S3 | Create a classroom, note the code, rename it, copy the code | Works; code cannot be edited |
 | S4 | Create one student with "학생 계정 만들기" | Account created and enrolled; username shown once. **This proves the `.invalid` email is accepted (checklist 3.6)** |
-| S5 | Import a CSV of exactly the cap (see plan 01). **Until the cap is implemented the code still allows 200 rows: use 30 rows** | Preview shows rows; commit succeeds; credential CSV downloads; all rows on the roster. Record seconds per row |
+| S5 | Import a CSV of exactly the cap (see plan 01). **The code now refuses more than 30 rows (R2); cap + 1 must be refused at preview** | Preview shows rows; commit succeeds; credential CSV downloads; all rows on the roster. Record seconds per row |
 | S5b | Import cap + 1 rows | Refused at preview, nothing created. **Blocked until the cap is implemented (production blocker B2): record "blocked", do not mark as passed** |
 | S6 | Student first login with the temporary password | Forced to `/student/set-password`; opening `/student` directly bounces back; a too-short password shows a clear message |
 | S7 | Student sets a new password | Lands on `/student`; sees only the active classroom |

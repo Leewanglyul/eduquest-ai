@@ -96,7 +96,7 @@ Rules and checks:
 |---|---|
 | One school | Works by convention: one shared `school_id`. Not database-enforced (no schools table); check with `select count(distinct school_id) from public.profiles;` = 1 |
 | 3–4 teachers, ≤ 100 students | [V-local] 4 teachers / 4 classrooms / 100 students on a production build: pages answered in about 0.2 s (p50 180–220 ms); 30 simultaneous log-ins: 0 failures, 950 ms. Excludes hosted rate limiting |
-| ≤ 30 students per CSV | **Not enforced:** the code allows 200 and the page says "최대 200명". A class of 31–35 needs two files. Process rule until R2 |
+| ≤ 30 students per CSV | **Enforced (R2):** the code refuses more than 30 and the page says "최대 30명". A class of 31–35 needs two files. Staging measurement still open |
 
 ## 3. Pilot operator runbook
 
@@ -181,7 +181,7 @@ Rating = likelihood × impact with the pilot constraints in force (`07` §2). **
 | **A1** | Auth × rate limit | **Mitigated by commit `48d07cd`:** rate-limit `429`, Auth outage, network failure and timeout no longer count toward the lock (credential errors still do). Residual: a `429` still delays sign-in until the window clears, and the fix is unproven on a hosted project | Measure and raise the limit (S9); stagger log-ins; confirm on staging that no student is locked after the burst; bulk-unlock SQL (3.7) as a fallback | Ops, PM | R13, R1 |
 | **L1** | Rate limit | The whole school shares one egress IP; the documented default of 30 sign-ins per 5 minutes per IP is below one class | Set 300 if the plan allows; otherwise stagger (about 25 per minute); measure in S9 | Ops | R1, R3 |
 | **G1** | Data governance | Consent, retention and erasure undecided; no student delete/export feature | Signed decision D6; approved, staging-tested SQL erasure procedure: deleting a student's auth user cascades to profile, student record, account and enrollments [V-local FK rules]; audit rows remain with ids/usernames | School, PM, Eng | R10 |
-| **B1** | Batch import | Cap is not implemented (200 in code): a large import can time out and lose the one-time passwords | Pilot rule ≤ 30 rows; implement the cap and measure (`01`); recovery = reissue | Eng, PM | R2 |
+| **B1** | Batch import | Cap of 30 is enforced in code (R2), not yet measured on staging: a large import can time out and lose the one-time passwords | Pilot rule ≤ 30 rows; implement the cap and measure (`01`); recovery = reissue | Eng, PM | R2 |
 
 ### Medium
 

@@ -16,7 +16,7 @@ The package to run when the hosted staging project exists: what must be verified
 |---|---|---|
 | V-1 | **The per-IP rate limit applies to the app server's IP**, because every Supabase call is made by the server. A test run from a laptop against the Auth API measures the laptop's IP, not the school's | S9 and the A1 proof must drive the **deployed app's sign-in form**. Appendix A is a load generator that does this over plain HTTP, validated locally: 30 simultaneous correct sign-ins all succeeded; 2 students × 6 serial wrong passwords gave 4 wrong + 2 locked each, as designed |
 | V-2 | Smoke test S9 in `04` ("30 students sign in within one minute") had no executable procedure | Defined in §2 (ST-31 to ST-35) with the generator |
-| V-3 | **No test pins the batch cap at all** (neither 200 nor 30) | Any cap change needs new boundary tests (§4) |
+| V-3 | **Closed by R2:** `tests/access/batch-cap.test.ts` pins the cap (30) at the parser, the run schema, preview and commit | Any cap change must update that test (§4) |
 | V-4 | Function-privilege expectations were spread over several documents | One query and the expected output in §1 (VER-16) |
 | V-5 | The first-login students used for load testing keep their temporary password after a successful sign-in, so the same accounts can be reused for repeated runs | The generator can be run several times on the same `accounts.txt` |
 
@@ -262,15 +262,15 @@ Never change during the pilot: JWT expiry, refresh-token rotation and reuse inte
 
 ## 4. Batch cap implementation options
 
-Status: **designed, not implemented**; the code still allows 200 rows and the import page says "최대 200명". No test pins the cap (V-3). This section compares the ways to close required item R2. Nothing is implemented here.
+Status: **option B implemented (R2)**: `MAX_BATCH_ROWS = 30`, the import page passes the cap and `MAX_CSV_BYTES` to the form, and `tests/access/batch-cap.test.ts` pins it (V-3 closed). The tables below are the original comparison and the "today" column predates R2. The staging measurement (ST-45) is still open.
 
 ### Where the cap lives today
 
 | Place | Fact |
 |---|---|
-| `src/features/accounts/batch/batch-schemas.ts` | `MAX_BATCH_ROWS = 200` (and the zod `.max()` of the run schema); `MAX_CSV_BYTES = 256 * 1024` |
+| `src/features/accounts/batch/batch-schemas.ts` | `MAX_BATCH_ROWS = 30` (was 200; and the zod `.max()` of the run schema); `MAX_CSV_BYTES = 256 * 1024` |
 | `src/features/accounts/batch/csv-parse.ts` | Throws `TOO_MANY_ROWS` with the number from the constant, before any database write, for preview and commit (both re-parse server-side) |
-| `src/components/teacher/batch-upload-form.tsx` | Help text hard-codes "200명"; the 256 KB check is a duplicated literal |
+| `src/components/teacher/batch-upload-form.tsx` | Help text and the file-size check now use props from the server page (were hard-coded "200명" and a duplicated 256 KB literal) |
 | `src/features/accounts/batch/batch-service.ts` | Sequential loop; each row provisions an account and then enrolls (about 11 round trips) |
 | Measured (local) | 294–330 ms per row sequential → 30 rows ≈ 9–10 s, 200 rows ≈ 59 s; 4-way concurrency 67 ms per row |
 

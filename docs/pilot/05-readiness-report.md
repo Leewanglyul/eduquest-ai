@@ -23,7 +23,7 @@ For GO:
 For "with conditions":
 
 - The behaviours that decide whether the first lesson works are **hosted-only and untested**: the per-IP auth rate limit (all students share the app server's IP), acceptance of the `.invalid` auth email, the host's request-time limit, and the actual Auth settings.
-- The batch size cap is **designed but not implemented**; the UI still advertises 200 rows (about 59 s sequential locally).
+- The batch size cap of **30 is implemented (R2)** at preview, commit and in the run schema, and the UI shows the same number; the staging measurement that confirms 30 is still open.
 - Release hygiene is incomplete: lockfile untracked, nothing merged or tagged.
 - Staff creation is a manual, one-operator procedure, and data-protection/consent sign-off (D6) is unrecorded.
 
@@ -92,7 +92,7 @@ Condition attached: this holds only while the Auth settings in the hosted checkl
 | # | Finding | Risk | Close by |
 |---|---|---|---|
 | P1-1 | **Hosted behaviour unverified:** per-IP auth rate limit (class login), `.invalid` email acceptance, host request limit, Auth settings, Security Advisor, password policy | First lesson fails or users are throttled | Staging smoke test S1–S15 (`04`), especially S4 and S9 |
-| P1-2 | **Batch cap not implemented.** UI says 200; 200 rows ≈ 59 s locally, slower hosted; a timeout loses the one-time passwords | Credential loss, stuck `running` batch | Implement `01-batch-size-cap-plan.md` items 1–3 (and 4–6), or enforce ≤ 30 by process and measure on staging |
+| P1-2 | **Batch cap: 30 implemented, staging measurement open.** 30 rows ≈ 9 s locally, slower hosted; a timeout loses the one-time passwords | Credential loss, stuck `running` batch | Items 1–3 of `01-batch-size-cap-plan.md` are done; measure on staging (ST-45) and confirm or lower the number |
 | P1-3 | **Lockfile untracked** (`pnpm-lock.yaml`), so deploys resolve versions again; 4 `postcss` advisories via Next | Non-reproducible build; scanner noise | Decide D3, commit the lockfile, upgrade Next or add an override |
 | P1-4 | **Release hygiene:** no PR, merge or tag | Deploying an unreviewed state | Push, review via PR, tag e.g. `m1-pilot-rc1` |
 | P1-5 | **Recovery not rehearsed:** no backup restore drill, no alerting; staff bootstrap never run on a hosted project | Slow, error-prone incident response | Hosted checklist section 10; run the runbook on staging with the two-person rule |

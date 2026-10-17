@@ -13,7 +13,14 @@ import { BatchResultPanel } from "./batch-result-panel";
 const previewInitial: BatchPreviewState = { ok: false };
 const commitInitial: BatchRunState = { ok: false };
 
-export function BatchUploadForm({ classroomId }: { classroomId?: string }) {
+type BatchUploadFormProps = {
+  classroomId?: string;
+  /** Limits come from the server (batch-schemas.ts) so the text can never drift from the check. */
+  maxRows: number;
+  maxCsvBytes: number;
+};
+
+export function BatchUploadForm({ classroomId, maxRows, maxCsvBytes }: BatchUploadFormProps) {
   const [csv, setCsv] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
   const [previewState, previewAction, previewPending] = useActionState(
@@ -32,9 +39,9 @@ export function BatchUploadForm({ classroomId }: { classroomId?: string }) {
       setCsv("");
       return;
     }
-    if (file.size > 256 * 1024) {
+    if (file.size > maxCsvBytes) {
       setCsv("");
-      setFileError("파일이 너무 큽니다. (최대 256KB)");
+      setFileError(`파일이 너무 큽니다. (최대 ${Math.floor(maxCsvBytes / 1024)}KB)`);
       return;
     }
     setCsv(await file.text());
@@ -63,7 +70,7 @@ export function BatchUploadForm({ classroomId }: { classroomId?: string }) {
             />
             <p id="csv-help" className="mt-1 text-xs text-slate-600">
               UTF-8 CSV, 첫 줄에 <code>이름, 학번, 학년</code> 열이 있어야 합니다. 한 번에 최대
-              200명까지 가능합니다.
+              {maxRows}명까지 가능합니다. 더 많으면 파일을 나누어 올려 주세요.
             </p>
           </div>
           <input type="hidden" name="csv" value={csv} />

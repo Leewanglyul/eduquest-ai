@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { studentGradeSchema } from "../domain";
 
-export const MAX_BATCH_ROWS = 200;
+/**
+ * Pilot cap: students per CSV import. Single source of truth for the CSV parser (preview and
+ * commit both re-parse server-side), the zod run schema and the UI text (passed as a prop).
+ * See docs/pilot/01-batch-size-cap-plan.md.
+ */
+export const MAX_BATCH_ROWS = 30;
 export const MAX_CSV_BYTES = 256 * 1024;
 
 export const batchRowSchema = z.object({
