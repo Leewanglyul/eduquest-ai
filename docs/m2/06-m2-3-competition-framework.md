@@ -1,6 +1,6 @@
 # M2-3. Competition framework (future planning)
 
-Status: **planning note only. Nothing in this document is scheduled or implemented.** Sections 0–10 were written first; the **PM addendum in section 11 (CC-1…CC-10, recorded 2026-10-17) records PM direction and takes precedence over them where they differ.** Section 11.2 lists exactly what it changes. It preserves the original EduQuest idea of a *classroom game platform* (not only a content system) so that it is not lost while M2-2 stays focused on the crossword. It does not change the scope of M2-1 or M2-2, and no migration, screen or constant follows from it. Owner: engineering, for a later PM decision.
+Status: **planning note only. Nothing in this document is scheduled or implemented.** Sections 0–10 were written first; the **PM addendum in section 11 (CC-1…CC-10, recorded 2026-10-17, approved by the PM with the clarifications of section 11.7) records PM direction and takes precedence over them where they differ.** Section 11.2 lists exactly what it changes. It preserves the original EduQuest idea of a *classroom game platform* (not only a content system) so that it is not lost while M2-2 stays focused on the crossword. It does not change the scope of M2-1 or M2-2, and no migration, screen or constant follows from it. Owner: engineering, for a later PM decision.
 
 Relation to other documents: [04-crossword-generator.md](04-crossword-generator.md) (the crossword, whose M2-2.4 play phase creates the data used here) · [05-m2-2-2-teacher-review-plan.md](05-m2-2-2-teacher-review-plan.md) (the current phase) · `docs/pilot/12` and `13` (data governance, D6).
 
@@ -269,14 +269,39 @@ The M2-3.0 gate of section 9 still applies before anything student-visible beyon
 | M2-3.8 Seasonal events | events, recurrence, seasons | 3.7 |
 | (exploratory) CC-8 | game effects | accessibility review |
 
-### 11.7 New open questions for the PM
+### 11.7 PM review: approval and clarifications
+
+The PM approved this document. Clarifications recorded with the approval:
+
+| # | Clarification | Effect |
+|---|---|---|
+| 1 | **Nicknames are generated only. No free-text nicknames.** | Settles the core of K12: a nickname is never typed by a student or a teacher. It is assembled from fixed word lists (11.4 note 1). Still open inside K12: assigned vs picked from a generated shortlist, and teacher reset |
+| 2 | **Team progress boards prefer goal-oriented progress indicators over direct rank comparison.** | Leans K10 toward "no ranked order": show each team's progress toward a goal (its own or the class goal), not a league table. Exact form still open (K10) |
+| 3 | **Keep the M2-2.4 attempt model flexible enough for future shared-team attempts.** | Becomes a design requirement for M2-2.4 (11.8). It does not change M2-2.2 or add M2-2.4 scope |
+| 4 | **CC-8 remains exploratory. Defaults: disabled, teacher-controlled.** | Confirms 11.4 note 6. No phase is scheduled |
+| 5 | **K10–K16 stay open and may be deferred until M2-3 implementation planning.** | They gate M2-3 phases, not M2-2 |
+
+### 11.8 Requirement carried into M2-2.4 (no scope change)
+
+When the M2-2.4 attempt model is designed, keep it open for a later shared-team attempt without redesign:
+
+- The play payload builder and the server-side checking (check cell/word/puzzle, reveal, submit) take **an attempt and its puzzle**, not "a student's browser session". They must not assume the attempt has exactly one author.
+- The attempt record keeps **who acted** separate from **whose attempt it is** where it is cheap to do so (for example a nullable actor on recorded events, even if M2-2.4 only ever writes the owning student). Per-cell attribution is not built in M2-2.4.
+- Counters (checks, reveals, active time) belong to the attempt, so a later team attempt can own them.
+- Student identity never appears inside `cells`; the cell state stays a plain `{ "r,c": character }` map.
+- Completion and progress are computed from `cells` and the puzzle, not from the owner, so the same function can score a team attempt.
+- Nothing in M2-2.4 implements teams, sharing or live updates. This is only a constraint on shape.
+
+### 11.9 Open questions for the PM
 
 | # | Question |
 |---|---|
-| K10 | Should the team board show an order by progress, or show all teams without a ranking (11.4 note 2)? |
+| K10 | Team board form: goal-oriented indicators are preferred (11.7 #2). Which exact form: progress against each team's own goal, against the class goal, or both? Is any ordering shown at all? |
 | K11 | May students ever see contribution figures (CC-2), and if so only their own? |
-| K12 | Nicknames: system-assigned or picked from a list; can a teacher reset one; can a student ask for another? |
+| K12 | Nicknames are generated only (11.7 #1). Still open: assigned automatically or picked from a generated shortlist; can a teacher reset one; can a student ask for another generated one? |
 | K13 | Are badges purely cosmetic, or may they unlock anything (for example a team boost)? |
 | K14 | Which team boosts are acceptable (hints, extra reveals)? Must a boost never reduce another team's chances? |
 | K15 | Is the collaborative crossword limited to one team per grid, or may the whole class share one grid? |
-| K16 | Should CC-8 effects be scheduled at all, or stay exploratory? |
+| K16 | CC-8 effects stay exploratory, disabled by default and teacher-controlled (11.7 #4). Open: whether they are ever scheduled |
+
+All of K10–K16 may be deferred until M2-3 implementation planning (11.7 #5).
