@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { ContentEntryTable } from "@/components/teacher/content-entry-table";
 import { ContentSetHeader } from "@/components/teacher/content-set-header";
+import { MAX_CONTENT_ROWS } from "@/features/content/import/content-schemas";
 import { getContentSetDetail } from "@/features/content/sets/service";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +38,20 @@ export default async function ContentSetPage({ params }: PageProps) {
         <ContentSetHeader setId={set.id} title={set.title} archived={set.archivedAt !== null} classroomArchived={set.classroomArchived} />
       </section>
 
-      {!readOnly ? (
-        <p className="mb-4 text-sm">
+      <p className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        {!readOnly ? (
           <Link href={`/teacher/content/${set.id}/import`} className="underline">
             CSV로 단어 추가하기 / 전체 바꾸기
           </Link>
+        ) : null}
+        {/* A plain link: the download is a GET route (it needs response headers), so no JavaScript is needed. */}
+        <a href={`/teacher/content/${set.id}/export`} download className="underline">
+          CSV로 내려받기
+        </a>
+      </p>
+      {entries.length > MAX_CONTENT_ROWS ? (
+        <p className="mb-4 text-xs text-slate-600">
+          한 번에 올릴 수 있는 단어는 최대 {MAX_CONTENT_ROWS}개입니다. 이 세트의 내려받은 파일을 다시 올리려면 {MAX_CONTENT_ROWS}개 이하로 나누어 올려 주세요.
         </p>
       ) : null}
 

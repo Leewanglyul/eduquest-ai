@@ -1,6 +1,6 @@
 # M2-1 implementation plan
 
-Status: **M2-1.1 Schema, M2-1.3 Validation, M2-1.2 Upload and M2-1.4 Teacher management (list, detail, rename, archive/restore, single-entry edit) are implemented on `m2/m2-1-content-pipeline`; 1.5 Export is not started.** Single-entry archive (`archiveContentEntryAction`) was not part of the 1.4 scope that was built. (Originally written as a plan only.) Source of truth for behaviour: [01-csv-content-pipeline.md](01-csv-content-pipeline.md) (called "the design" below; § numbers refer to it). Decided by the PM: D12 header required, D13 original CSV not retained, D14 single-entry edit and CSV download included. D1–D11 are still open; this plan says which phase each one blocks.
+Status: **M2-1.1 Schema, M2-1.3 Validation, M2-1.2 Upload and M2-1.4 Teacher management (list, detail, rename, archive/restore, single-entry edit) and M2-1.5 Export (CSV download, audited, round-trips through the importer) are implemented on `m2/m2-1-content-pipeline`; M2-1 is feature-complete.** Single-entry archive (`archiveContentEntryAction`) was not part of the 1.4 scope that was built. (Originally written as a plan only.) Source of truth for behaviour: [01-csv-content-pipeline.md](01-csv-content-pipeline.md) (called "the design" below; § numbers refer to it). Decided by the PM: D12 header required, D13 original CSV not retained, D14 single-entry edit and CSV download included. D1–D11 are still open; this plan says which phase each one blocks.
 
 ## 1. Phases at a glance
 

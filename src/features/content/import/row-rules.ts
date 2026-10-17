@@ -8,7 +8,7 @@ import {
   type PreparedContentRow,
   type RawContentRow,
 } from "./content-schemas";
-import { charLength, cleanText, deriveAnswer, squash } from "./normalize";
+import { charLength, cleanText, deriveAnswer, squash, stripFormulaGuard } from "./normalize";
 
 export type RowEvaluation =
   | { ok: true; row: PreparedContentRow }
@@ -30,8 +30,8 @@ export function evaluateRow(raw: RawContentRow): RowEvaluation {
     return { ok: false, line: raw.line, term: rawTerm, errors: [{ code: "ROW_TOO_FEW_COLUMNS" }] };
   }
 
-  const term = cleanText(raw.term);
-  const definition = cleanText(raw.definition);
+  const term = cleanText(stripFormulaGuard(raw.term));
+  const definition = cleanText(stripFormulaGuard(raw.definition));
   const errors: ContentRowError[] = [];
   const warnings: ContentRowWarningCode[] = [];
 

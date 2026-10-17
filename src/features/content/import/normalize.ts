@@ -15,6 +15,16 @@ const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
 const INVISIBLE_CHARS = /[­​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
 const WHITESPACE_RUN = /[\s 　]+/g;
 
+/**
+ * The export writes a cell that starts with = + - @ with a leading apostrophe, so a spreadsheet cannot read it
+ * as a formula (escapeCsvCell in accounts/batch/credential-export.ts). The importer takes that apostrophe off
+ * again, which is what makes export -> import give back exactly the stored text. Only an apostrophe directly
+ * before one of those four characters is removed; any other leading apostrophe is ordinary text.
+ */
+export function stripFormulaGuard(value: string): string {
+  return /^'[=+\-@]/.test(value) ? value.slice(1) : value;
+}
+
 export type CleanTextResult = {
   text: string;
   /** Control or invisible characters were removed. */
