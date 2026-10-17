@@ -8,7 +8,8 @@ export type AuditResource =
   | "batch"
   | "classroom"
   | "classroom_teacher"
-  | "enrollment";
+  | "enrollment"
+  | "content_set";
 
 export type AuditAction =
   | "student.provisioned"
@@ -24,7 +25,16 @@ export type AuditAction =
   | "enrollment.added"
   | "enrollment.removed"
   | "enrollment.reactivated"
-  | "enrollment.transferred";
+  | "enrollment.transferred"
+  | "content_set.created"
+  | "content_set.updated"
+  | "content_set.archived"
+  | "content_set.unarchived"
+  | "content_set.import_completed"
+  | "content_set.import_rejected"
+  | "content_set.exported"
+  | "content_entry.updated"
+  | "content_entry.archived";
 
 export type AuditWrite = {
   actorId: string | null;
