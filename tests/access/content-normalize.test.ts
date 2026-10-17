@@ -76,6 +76,9 @@ describe("M2-1.3 answer derivation (examples from the design)", () => {
     ["3.14", "314", 3, "digit"],
     ["3D 프린터", "3D프린터", 5, "mixed"],
     ["대한 민국", "대한민국", 4, "hangul"],
+    ["물", "물", 1, "hangul"],
+    ["배", "배", 1, "hangul"],
+    ["A", "A", 1, "latin"],
     ["한·중", "한중", 2, "hangul"],
     ["한ㆍ중", "한중", 2, "hangul"],
     ["-사과", "사과", 2, "hangul"],
@@ -129,7 +132,9 @@ describe("M2-1.3 boundaries (written with the constants)", () => {
   const latin = (n: number) => "A".repeat(n);
 
   it("answer length: min - 1 fails, min and max pass, max + 1 fails", () => {
-    expect(rejectCodes(latin(ANSWER_MIN_LEN - 1))).toEqual(["ANSWER_TOO_SHORT"]);
+    // One below the minimum is an answer with nothing left after removing separators.
+    expect(ANSWER_MIN_LEN).toBe(1);
+    expect(rejectCodes("--")).toEqual(["ANSWER_TOO_SHORT"]);
     expect(rejectCodes(latin(ANSWER_MIN_LEN))).toEqual([]);
     expect(rejectCodes(latin(ANSWER_MAX_LEN))).toEqual([]);
     expect(rejectCodes(latin(ANSWER_MAX_LEN + 1))).toEqual(["ANSWER_TOO_LONG"]);

@@ -13,7 +13,7 @@ export const MAX_CONTENT_CSV_BYTES = 128 * 1024;
 export const MAX_SET_ENTRIES = 200;
 export const TERM_MAX_CHARS = 60;
 export const DEFINITION_MAX_CHARS = 200;
-export const ANSWER_MIN_LEN = 2;
+export const ANSWER_MIN_LEN = 1;
 export const ANSWER_MAX_LEN = 15;
 export const SET_TITLE_MAX_CHARS = 80;
 

@@ -21,9 +21,9 @@ Delivery: one pull request per phase, each green on its own (`pnpm typecheck`, `
 | Decision | Blocks | If unanswered |
 |---|---|---|
 | D1 limits (100 rows / 128 KB / 200 per set) | the constants in 1.3 (values only, not structure); the SQL gets `p_max_entries` as a parameter so no SQL changes either way | build with the recommended values; changing them is a constant edit plus updating the pinned test |
-| D3 co-teacher rights | the authorisation inside `fn_commit_content_import` (1.1) and the permission checks in 1.2/1.4 | build the recommended default (owner full; co-teacher read, append, entry edit); switching is localized in one helper `canWriteContentSet(role, action)` and one function branch |
+| ~~D3 co-teacher rights~~ **decided: co-teachers manage content** | nothing is gated any more; `fn_commit_content_import` and the 1.2/1.4 checks give owner, admin and co-teacher of the linked classroom the same rights | `canWriteContentSet` still lives in one place so a later change stays local |
 | D4 CP949 handling | nothing structural; 1.3 implements "reject" | add auto-convert later behind the same decode function |
-| D5 purge of archived entries | not code; an Ops SQL snippet and a line in `12` | ship without; document in the Ops runbook when decided |
+| ~~D5 purge of archived entries~~ **decided: archive only** | nothing; no purge snippet, no Ops step | archived rows are removed by the end-of-pilot deletion with their owner |
 | D9 governance wording | the Korean privacy line on import/edit pages (1.2, 1.4) and the update of `12` | ship the line (it is harmless); the `12` text change goes through the D6 sign-off owner |
 | D10 shared tokenizer | whether 1.3 copies or shares the tokenizer | **1.3 contains its own tokenizer**, because the shared move touches M1 files. D10 later replaces the copy with an import, as a separate refactor |
 | D6, D8, D11 | nothing in M2-1 | deferred by design |
@@ -183,7 +183,7 @@ The live answer preview in the editor calls the pure `normalizeRow` from 1.3 in 
 
 Exit criteria: every row of the permission matrix (design §6.3) has an allow and a deny test; editing an entry cannot produce an answer the import would reject; audit payloads contain no term or definition text; archived sets disappear from lists and from `v_content_entries_active`.
 
-Risks: D3 (permission matrix) changing late; keep all checks behind `canWriteContentSet`.
+Risks: a later change to the D3 permission matrix; keep all checks behind `canWriteContentSet`.
 
 ## 7. M2-1.5 Export
 

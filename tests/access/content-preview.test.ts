@@ -101,7 +101,7 @@ describe("M2-1.3 preview: set size", () => {
 
 describe("M2-1.3 preview: partial files", () => {
   it("returns valid rows with the rejected ones listed", () => {
-    const p = buildContentPreview(rows(["사과", "과일"], ["", "x"], ["물", "x"], ["포도", "과일"]), { mode: "create" });
+    const p = buildContentPreview(rows(["사과", "과일"], ["", "x"], ["--", "x"], ["포도", "과일"]), { mode: "create" });
     expect(p.valid.map((r) => r.term)).toEqual(["사과", "포도"]);
     expect(p.invalid.map((i) => [i.line, i.errors])).toEqual([
       [3, ["TERM_EMPTY"]],

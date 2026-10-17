@@ -22,7 +22,7 @@ INSERT INTO public.classrooms (id, school_id, owner_id, name, archived_at) VALUE
 INSERT INTO public.classroom_teachers (classroom_id, teacher_id)
 VALUES ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000b2');
 
--- e1: linked to d1 (co-teacher b2 may append, not replace). e3: archived. e4: other school.
+-- e1: linked to d1 (co-teacher b2 manages it: append and replace). e3: archived. e4: other school.
 INSERT INTO public.content_sets (id, school_id, owner_id, classroom_id, title, archived_at) VALUES
   ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000d1', 'Linked', NULL),
   ('00000000-0000-4000-8000-0000000000e3', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000001', NULL, 'Archived', now()),
@@ -141,15 +141,15 @@ SELECT is((SELECT count(*)::int FROM public.content_entries
            WHERE set_id = (SELECT (j->>'setId')::uuid FROM r_create) AND archived_at IS NULL), 2, 'the failed replace archived nothing');
 SELECT is((SELECT status::text FROM public.content_import_batches WHERE id = pg_temp.b(6)), 'previewed', 'the failed replace left the batch previewed');
 
--- I. Authorisation: co-teacher may append to the linked set but not replace it; outsiders and suspended users may not.
+-- I. Authorisation: a co-teacher of the linked set may append and replace; outsiders and suspended users may not.
 SELECT pg_temp.mk(7, '00000000-0000-4000-8000-0000000000b2', 'append', '00000000-0000-4000-8000-0000000000e1');
 SELECT lives_ok(
   $$SELECT pg_temp.c(7, '00000000-0000-4000-8000-0000000000b2', 'tk', 'append', '00000000-0000-4000-8000-0000000000e1', NULL, pg_temp.r(ARRAY['사과']))$$,
   'co-teacher can append to the linked set');
 SELECT pg_temp.mk(8, '00000000-0000-4000-8000-0000000000b2', 'replace', '00000000-0000-4000-8000-0000000000e1');
-SELECT throws_ok(
+SELECT lives_ok(
   $$SELECT pg_temp.c(8, '00000000-0000-4000-8000-0000000000b2', 'tk', 'replace', '00000000-0000-4000-8000-0000000000e1', NULL, pg_temp.r(ARRAY['사과']))$$,
-  'P0001', 'CONTENT_FORBIDDEN', 'co-teacher cannot replace');
+  'co-teacher can replace (decision D3)');
 SELECT pg_temp.mk(9, '00000000-0000-4000-8000-0000000000b3', 'append', '00000000-0000-4000-8000-0000000000e1');
 SELECT throws_ok(
   $$SELECT pg_temp.c(9, '00000000-0000-4000-8000-0000000000b3', 'tk', 'append', '00000000-0000-4000-8000-0000000000e1', NULL, pg_temp.r(ARRAY['사과']))$$,

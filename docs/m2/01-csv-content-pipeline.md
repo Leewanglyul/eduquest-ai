@@ -88,7 +88,8 @@ Preview result: `{ valid: PreparedContentRow[]; invalid: ContentPreviewIssue[]; 
 | 4 | ice cream | ICECREAM | 8 | latin | ok (space removed in the answer only) |
 | 5 | e-mail | EMAIL | 5 | latin | ok |
 | 6 | 3D 프린터 | 3D프린터 | 5 | mixed | ok, warning `ANSWER_MIXED_SCRIPT` |
-| 7 | 물 | 물 | 1 | hangul | **error** `ANSWER_TOO_SHORT` (min 2) |
+| 7 | 물 | 물 | 1 | hangul | ok (one-character entries are allowed, decision D2) |
+| 7b | `---` | (empty) | 0 | | **error** `ANSWER_TOO_SHORT` (nothing left after removing separators) |
 | 8 | 사과(과일) | | | | **error** `ANSWER_INVALID_CHAR` (`(`, `)`) |
 | 9 | ㄱㄴㄷ | | | | **error** `ANSWER_JAMO` |
 | 10 | (empty) | | | | **error** `TERM_EMPTY` |
@@ -202,7 +203,7 @@ CREATE INDEX idx_content_entries_import_batch ON public.content_entries (import_
 
 Design notes:
 - `answer` has the **database-level** grid-safe `CHECK`. If the TypeScript normaliser has a bug, the generator input is still guaranteed clean. `answer_length` is a **generated column**, so it cannot disagree with `answer`.
-- TypeScript's answer bounds (`ANSWER_MIN_LEN = 2`, `ANSWER_MAX_LEN = 15`) are deliberately **tighter** than the database's hard bounds (1–30), so a policy change is a constant edit, not a migration. A test asserts `ANSWER_MAX_LEN <= 30` and `ANSWER_MIN_LEN >= 1`.
+- TypeScript's answer bounds (`ANSWER_MIN_LEN = 1`, `ANSWER_MAX_LEN = 15`) are deliberately **tighter** than the database's hard bounds (1–30), so a policy change is a constant edit, not a migration. A test asserts `ANSWER_MAX_LEN <= 30` and `ANSWER_MIN_LEN >= 1`.
 - `char_length` counts code points. Entries are stored NFC, so every Hangul syllable is one code point = one grid cell. Decomposing to jamo for a jamo-grid game is lossless later (`normalize(answer, 'NFD')`), so no second column is stored.
 - `term` max 60 and `definition` max 200 mirror the TypeScript constants; the `CHECK`s are backstops.
 - `position` is the order in the file; append continues after the current maximum.
@@ -249,7 +250,7 @@ Scoping rules, all enforced twice (service layer and RLS/function):
 |---|---|
 | School | every row carries `school_id` (sets, batches); every service query filters `.eq("school_id", profile.school_id)`; `fn_commit_content_import` rejects a set from another school |
 | Teacher | `content_sets.owner_id` is the owner. Owner may do everything to the set |
-| Classroom | a set linked to a classroom is **visible** to that classroom's co-teachers (`classroom_teachers`). Write rights for co-teachers: §10 D3 (default: append only) |
+| Classroom | a set linked to a classroom is **visible** to that classroom's co-teachers (`classroom_teachers`). Co-teachers of the linked classroom manage the set like the owner (decision D3) |
 | Student | **no access** in M2-1: no policy, no grant. Answers must not reach a student's browser before play; a later player design must serve clues without answers |
 | Admin | via the service role in server actions, as in M1 (no `authenticated` policy for admins) |
 
@@ -324,7 +325,7 @@ The entry is never silently overwritten: a different definition for an existing 
 | Archive a set | `content_sets.archived_at = now()`; hidden from lists and from the generator view; entries untouched; reversible (`classroom.archived/unarchived` pattern) |
 | Archive an entry | only through `replace` in M2-1 (single-entry edit/delete UI is later); `archived_at` + `archived_batch_id` |
 | Hard delete | not offered in the UI. Done only by the retention procedure below |
-| Archived entries and sets | purge by Ops after **30 days** archived (proposed, §10 D5): `delete from public.content_entries where archived_at < now() - interval '30 days';` then sets likewise. Same style and two-person rule as the audit-log purge in `12` §2 |
+| Archived entries and sets | **Archive only, no purge** (decision D5). They stay in the database, hidden from lists and from the generator view, until the end-of-pilot deletion removes them with the owning teacher (below). No scheduled or manual purge step is added to the Ops runbook |
 | Expired `previewed` batches | marked `expired` at commit attempt like M1; a monitoring query lists rows `previewed` older than `expires_at`; Ops may delete them (they hold only hashes) |
 
 Interaction with `docs/pilot/12-d6-data-governance-policy.md` (signature still pending, so this is a **proposal for the next revision**, not an edit of that document):
@@ -403,7 +404,7 @@ sha256(JSON.stringify([NORMALIZER_VERSION, mode, setId | null, newSetTitle | nul
 `fn_commit_content_import(p_batch_id, p_actor_id, p_school_id, p_token_hash, p_rows_hash, p_mode, p_set_id, p_new_title, p_classroom_id, p_rows jsonb, p_max_entries int)` runs **in one transaction** and does, in order:
 
 1. `SELECT … FOR UPDATE` the batch row; require `status = 'previewed'`, `actor_id`, `school_id`, `commit_token_hash`, `rows_hash` equal, `mode` equal, not expired. Mismatch raises a named exception the TypeScript service maps to `BATCH_NOT_FOUND`, `COMMIT_TOKEN_INVALID`, `BATCH_EXPIRED` or `ROWS_CHANGED` (messages as M1). Expired → set `status = 'expired'` (that update is the one thing that must survive; do it before raising, or in the service on the mapped error, as M1 does).
-2. Check the actor is an active `teacher`/`admin` (like `fn_transfer_enrollment`), and for `append`/`replace` that they own the set or co-teach its classroom (default write rights: §10 D3), the set is not archived and in the same school.
+2. Check the actor is an active `teacher`/`admin` (like `fn_transfer_enrollment`), and for `append`/`replace` that they own the set or co-teach its classroom (owner, admin, or co-teacher of the linked classroom: decision D3), the set is not archived and in the same school.
 3. `create`: insert the set (unique title index protects against races → `TITLE_DUPLICATE`). `append`/`replace`: `SELECT … FOR UPDATE` the set row, which **serialises concurrent imports into the same set**.
 4. `replace`: `UPDATE content_entries SET archived_at = now(), archived_batch_id = p_batch_id WHERE set_id = … AND archived_at IS NULL`; count into `archived_rows`.
 5. Insert rows from `p_rows` with `ON CONFLICT (set_id, answer) WHERE archived_at IS NULL DO NOTHING`; `position` continues from the current maximum; count inserted / skipped.
@@ -491,7 +492,7 @@ Severity: **error** = the row is left out (file-level errors reject the whole fi
 | definition | empty | `DEFINITION_EMPTY` | error |
 | definition | more than `DEFINITION_MAX_CHARS` (200) characters | `DEFINITION_TOO_LONG` | error |
 | row | fewer cells than the header needs | `ROW_TOO_FEW_COLUMNS` | error |
-| answer | shorter than `ANSWER_MIN_LEN` (2) | `ANSWER_TOO_SHORT` | error |
+| answer | shorter than `ANSWER_MIN_LEN` (1; only an answer that is empty after removing separators) | `ANSWER_TOO_SHORT` | error |
 | answer | longer than `ANSWER_MAX_LEN` (15) | `ANSWER_TOO_LONG` | error |
 | answer | contains a character outside `가-힣 A-Z 0-9` after §4.2 | `ANSWER_INVALID_CHAR` | error (lists up to 5 offending characters) |
 | answer | contains Hangul jamo (ㄱ, ㅏ, conjoining jamo) | `ANSWER_JAMO` | error |
@@ -581,7 +582,7 @@ export const MAX_CONTENT_CSV_BYTES = 128 * 1024;     // 128 KB
 export const MAX_SET_ENTRIES = 200;                  // live words in one set
 export const TERM_MAX_CHARS = 60;
 export const DEFINITION_MAX_CHARS = 200;
-export const ANSWER_MIN_LEN = 2;
+export const ANSWER_MIN_LEN = 1;
 export const ANSWER_MAX_LEN = 15;
 export const NORMALIZER_VERSION = 1;
 ```
@@ -672,7 +673,7 @@ Preview/summary texts: "정상 {a}개 · 경고 {b}개 · 제외 {c}개"; commit
 
 | Data | Store | Kept how long | Notes |
 |---|---|---|---|
-| Word sets and entries | Postgres: `content_sets`, `content_entries` | while the owner exists; archived rows purged after the proposed 30 days (§2.9) | the only durable copy of the content |
+| Word sets and entries | Postgres: `content_sets`, `content_entries` | while the owner exists; archived rows kept until the pilot-end deletion (§2.9, D5) | the only durable copy of the content |
 | Import tickets | Postgres: `content_import_batches` | hashes and counts only; deletable once expired | no content, no personal data |
 | Audit trail | Postgres: `audit_logs` | 1 year (policy `12` §2) | no terms or definitions in `metadata` |
 | The uploaded CSV file | **nowhere** | discarded when the request ends | decided: no Supabase Storage bucket |
@@ -708,10 +709,10 @@ A teacher's life with content, from first upload to cleanup. Routes are under `/
 
 1. **First set.** 새 세트 → name it, optionally pick a classroom → choose file → preview (accepted / warnings / rejected) → fix the file and re-select if there are errors, or accept the left-out rows → 저장 → land on the set detail.
 2. **Add words later.** Detail → 파일로 추가 → preview shows which words already exist (skipped) → 저장.
-3. **Start over.** Detail → 파일로 교체 → preview states "기존 단어 {k}개를 보관 처리하고 {m}개로 바꿉니다." → tick the confirmation → 저장. The old words stay archived and recoverable by Ops until purged.
+3. **Start over.** Detail → 파일로 교체 → preview states "기존 단어 {k}개를 보관 처리하고 {m}개로 바꿉니다." → tick the confirmation → 저장. The old words stay archived and recoverable by Ops.
 4. **Fix a typo.** Detail → edit the entry inline → saved; no file needed.
 5. **Share with a co-teacher.** Link the set to the classroom both teach (§2.7); the co-teacher sees it under 학급 세트.
-6. **Finish with a set.** Archive; it disappears from lists and from the generator view; restore any time until purged.
+6. **Finish with a set.** Archive; it disappears from lists and from the generator view; restore any time.
 7. **End of pilot.** Download the sets worth keeping before the deletion run (`12` §3.4).
 
 ### 6.3 Who can do what
@@ -720,11 +721,11 @@ A teacher's life with content, from first upload to cleanup. Routes are under `/
 |---|---|---|---|---|
 | view set and entries | yes | yes | no | no |
 | import `create` | yes (own new set) | n/a | n/a | no |
-| import `append` | yes | yes (default, D3) | no | no |
-| import `replace`, rename, link/unlink, archive/restore | yes | no (default, D3) | no | no |
-| edit or archive one entry | yes | yes (default, D3) | no | no |
+| import `append` | yes | yes | no | no |
+| import `replace`, rename, link/unlink, archive/restore | yes | yes | no | no |
+| edit or archive one entry | yes | yes | no | no |
 | download | yes | yes | no | no |
-| purge archived data | Ops only | | | |
+| purge archived data | not offered (D5: archive only) | | | |
 
 Admins act through the service role in server actions, as in M1. A suspended teacher cannot reach any of this (`requireTeacherArea` is the same guard the classroom pages use); their sets stay intact and remain visible to co-teachers of linked classrooms.
 
@@ -737,7 +738,7 @@ Audit additions beyond §2.10 (also in migration 17): `content_entry.updated` (`
 ### 6.5 Teacher-facing guardrails
 
 - Import and edit pages carry the line "학생 이름, 학번 등 개인정보는 넣지 마세요." (D9).
-- Replace and archive state what happens and that Ops can still recover it until purge; the UI never says "삭제" for these.
+- Replace and archive state what happens and that Ops can still recover it; the UI never says "삭제" for these.
 - Counts shown after a save come from the database result, not from the preview, so a concurrent change is visible rather than hidden.
 
 ## 7. Future consumers (question generation, crosswords, learning games)
@@ -782,7 +783,7 @@ Location and style follow `tests/access/` (vitest, no database, guards and the s
 **`tests/access/content-normalize.test.ts`**
 - NFC: decomposed "사과" equals composed; answer identical.
 - table-driven §1.3 examples including `ice cream`, `e-mail`, `O'Neil`, fullwidth `ＡＢＣ`, `3.14`, `사과(과일)`, `ㄱㄴㄷ`, `①`, `㈜`.
-- boundaries with the constants: answer length `ANSWER_MIN_LEN - 1` (error), `ANSWER_MIN_LEN` (ok), `ANSWER_MAX_LEN` (ok), `+1` (error); term `TERM_MAX_CHARS` / `+1`; definition `DEFINITION_MAX_CHARS` / `+1`.
+- boundaries with the constants: answer length 0 (only separators: error), `ANSWER_MIN_LEN` (ok), `ANSWER_MAX_LEN` (ok), `+1` (error); term `TERM_MAX_CHARS` / `+1`; definition `DEFINITION_MAX_CHARS` / `+1`.
 - NUL and bidi characters are removed and never survive to the output; `U+0000` in input does not throw.
 - warnings: `DEFINITION_CONTAINS_ANSWER`, `FORMULA_PREFIX`, `ANSWER_MIXED_SCRIPT`, `WHITESPACE_NORMALISED`.
 - idempotence: `normalize(normalize(x))` equals `normalize(x)`.
@@ -817,7 +818,7 @@ Location and style follow `tests/access/` (vitest, no database, guards and the s
 - concurrency by sequence: after preview, insert the same answer directly, then commit → counted as `skipped_rows`, no error.
 - cross-school set or classroom → exception.
 
-**Management workflow tests** (`tests/access/content-management.test.ts`, mocked service as in `actions-authorization.test.ts`): rename/archive/link allowed for the owner, refused for a co-teacher (default D3) and for another teacher; entry edit re-runs the normaliser and refuses an answer outside the grid-safe set or a duplicate; export passes every cell through `escapeCsvCell` (a definition `=1+1` comes out as `'=1+1`) and re-parses to the same rows; audit metadata never contains term or definition text (assert on the written payload).
+**Management workflow tests** (`tests/access/content-management.test.ts`, mocked service as in `actions-authorization.test.ts`): rename/archive/link allowed for the owner, allowed for a co-teacher of the linked classroom (D3) and refused for another teacher; entry edit re-runs the normaliser and refuses an answer outside the grid-safe set or a duplicate; export passes every cell through `escapeCsvCell` (a definition `=1+1` comes out as `'=1+1`) and re-parses to the same rows; audit metadata never contains term or definition text (assert on the written payload).
 
 **Existing suites stay green:** `pnpm test:access`, `supabase test db`, `pnpm typecheck`, `pnpm lint`. The audit enum parity (TypeScript union vs migration) is checked wherever M1 checks it, extended for the six new actions. Hosted tests are not part of this plan.
 
@@ -843,10 +844,10 @@ Location and style follow `tests/access/` (vitest, no database, guards and the s
 | # | Decision | Recommendation / status |
 |---|---|---|
 | D1 | Limits: rows per file `100`, bytes `128 KB`, words per set `200`. Or reuse `30` for symmetry with M1? | 100 / 128 KB / 200: M1's 30 comes from account-creation time, which does not apply here |
-| D2 | Answer length bounds `2–15`; digits allowed in answers; mixed Hangul+Latin allowed with a warning | Keep, but note: with min 2, common one-syllable words (배, 물, 눈, 산) are rejected as `ANSWER_TOO_SHORT` (found while writing the M2-1.3 tests). Decide whether 1 is allowed for Hangul; the database CHECK already allows 1. Also confirm 15 matches the grid size |
-| D3 | Who may write to a set linked to a classroom: owner only, or co-teachers too? | Owner: everything. Co-teachers: read and `append`; only owner may `replace`, rename, archive |
+| D2 | ~~Answer length bounds~~ **Decided by the PM: one-character entries are allowed** (`ANSWER_MIN_LEN = 1`; max stays 15; digits allowed; mixed Hangul+Latin allowed with a warning). Only an answer that is empty after removing separators is `ANSWER_TOO_SHORT` | Decided |
+| D3 | ~~Who may write to a set linked to a classroom?~~ **Decided by the PM: co-teachers manage content** (append, replace, rename, link, archive, edit entries), same as the owner | Decided |
 | D4 | Wrong encoding (CP949 from Excel): reject with instructions, or auto-convert? | Reject for the pilot (no silent guessing); revisit if teachers hit it often |
-| D5 | Retention of archived (replaced) entries: purge 30 days after archiving, or keep until the pilot-end deletion? | 30 days, by Ops SQL with two-person rule. Needs the 교무기획팀장's agreement because it adds a purge step to `12` |
+| D5 | ~~Retention of archived entries~~ **Decided by the PM: archive only.** Nothing is purged during the pilot; archived rows go with the owning teacher at the end-of-pilot deletion | Decided |
 | D6 | Duplicate with a different definition when appending: skip (default) or offer "update definition" mode? | Skip now; the update mode is a later addition |
 | D7 | ~~Include "download set as CSV" in M2-1?~~ **Resolved by D14: included** | Decided |
 | D8 | Include "undo last import" (restore archived entries / archive appended ones) in M2-1? | No; data model supports it (`import_batch_id`, `archived_batch_id`), build when asked |

@@ -57,7 +57,7 @@ describe("M2-1.3 caps: constants", () => {
     expect(MAX_SET_ENTRIES).toBe(200);
     expect(TERM_MAX_CHARS).toBe(60);
     expect(DEFINITION_MAX_CHARS).toBe(200);
-    expect(ANSWER_MIN_LEN).toBe(2);
+    expect(ANSWER_MIN_LEN).toBe(1);
     expect(ANSWER_MAX_LEN).toBe(15);
     expect(NORMALIZER_VERSION).toBe(1);
   });

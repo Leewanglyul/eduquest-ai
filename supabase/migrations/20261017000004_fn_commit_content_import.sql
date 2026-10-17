@@ -128,8 +128,8 @@ BEGIN
       RAISE EXCEPTION 'CONTENT_SET_ARCHIVED' USING ERRCODE = 'P0001';
     END IF;
 
-    -- Default rights (decision D3): owner and admin may append and replace; a co-teacher of the linked
-    -- classroom may append only.
+    -- Rights (decision D3): the owner, an admin and a co-teacher of the linked classroom manage the set
+    -- alike, so all of them may append and replace.
     v_is_owner := (v_set.owner_id = p_actor_id);
     v_is_coteacher := v_set.classroom_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.classroom_teachers ct
@@ -137,7 +137,7 @@ BEGIN
     IF NOT (
       v_actor_role = 'admin'
       OR v_is_owner
-      OR (p_mode = 'append' AND v_is_coteacher)
+      OR v_is_coteacher
     ) THEN
       RAISE EXCEPTION 'CONTENT_FORBIDDEN' USING ERRCODE = 'P0001';
     END IF;
