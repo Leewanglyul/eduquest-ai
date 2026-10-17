@@ -15,7 +15,7 @@ export async function loadLiveAnswers(setId: string): Promise<{ answers: Set<str
 }
 
 /** True when the teacher already has a live set with this title (case and surrounding spaces ignored). */
-export async function ownerHasLiveTitle(ownerId: string, title: string): Promise<boolean> {
+export async function ownerHasLiveTitle(ownerId: string, title: string, exceptSetId?: string): Promise<boolean> {
   const { data, error } = await createSupabaseAdminClient()
     .from("content_sets")
     .select("id, title")
@@ -23,7 +23,7 @@ export async function ownerHasLiveTitle(ownerId: string, title: string): Promise
     .is("archived_at", null);
   if (error) throw error;
   const wanted = title.trim().toLowerCase();
-  return (data ?? []).some((s) => s.title.trim().toLowerCase() === wanted);
+  return (data ?? []).some((s) => s.id !== exceptSetId && s.title.trim().toLowerCase() === wanted);
 }
 
 /** The latest completed import of the same file into this set, for the "already uploaded" notice. */

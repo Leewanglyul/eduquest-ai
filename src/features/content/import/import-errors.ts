@@ -32,6 +32,10 @@ export type ContentImportErrorCode =
   | "SET_NOT_FOUND"
   | "SET_ARCHIVED"
   | "SET_TOO_LARGE"
+  | "SET_ALREADY_ARCHIVED"
+  | "SET_NOT_ARCHIVED"
+  | "ENTRY_NOT_FOUND"
+  | "ENTRY_DUPLICATE"
   | "REPLACE_NOT_CONFIRMED"
   | "CLASSROOM_INVALID"
   | "CLASSROOM_ARCHIVED"
@@ -93,6 +97,14 @@ export function contentErrorMessage(code: ContentImportErrorCode, ctx: ErrorMess
       return "보관된 세트는 수정할 수 없습니다.";
     case "SET_TOO_LARGE":
       return `세트에는 단어를 최대 ${MAX_SET_ENTRIES}개까지 담을 수 있습니다. (현재 ${ctx.current ?? 0}개, 추가 ${ctx.add ?? 0}개)`;
+    case "SET_ALREADY_ARCHIVED":
+      return "이미 보관된 세트입니다.";
+    case "SET_NOT_ARCHIVED":
+      return "보관되지 않은 세트입니다.";
+    case "ENTRY_NOT_FOUND":
+      return "단어를 찾을 수 없습니다.";
+    case "ENTRY_DUPLICATE":
+      return "같은 정답의 단어가 이미 세트에 있습니다.";
     case "REPLACE_NOT_CONFIRMED":
       return "기존 단어를 보관 처리하려면 확인란을 선택해 주세요.";
     case "CLASSROOM_INVALID":

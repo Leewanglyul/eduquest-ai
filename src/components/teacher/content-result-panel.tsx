@@ -14,9 +14,14 @@ export function ContentResultPanel({ result }: Props) {
         {result.skipped > 0 ? ` ${result.skipped}개는 이미 세트에 있어 건너뛰었습니다.` : ""}
         {result.archived > 0 ? ` 기존 단어 ${result.archived}개는 보관 처리되었습니다.` : ""}
       </p>
-      <Link href={`/teacher/content/${result.setId}/import`} className="text-sm underline">
-        이 세트에 단어 더 추가하기
-      </Link>
+      <div className="flex gap-4 text-sm">
+        <Link href={`/teacher/content/${result.setId}`} className="underline">
+          세트 보기
+        </Link>
+        <Link href={`/teacher/content/${result.setId}/import`} className="underline">
+          이 세트에 단어 더 추가하기
+        </Link>
+      </div>
     </section>
   );
 }

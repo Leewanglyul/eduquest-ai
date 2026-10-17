@@ -12,8 +12,8 @@ export default async function NewContentSetPage() {
 
   return (
     <main className="mx-auto max-w-3xl p-8">
-      <Link href="/teacher" className="text-sm underline">
-        교사 대시보드
+      <Link href="/teacher/content" className="text-sm underline">
+        단어 세트 목록
       </Link>
       <h1 className="mt-4 text-xl font-semibold">단어 세트 만들기 (CSV)</h1>
       <p className="mt-1 mb-6 text-sm text-slate-600">

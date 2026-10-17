@@ -5,6 +5,9 @@ import { getClassroomForActor } from "@/features/classrooms/queries";
 import { isArchived, isTeacherArea, type ClassroomActor } from "@/features/classrooms/domain";
 import { ContentImportError } from "../import/import-errors";
 
+/** Ids come from forms and URLs: a malformed one is "not found", never a database error. */
+export const isUuid = (value: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
 export type ContentSetRole = "admin" | "owner" | "classroom_staff";
 
 export type ContentSetRecord = {
@@ -31,7 +34,7 @@ export const canWriteContentSet = (role: ContentSetRole): boolean => WRITE_ROLES
  * Same school, then admin / owner / owner or co-teacher of the linked classroom, as in the RLS policy.
  */
 export async function getContentSetForActor(actor: ClassroomActor, setId: string): Promise<ContentSetRecord | null> {
-  if (!isTeacherArea(actor.role)) return null;
+  if (!isTeacherArea(actor.role) || !isUuid(setId)) return null;
   const admin = createSupabaseAdminClient();
 
   const { data: set } = await admin

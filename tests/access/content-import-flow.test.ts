@@ -178,7 +178,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await admin.from("content_sets").delete().like("title", `${RUN}-%`);
+  await admin.from("content_sets").delete().ilike("title", `${RUN}%`);
   await admin.from("content_import_batches").delete().in("actor_id", allUsers.map((u) => u.id)).gte("created_at", startedAt);
   if (classroomIds.length) await admin.from("classrooms").delete().in("id", classroomIds);
 });
