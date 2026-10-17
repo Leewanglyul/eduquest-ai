@@ -13,7 +13,8 @@
 | 9 | [M1 release closure checklist](09-m1-release-closure-checklist.md) | The single actionable list that closes M1: R1-R12 (and decisions D1-D6) with owner, effort, dependencies, completion evidence, sequence and schedule risks |
 | 10 | [Pilot execution preparation](10-pilot-execution-preparation.md) | Staging preparation checklist (Supabase settings, environment variables, Security Advisor expectations), the operator runbook (bootstrap, classroom, student import, reissue, emergency lockout recovery), the risk register and the final readiness summary |
 | 11 | [Hosted verification package](11-hosted-verification-package.md) | What to verify on the hosted project (VER-01..44), the exact staging test sequence (ST-01..63, incl. a validated rate-limit/A1 load generator), the final Supabase settings sheet, batch cap options, and the go-live decision workflow |
-| 12 | [D6 data governance policy](12-d6-data-governance-policy.md) | Draft consent, retention, student erasure and teacher suspension procedures for approval (closes D6 / R10 once signed and rehearsed) |
+| 12 | [D6 data governance policy](12-d6-data-governance-policy.md) | Consent, retention, erasure and teacher suspension policies and procedures (final text, awaiting signature in 13) |
+| 13 | [D6 sign-off](13-d6-signoff.md) | Decisions, school-supplied facts, accepted limits, conditions and signatures that close D6 / R10 |
 
 ## What was verified, and how
 

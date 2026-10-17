@@ -1,6 +1,8 @@
-# 12. D6 data governance policy (draft for approval)
+# 12. D6 data governance policy
 
-Status: **DRAFT. Not in force until the approval table in §0 is signed.** Closes decision D6 and required item R10 only after signing and after the erasure procedure (§3) has been rehearsed on staging (ST-56 / VER-43).
+Status: **final text, awaiting signature.** Not in force until the sign-off in `13-d6-signoff.md` is signed. Closes decision D6 and required item R10 only after signing and after the erasure procedure (§3) has been rehearsed on staging (ST-56 / VER-43).
+
+Parts: §1 consent policy · §2 retention policy · §3 erasure policy and procedure · §4 teacher suspension policy and procedure.
 
 This is an operating policy for the M1 pilot. It is not legal advice. The school's data-protection contact (개인정보 보호책임자) must review §1 against the school's own privacy notice and the applicable law before signing.
 
@@ -11,7 +13,8 @@ This is an operating policy for the M1 pilot. It is not legal advice. The school
 | Retention of pilot data | **30 days after the pilot end date**, then deleted | Decided by the PM |
 | Approver of any deletion | **교무기획팀장** | Decided by the PM |
 | Student data removal method | Delete the student's `auth.users` row; the database cascades | Decided by the PM |
-| Audit logs | Kept after deletion, **in de-identified form** (§3.3) | Decided by the PM |
+| Audit logs | Kept after deletion, **in de-identified form** (§3.3), for **1 year** | Decided by the PM |
+| Deletion SLA | A deletion request is **completed within 7 days** of being received, including approval (§3.1) | Decided by the PM |
 | Pilot end date | ____-__-__ (fill in; the deletion deadline is this date + 30 days) | To be set (D4) |
 | Data region | Seoul (record the actual Supabase region here: ________) | `10` risk G5 |
 
@@ -41,15 +44,17 @@ Staff (teacher and admin) accounts hold a name and a real email address in `prof
 
 ## 1. Consent policy
 
+**Scope and assumptions.** This is an **internal educational pilot in a single school**. Accounts are created only by teachers (single or CSV import); there is no public self-registration (sign-up is off in Supabase Auth). **No guardian consent is required or collected.** If any of these assumptions changes (a second school, self-registration, use outside the school's own teaching), this policy must be reviewed and re-signed before the change.
+
 **Purpose.** Student names, student numbers and grades are used only to create sign-in accounts and class rosters for the EduQuest AI pilot, and to let teachers manage them.
 
-**Who may be in the pilot.** Only students whose consent is on record before their account is created. No real student data goes into the staging project (`07`).
+**Who may be in the pilot.** Only students of the pilot classes who have been given the notice in §1.1 and whose acknowledgement is on record before their account is created. No real student data goes into the staging project (`07`).
 
 **Consent route.**
-1. The school sends the notice in §1.1 to each student. Where the student is under the age at which the law requires a guardian's consent, the notice goes to the guardian and the guardian's consent is the one recorded. The school's data-protection contact confirms the age rule and the wording.
-2. The class teacher keeps the signed or electronic consent list, **outside** EduQuest AI. The system does not store consent.
+1. The class teacher gives the notice in §1.1 to each student of the pilot class. The school's data-protection contact approves the wording.
+2. The class teacher keeps the acknowledgement list (signed or electronic), **outside** EduQuest AI. The system does not store it.
 3. A teacher may create an account (single or CSV import) only for a student on that list. Import files contain only 이름, 학번, 학년.
-4. A student, or the guardian, may withdraw consent at any time. Withdrawal is treated as an erasure request (§3) for that student.
+4. A student may withdraw at any time and may ask for deletion at any time. Withdrawal is treated as an erasure request (§3) for that student.
 
 **What is not collected.** No grades or marks of coursework, no photos, no contact details of students, no free-text profiles. If a later release adds any of these, this policy must be reviewed first.
 
@@ -62,7 +67,7 @@ Staff (teacher and admin) accounts hold a name and a real email address in `prof
 > - 수집 항목: 이름, 학번, 학년
 > - 이용 목적: 시범 운영 중 학습 계정 생성 및 학급 명단 관리
 > - 보관 기간: 시범 운영 종료일로부터 30일 후 삭제
-> - 삭제 요청: 학생 또는 보호자는 언제든지 삭제를 요청할 수 있으며, 교무기획팀장의 승인 후 삭제합니다.
+> - 삭제 요청: 학생은 언제든지 삭제를 요청할 수 있으며, 교무기획팀장의 승인 후 7일 이내에 삭제합니다.
 > - 동의하지 않을 권리가 있으며, 동의하지 않아도 불이익은 없습니다.
 > - 문의: ________ (개인정보 보호책임자)
 
@@ -72,7 +77,7 @@ Staff (teacher and admin) accounts hold a name and a real email address in `prof
 |---|---|
 | Student personal data (profile, student record, account, enrollments, sessions) | Kept while the pilot runs. **Deleted no later than 30 days after the pilot end date** (§3.4) |
 | Teacher and admin accounts | Suspended on the pilot end date (§4). Deleted in the same deletion run, after the students (§3.4), unless the PM records a reason to keep a named account |
-| Audit logs | Kept after student deletion in the de-identified form of §3.3. Retention period of the de-identified logs: ________ (PM to set; proposed: 1 year) |
+| Audit logs | Kept after student deletion in the de-identified form of §3.3 for **1 year** from the log row's creation date. After that they are deleted: `delete from public.audit_logs where created_at < now() - interval '1 year';` (run by Ops with a second person, logged) |
 | Ops erasure ledger (§3.2) | Kept for the life of the audit logs; contains no names or usernames |
 | Supabase backups | Follow the project plan's backup retention (record it: ________ days). Deleted data can still exist in a backup until it expires |
 | Auth and API logs | Follow the plan's log retention (record it: ________). The app logs only status, error name and code for sign-in problems, never usernames |
@@ -87,10 +92,12 @@ Applies to: a single student (withdrawal of consent, a request, a mistaken accou
 
 ### 3.1 Request and approval
 
-1. **Request.** The student, the guardian or the class teacher gives the request to the 교무기획팀장. Record the date, who asked, and a case number (no names in the ops log).
-2. **Approval.** Only the **교무기획팀장** approves, in writing. No deletion is run without an approval reference.
-3. **Execution.** Ops runs §3.3 with a second person present (the two-person rule from `02`). Staging first, as ST-56, before the first production deletion.
-4. **Confirmation.** The 교무기획팀장 is told the deletion is done and that backups will age out (§3.5).
+**SLA: 7 days.** The deletion is completed and confirmed within **7 calendar days of the request being received**. Approval is part of that time.
+
+1. **Request (day 0).** The student, or the class teacher on the student's behalf, gives the request to the 교무기획팀장. Record the date, who asked, and a case number (no names in the ops log).
+2. **Approval (by day 3).** Only the **교무기획팀장** approves, in writing. No deletion is run without an approval reference. If the 교무기획팀장 is unavailable, the request waits for them or for a deputy they have named in writing; nobody else may approve.
+3. **Execution (by day 6).** Ops runs §3.3 with a second person present (the two-person rule from `02`). Staging first, as ST-56, before the first production deletion.
+4. **Confirmation (by day 7).** The requester and the 교무기획팀장 are told the deletion is done and that backups will age out (§3.5). A missed deadline is recorded in the ledger with the reason.
 
 ### 3.2 Erasure ledger (kept by Ops, outside the database)
 
@@ -232,17 +239,17 @@ For an incident, use the emergency stop and resume steps in `08` §F. They suspe
 
 | # | Assumption | Owner |
 |---|---|---|
-| 1 | The guardian-consent age rule and the notice wording in §1.1 | School data-protection contact |
+| 1 | The notice wording in §1.1 (no guardian consent: internal, teacher-created, single-school pilot) | School data-protection contact |
 | 2 | The pilot end date, which sets the 30-day deletion deadline | PM (D4) |
-| 3 | Retention of the de-identified audit logs (proposed 1 year) | PM |
+| 3 | ~~Retention of the de-identified audit logs~~ **Decided: 1 year** | PM |
 | 4 | Backup and log retention in days for the chosen plan | Ops |
 | 5 | Admin accounts: kept or deleted at the end | PM |
-| 6 | Response time for an erasure request (not decided here; proposed: approve within 5 working days) | 교무기획팀장 |
+| 6 | ~~Response time for an erasure request~~ **Decided: 7 days** (calendar days, from receipt, approval included; the 3/6/7-day split in §3.1 is a working guide) | 교무기획팀장 |
 
 ## 6. Closure evidence for D6 / R10
 
 - ☐ §0 table signed by all five roles
-- ☐ §5 assumptions answered
+- ☐ §5 assumptions 1, 2, 4 and 5 answered (3 and 6 are decided)
 - ☐ ST-56 / VER-43 run on staging with §3.3; output attached
 - ☐ Consent list process in place with the class teachers
 - ☐ Erasure ledger created (empty)
