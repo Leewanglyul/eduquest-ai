@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(188);
+SELECT plan(200);
 
 -- M2-2.4a F1: student crossword attempts, members, events and the fn_crossword_play_* functions
 -- (docs/m2/07 B and G.3, docs/m2/08 B and H).
@@ -9,8 +9,9 @@ SELECT plan(188);
 -- c1 also in d2; c5 is enrolled nowhere. Puzzle words (doc 04 §2.7 plus 차례), cells:
 --   0,0 사 · 0,1 과 · 1,1 일 · 1,2 기 · 2,2 차 · 2,3 례
 --   1 across 사과 (0,0 0,1) · 2 down 과일 (0,1 1,1) · 3 across 일기 (1,1 1,2) · 4 down 기차 (1,2 2,2) · 5 across 차례 (2,2 2,3)
--- Three published puzzles in d1: normal (onRequest, 1 reveal), easy (anytime, 3 reveals), hard (submitOnly, 0 reveals);
--- the normal one is also assigned to d2.
+-- Four published puzzles in d1 (PM SP-1/SP-2 defaults): easy (anytime, unlimited checks, 3 reveals), normal (word checks,
+-- 5 checks, 2 reveals), hard (word checks, 3 checks, 1 reveal) and 'locked' (a teacher override: no checks, no reveals,
+-- no chosung). The normal one is also assigned to d2.
 
 INSERT INTO auth.users (id, instance_id, aud, role, email)
 SELECT v.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', v.email
@@ -75,19 +76,23 @@ BEGIN
 END $$;
 
 SELECT set_config('t.pn', pg_temp.make_puzzle(1, 'normal',
-  '{"prefillPercent":10,"revealsPerStudent":1,"checkMode":"onRequest","chosungAllowed":true}'::jsonb,
+  '{"prefillPercent":10,"revealsPerStudent":2,"checksAllowed":5,"checkMode":"onRequest","chosungAllowed":true}'::jsonb,
   ARRAY['00000000-0000-4000-8000-0000000000d1','00000000-0000-4000-8000-0000000000d2']::uuid[])::text, true);
 SELECT set_config('t.pe', pg_temp.make_puzzle(2, 'easy',
-  '{"prefillPercent":25,"revealsPerStudent":3,"checkMode":"anytime","chosungAllowed":true}'::jsonb,
+  '{"prefillPercent":25,"revealsPerStudent":3,"checksAllowed":null,"checkMode":"anytime","chosungAllowed":true}'::jsonb,
   ARRAY['00000000-0000-4000-8000-0000000000d1']::uuid[])::text, true);
 SELECT set_config('t.ph', pg_temp.make_puzzle(3, 'hard',
-  '{"prefillPercent":0,"revealsPerStudent":0,"checkMode":"submitOnly","chosungAllowed":false}'::jsonb,
+  '{"prefillPercent":0,"revealsPerStudent":1,"checksAllowed":3,"checkMode":"onRequest","chosungAllowed":false}'::jsonb,
+  ARRAY['00000000-0000-4000-8000-0000000000d1']::uuid[])::text, true);
+SELECT set_config('t.pl', pg_temp.make_puzzle(4, 'normal',
+  '{"prefillPercent":0,"revealsPerStudent":0,"checksAllowed":0,"checkMode":"submitOnly","chosungAllowed":false}'::jsonb,
   ARRAY['00000000-0000-4000-8000-0000000000d1']::uuid[])::text, true);
 
 SELECT set_config('t.an', (SELECT id::text FROM public.crossword_assignments WHERE puzzle_id = current_setting('t.pn')::uuid AND classroom_id = '00000000-0000-4000-8000-0000000000d1'), true);
 SELECT set_config('t.an2', (SELECT id::text FROM public.crossword_assignments WHERE puzzle_id = current_setting('t.pn')::uuid AND classroom_id = '00000000-0000-4000-8000-0000000000d2'), true);
 SELECT set_config('t.ae', (SELECT id::text FROM public.crossword_assignments WHERE puzzle_id = current_setting('t.pe')::uuid), true);
 SELECT set_config('t.ah', (SELECT id::text FROM public.crossword_assignments WHERE puzzle_id = current_setting('t.ph')::uuid), true);
+SELECT set_config('t.al', (SELECT id::text FROM public.crossword_assignments WHERE puzzle_id = current_setting('t.pl')::uuid), true);
 
 -- Helpers. S1/S4/S5 are the student ids; err() returns the error message of a statement; hint() its HINT.
 CREATE FUNCTION pg_temp.s(p_n integer) RETURNS uuid LANGUAGE sql AS $$ SELECT ('00000000-0000-4000-8000-0000000000c' || p_n)::uuid $$;
@@ -185,7 +190,7 @@ SELECT throws_ok(format($f$INSERT INTO public.crossword_attempt_members (attempt
   current_setting('t.a1'), current_setting('t.an'), pg_temp.s(1)), '23505', NULL, 'a student cannot be a member of two attempts of one assignment');
 SELECT set_config('t.a1b', pg_temp.start(1, current_setting('t.an2'))::text, true);
 SELECT isnt(current_setting('t.a1b'), current_setting('t.a1'), 'the same puzzle in two classrooms gives two attempts');
-SELECT is((SELECT count(*)::int FROM public.fn_crossword_play_list(pg_temp.s(1))), 4, 'list: normal in d1 and d2, plus easy and hard in d1');
+SELECT is((SELECT count(*)::int FROM public.fn_crossword_play_list(pg_temp.s(1))), 5, 'list: normal in d1 and d2, plus easy, hard and locked in d1');
 
 -- =====================================================================================================
 -- E. Save
@@ -247,6 +252,7 @@ SELECT is(pg_temp.chk(1, current_setting('t.a1')::uuid, 'word', ARRAY['2,2','2,3
   '[{"key":"2,2","status":"empty"},{"key":"2,3","status":"ok"}]'::jsonb, 'a prefilled cell counts as ok');
 SELECT ok((SELECT (pg_temp.chk(1, current_setting('t.a1')::uuid, 'word', ARRAY['0,0','0,1']))::text !~ '[가-힣]'), 'a check reply contains no character');
 SELECT is((SELECT checks_used FROM public.crossword_attempts WHERE id = current_setting('t.a1')::uuid)::int, 5, 'each check is counted');
+UPDATE public.crossword_attempts SET checks_used = 2 WHERE id = current_setting('t.a1')::uuid;
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'cell', ARRAY['0,0'])$f$, current_setting('t.a1'))), 'CROSSWORD_PLAY_CHECK_NOT_ALLOWED', 'normal: cell scope is not allowed');
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'puzzle', NULL)$f$, current_setting('t.a1'))), 'CROSSWORD_PLAY_CHECK_NOT_ALLOWED', 'normal: puzzle scope is not allowed');
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','1,1'])$f$, current_setting('t.a1'))), 'CROSSWORD_PLAY_BAD_CELL', 'word scope needs exactly the cells of one word');
@@ -256,11 +262,16 @@ SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_check(%L, %L, 'w
 SELECT is((SELECT detail FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.a1')::uuid AND kind = 'check' ORDER BY id LIMIT 1),
   '{"scope":"word","words":[{"number":1,"direction":"across"}]}'::jsonb, 'a word check records the word number and direction only');
 SELECT is((SELECT source::text FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.a1')::uuid AND kind = 'check' ORDER BY id LIMIT 1), 'hint', 'a check has source hint');
+-- checks limit (normal: 5)
+UPDATE public.crossword_attempts SET checks_used = 5 WHERE id = current_setting('t.a1')::uuid;
+SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','0,1'])$f$, current_setting('t.a1'))), 'CROSSWORD_PLAY_CHECK_LIMIT', 'normal: the sixth check is over the limit of 5');
+UPDATE public.crossword_attempts SET checks_used = 0 WHERE id = current_setting('t.a1')::uuid;
 -- rate window
 UPDATE public.crossword_attempts SET check_window_start = now() - interval '10 seconds', check_window_count = 60 WHERE id = current_setting('t.a1')::uuid;
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','0,1'])$f$, current_setting('t.a1'))), 'CROSSWORD_PLAY_CHECK_RATE', 'more than 60 checks a minute are refused');
 UPDATE public.crossword_attempts SET check_window_start = now() - interval '61 seconds' WHERE id = current_setting('t.a1')::uuid;
 SELECT lives_ok(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','0,1'])$f$, current_setting('t.a1')), 'the window resets after a minute');
+SELECT is((pg_temp.chk(1, current_setting('t.a1')::uuid, 'word', ARRAY['0,0','0,1']) ->> 'checksRemaining')::int, 3, 'normal: checksRemaining counts down from 5 (two used since the reset)');
 
 -- easy = anytime
 SELECT set_config('t.e1', pg_temp.start(1, current_setting('t.ae'), ARRAY['0,0'])::text, true);
@@ -274,7 +285,13 @@ SELECT is((SELECT detail FROM public.crossword_attempt_events WHERE attempt_id =
 
 -- hard = submitOnly
 SELECT set_config('t.h1', pg_temp.start(1, current_setting('t.ah'))::text, true);
-SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','0,1'])$f$, current_setting('t.h1'))), 'CROSSWORD_PLAY_CHECK_NOT_ALLOWED', 'hard: no checks');
+SELECT is((pg_temp.chk(1, current_setting('t.h1')::uuid, 'word', ARRAY['0,0','0,1']) ->> 'checksRemaining')::int, 2, 'hard: 3 checks allowed, 2 remaining after the first');
+SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'cell', ARRAY['0,0'])$f$, current_setting('t.h1'))), 'CROSSWORD_PLAY_CHECK_NOT_ALLOWED', 'hard: word scope only');
+UPDATE public.crossword_attempts SET checks_used = 3 WHERE id = current_setting('t.h1')::uuid;
+SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','0,1'])$f$, current_setting('t.h1'))), 'CROSSWORD_PLAY_CHECK_LIMIT', 'hard: the fourth check is over the limit of 3');
+UPDATE public.crossword_attempts SET checks_used = 1 WHERE id = current_setting('t.h1')::uuid;
+SELECT set_config('t.l1', pg_temp.start(1, current_setting('t.al'))::text, true);
+SELECT is(pg_temp.err(format($f$SELECT pg_temp.chk(1, %L, 'word', ARRAY['0,0','0,1'])$f$, current_setting('t.l1'))), 'CROSSWORD_PLAY_CHECK_NOT_ALLOWED', 'override: no checks');
 
 -- =====================================================================================================
 -- G. Reveal (normal: one)
@@ -284,7 +301,10 @@ SELECT is(public.fn_crossword_play_reveal(pg_temp.s(1), current_setting('t.a1'):
 SELECT is((SELECT reveals_used FROM public.crossword_attempts WHERE id = current_setting('t.a1')::uuid)::int, 1, 'reveal is counted');
 SELECT is((SELECT revealed_keys FROM public.crossword_attempts WHERE id = current_setting('t.a1')::uuid), ARRAY['1,1'], 'revealed keys are stored as keys');
 SELECT is((SELECT cells ->> '1,1' FROM public.crossword_attempts WHERE id = current_setting('t.a1')::uuid), '일', 'the revealed letter is written to the cells');
-SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '1,2', %s)$f$, pg_temp.s(1), current_setting('t.a1'), pg_temp.rev(current_setting('t.a1')::uuid))), 'CROSSWORD_PLAY_REVEAL_LIMIT', 'the second reveal is over the limit');
+SELECT is((SELECT (public.fn_crossword_attempt_limits(current_setting('t.a1')::uuid) ->> 'revealsAllowed')::int - reveals_used FROM public.crossword_attempts WHERE id = current_setting('t.a1')::uuid), 1, 'normal: 2 reveals allowed, 1 remaining after the first');
+UPDATE public.crossword_attempts SET reveals_used = 2 WHERE id = current_setting('t.a1')::uuid;
+SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '1,2', %s)$f$, pg_temp.s(1), current_setting('t.a1'), pg_temp.rev(current_setting('t.a1')::uuid))), 'CROSSWORD_PLAY_REVEAL_LIMIT', 'normal: the third reveal is over the limit of 2');
+UPDATE public.crossword_attempts SET reveals_used = 1 WHERE id = current_setting('t.a1')::uuid;
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.save(1, %L, '{"1,1":"가"}')$f$, current_setting('t.a1'))), 'CROSSWORD_PLAY_LOCKED_CELL', 'a revealed cell is locked');
 SELECT is((SELECT detail FROM public.crossword_attempt_events WHERE attempt_id = current_setting('t.a1')::uuid AND kind = 'reveal'),
   '{"scope":"cell","words":[{"number":2,"direction":"down"},{"number":3,"direction":"across"}]}'::jsonb, 'a reveal records the word references, not the letter');
@@ -295,7 +315,10 @@ SELECT pg_temp.save(1, current_setting('t.e1')::uuid, '{"1,2":"기"}'::jsonb);
 SELECT is(public.fn_crossword_play_reveal(pg_temp.s(1), current_setting('t.e1')::uuid, '1,2', pg_temp.rev(current_setting('t.e1')::uuid)) ->> 'char', '기', 'easy: revealing an already-correct cell spends one and returns the letter');
 SELECT is((public.fn_crossword_play_reveal(pg_temp.s(1), current_setting('t.e1')::uuid, '2,2', pg_temp.rev(current_setting('t.e1')::uuid)) ->> 'revealsRemaining')::int, 1, 'easy: 3 allowed, 2 used, 1 remaining');
 SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '0,0', %s)$f$, pg_temp.s(1), current_setting('t.e1'), pg_temp.rev(current_setting('t.e1')::uuid))), 'CROSSWORD_PLAY_LOCKED_CELL', 'a prefilled cell cannot be revealed');
-SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '1,1', %s)$f$, pg_temp.s(1), current_setting('t.h1'), pg_temp.rev(current_setting('t.h1')::uuid))), 'CROSSWORD_PLAY_REVEAL_NOT_ALLOWED', 'hard: no reveals');
+SELECT set_config('t.h4', pg_temp.start(4, current_setting('t.ah'))::text, true);
+SELECT is(public.fn_crossword_play_reveal(pg_temp.s(4), current_setting('t.h4')::uuid, '1,1', 0) ->> 'char', '일', 'hard: one reveal is allowed');
+SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '1,2', %s)$f$, pg_temp.s(4), current_setting('t.h4'), pg_temp.rev(current_setting('t.h4')::uuid))), 'CROSSWORD_PLAY_REVEAL_LIMIT', 'hard: the second reveal is over the limit of 1');
+SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '1,1', %s)$f$, pg_temp.s(1), current_setting('t.l1'), pg_temp.rev(current_setting('t.l1')::uuid))), 'CROSSWORD_PLAY_REVEAL_NOT_ALLOWED', 'override: no reveals');
 SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '9,9', %s)$f$, pg_temp.s(1), current_setting('t.e1'), pg_temp.rev(current_setting('t.e1')::uuid))), 'CROSSWORD_PLAY_BAD_CELL', 'a key outside the grid cannot be revealed');
 SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_reveal(%L, %L, '2,3', 0)$f$, pg_temp.s(4), current_setting('t.a1'))), 'CROSSWORD_PLAY_NOT_FOUND', 'another student cannot reveal in this attempt');
 
@@ -359,13 +382,21 @@ SELECT is(pg_temp.sub(1, current_setting('t.e1')::uuid) ->> 'result', 'completed
 -- =====================================================================================================
 SELECT is(public.fn_crossword_play_given(pg_temp.s(1), current_setting('t.a1')::uuid), '{"1,1":"일","2,3":"례"}'::jsonb, 'given = prefilled plus revealed letters only');
 SELECT is(pg_temp.err(format($f$SELECT public.fn_crossword_play_given(%L, %L)$f$, pg_temp.s(4), current_setting('t.a1'))), 'CROSSWORD_PLAY_NOT_FOUND', 'given needs membership');
-SELECT is(public.fn_crossword_attempt_limits(current_setting('t.a1')::uuid), '{"level":"normal","checkMode":"onRequest","revealsAllowed":1,"chosungAllowed":true}'::jsonb, 'limits under neutral names');
-SELECT is(public.fn_crossword_attempt_limits(current_setting('t.h1')::uuid), '{"level":"hard","checkMode":"submitOnly","revealsAllowed":0,"chosungAllowed":false}'::jsonb, 'limits of the hard puzzle');
+SELECT is(public.fn_crossword_attempt_limits(current_setting('t.a1')::uuid), '{"level":"normal","checkMode":"onRequest","checksAllowed":5,"revealsAllowed":2,"chosungAllowed":true}'::jsonb, 'limits under neutral names (PM SP-1/SP-2: normal = 5 checks, 2 reveals)');
+SELECT is(public.fn_crossword_attempt_limits(current_setting('t.e1')::uuid), '{"level":"easy","checkMode":"anytime","checksAllowed":null,"revealsAllowed":3,"chosungAllowed":true}'::jsonb, 'limits of the easy puzzle: unlimited checks (null), 3 reveals');
+SELECT is(public.fn_crossword_attempt_limits(current_setting('t.h1')::uuid), '{"level":"hard","checkMode":"onRequest","checksAllowed":3,"revealsAllowed":1,"chosungAllowed":false}'::jsonb, 'limits of the hard puzzle: 3 checks, 1 reveal');
+SELECT is(public.fn_crossword_attempt_limits(current_setting('t.l1')::uuid), '{"level":"normal","checkMode":"submitOnly","checksAllowed":0,"revealsAllowed":0,"chosungAllowed":false}'::jsonb, 'limits of a teacher override to none');
+SET LOCAL session_replication_role = replica;
+UPDATE public.crossword_puzzles SET settings = '{"play":{"checkMode":"onRequest","revealsPerStudent":1,"chosungAllowed":true}}'::jsonb WHERE id = current_setting('t.pl')::uuid;
+SELECT is(public.fn_crossword_attempt_limits(current_setting('t.l1')::uuid) -> 'checksAllowed', 'null'::jsonb, 'a puzzle saved before checksAllowed existed: onRequest means unlimited');
+UPDATE public.crossword_puzzles SET settings = '{"play":{"checkMode":"submitOnly","revealsPerStudent":0,"chosungAllowed":false}}'::jsonb WHERE id = current_setting('t.pl')::uuid;
+SELECT is(public.fn_crossword_attempt_limits(current_setting('t.l1')::uuid) -> 'checksAllowed', to_jsonb(0), 'a puzzle saved before checksAllowed existed: submitOnly means none');
+SET LOCAL session_replication_role = origin;
 SELECT is((SELECT array_agg(DISTINCT attempt_status::text) FROM public.fn_crossword_play_list(pg_temp.s(1)) WHERE attempt_id IS NOT NULL ORDER BY 1), ARRAY['completed','in_progress'], 'list shows attempt states');
 SELECT is((SELECT total_cells FROM public.fn_crossword_play_list(pg_temp.s(1)) WHERE assignment_id = current_setting('t.an')::uuid), 6, 'list: six distinct cells');
 SELECT is((SELECT word_count FROM public.fn_crossword_play_list(pg_temp.s(1)) WHERE assignment_id = current_setting('t.an')::uuid), 5, 'list: five words');
 SELECT is((SELECT count(*)::int FROM public.fn_crossword_play_list(pg_temp.s(5))), 0, 'list: a student in no classroom sees nothing');
-SELECT is((SELECT count(*)::int FROM public.fn_crossword_play_list(pg_temp.s(4))), 3, 'list: c4 sees the three assignments of d1');
+SELECT is((SELECT count(*)::int FROM public.fn_crossword_play_list(pg_temp.s(4))), 4, 'list: c4 sees the four assignments of d1');
 UPDATE public.classrooms SET archived_at = now() WHERE id = '00000000-0000-4000-8000-0000000000d2';
 SELECT is((SELECT reason FROM public.fn_crossword_play_access(pg_temp.s(1), current_setting('t.an2')::uuid)), 'NOT_FOUND', 'archived classroom: not found, even with an attempt');
 SELECT is(pg_temp.err(format($f$SELECT pg_temp.save(1, %L, '{"0,0":"사"}')$f$, current_setting('t.a1b'))), 'CROSSWORD_PLAY_NOT_FOUND', 'archived classroom: no save');

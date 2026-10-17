@@ -11,7 +11,7 @@ export function optionsForLevel(level: DifficultyLevel, seed: number, overrides:
 /** The play-side settings of a preset, for the descriptive difficulty and the student payload. */
 export function settingsForLevel(level: DifficultyLevel): DifficultySettings & Pick<DifficultyPreset, "chosungAllowed"> {
   const p = DIFFICULTY_PRESETS[level];
-  return { prefillPercent: p.prefillPercent, revealsPerStudent: p.revealsPerStudent, checkMode: p.checkMode, chosungAllowed: p.chosungAllowed };
+  return { prefillPercent: p.prefillPercent, revealsPerStudent: p.revealsPerStudent, checksAllowed: p.checksAllowed, checkMode: p.checkMode, chosungAllowed: p.chosungAllowed };
 }
 
 export type PrefilledCell = { row: number; col: number };

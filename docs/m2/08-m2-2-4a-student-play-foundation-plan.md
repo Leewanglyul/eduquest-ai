@@ -189,9 +189,9 @@ Built **field by field** by `payload.ts`; never a spread of a database row. Prog
 | Endpoint | Request keys (exactly) | Reply | Refusals |
 |---|---|---|---|
 | `state` GET | none | `PlayPayload` | not found |
-| `save` POST | `patch` `{key: char\|null}`, `baseRevision`, `activeMs` | `{revision, readonly}` | locked cell, bad key or char, oversize, closed beyond grace |
-| `check` POST | `scope` cell\|word\|puzzle, `keys`, `baseRevision` | `[{key, status: ok\|wrong\|empty}]`, `{checksUsed}` | mode forbids scope, rate window, `STALE` |
-| `reveal` POST | `key`, `baseRevision` | `{key, char}`, `{revealsRemaining}` | limit reached, locked cell, `STALE` |
+| `save` POST | `patch` `{key: char|null}`, `activeMs` (no `baseRevision`: merge patches need none) | `{revision, filled}` | locked cell, bad key or char, oversize, closed beyond grace |
+| `check` POST | `scope` cell|word|puzzle, `keys`, `baseRevision` | `{results: [{key, status: ok|wrong|empty}], checksUsed, checksRemaining}` (null = unlimited) | scope not allowed, `CHECK_LIMIT`, rate window, `STALE` |
+| `reveal` POST | `key`, `baseRevision` | `{key, char, revealsRemaining, revision}` | `REVEAL_NOT_ALLOWED`, `REVEAL_LIMIT`, locked cell, `STALE` |
 | `chosung` POST | `number`, `direction` | `{chosung}` | not allowed, mixed answer |
 | `submit` POST | `baseRevision` | `{result: completed}` or `{result: incomplete, empty}` or `{result: wrong, wrongCells?}` | cooldown, `STALE`, closed |
 
@@ -199,13 +199,13 @@ No request carries a selected cell, current word or current clue (that would be 
 
 ### C.5 Checks and reveals (item 6)
 
-| Preset | Check | 초성 | Reveals |
-|---|---|---|---|
-| easy | cell, word or puzzle, any time | yes | 3 |
-| normal | word, on request | yes | 1 |
-| hard | none (submit only) | no | 0 |
+| Preset | Check scope | Checks | 초성 | Reveals |
+|---|---|---|---|---|
+| easy | cell, word or puzzle | unlimited | yes | 3 |
+| normal | a word | 5 | yes | 2 |
+| hard | a word | 3 | no | 1 |
 
-(Generator starting values, CW-2…CW-4, E.2 below.) A check reads **saved** state at `baseRevision`, counts once in `checks_used` and once in the per-attempt rate window (60 a minute, stored on the attempt so it holds on serverless). Replies are three statuses; error text never contains an expected value. A wrong mark is client-only and clears when the cell is edited. A reveal is one atomic `UPDATE … WHERE reveals_used < limit`, writes the letter to `cells`, adds the key to `revealed_keys`, locks the cell. 초성 returns consonants only.
+**PM decision SP-1/SP-2 (2026-10-18):** reveals 3/2/1 and checks unlimited/5/3 for easy/normal/hard; a teacher may override both. They are stored per puzzle in `settings.play` (`revealsPerStudent`, `checksAllowed`: a number, `null` = unlimited, `0` = none) and enforced by the database (`CROSSWORD_PLAY_REVEAL_LIMIT`, `CROSSWORD_PLAY_CHECK_LIMIT`). Puzzles saved before `checksAllowed` existed read as: `submitOnly` = none, otherwise unlimited. The teacher override screen is **not built** (it is a teacher-side change, to be scheduled); today the values come from the preset. The scope of normal and hard checks (a word) is an engineering assumption, see N10. (Earlier: generator starting values, CW-2…CW-4, E.2 below.) A check reads **saved** state at `baseRevision`, counts once in `checks_used` and once in the per-attempt rate window (60 a minute, stored on the attempt so it holds on serverless). Replies are three statuses; error text never contains an expected value. A wrong mark is client-only and clears when the cell is edited. A reveal is one atomic `UPDATE … WHERE reveals_used < limit`, writes the letter to `cells`, adds the key to `revealed_keys`, locks the cell. 초성 returns consonants only.
 
 ### C.6 Progress save and resume (item 7)
 
@@ -340,6 +340,8 @@ Already answered in doc 07 (2026-10-17): **E.5** one attempt per student and ass
 | N7 | **Next-puzzle rule** (§D point 4) | Yes |
 | N8 | **List shows closed puzzles that have an attempt**, hides closed ones that do not | Yes |
 | N9 | Windows trace evidence: should Chrome/Edge on Windows count toward the gate, or only the Galaxy devices? | Count them (PM listed them); the Galaxy devices decide go/no-go for input method A |
+| N10 | **Scope of the new checks** (SP-2): normal and hard allow 5 and 3 checks of a **word** each (cell and puzzle scope stay easy-only). Hard changes from "no checks" to "3 word checks", so the hard check mode is now `onRequest` and the hard cooldown after a wrong submit is unchanged | Yes; widen the scope only if a teacher asks |
+| N11 | **`words_completed` (PM, 2026-10-18: "keep in attempt events").** It does not exist yet, and `actor_id` exists as `actor_student_id`. A count of correctly solved words is per-word correctness, which product note 01 §3/§8 and the governance draft (doc 14 §1) say is **not stored**, and a value updated by checks would be a free check if it ever reached the student. Open: what should it mean (words fully correct at submit? words the student filled?), who may read it (never the student mid-play), and does it need a governance entry (doc 14, Q2/Q3)? Not built | Decide the definition first; if wanted, record it **once** in the `completed` event / at submit time, server-side only |
 
 ---
 

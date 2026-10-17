@@ -129,6 +129,12 @@ AS $$
   SELECT pg_catalog.jsonb_build_object(
     'level', p.level,
     'checkMode', COALESCE(p.settings -> 'play' ->> 'checkMode', 'submitOnly'),
+    -- Checks allowed per attempt (PM SP-2): a number, or null = unlimited. A puzzle saved before this setting existed
+    -- has no key: submitOnly then means none, anything else unlimited (its scope rule still applies).
+    'checksAllowed', CASE
+      WHEN p.settings -> 'play' ? 'checksAllowed' THEN p.settings -> 'play' -> 'checksAllowed'
+      WHEN COALESCE(p.settings -> 'play' ->> 'checkMode', 'submitOnly') = 'submitOnly' THEN pg_catalog.to_jsonb(0)
+      ELSE 'null'::jsonb END,
     'revealsAllowed', COALESCE((p.settings -> 'play' ->> 'revealsPerStudent')::integer, 0),
     'chosungAllowed', COALESCE((p.settings -> 'play' ->> 'chosungAllowed')::boolean, false))
   FROM public.crossword_attempts a
@@ -334,9 +340,10 @@ $$;
 -- ---------------------------------------------------------------------------------------------------------
 
 -- p_scope 'cell' (one key), 'word' (the keys of exactly one word) or 'puzzle' (p_keys ignored). The preset decides
--- which scopes are allowed. Works on SAVED state at p_base_revision; a moved revision gives CROSSWORD_PLAY_STALE so
+-- which scopes are allowed and the number of checks (checksAllowed, null = unlimited; CHECK_LIMIT when used up).
+-- Works on SAVED state at p_base_revision; a moved revision gives CROSSWORD_PLAY_STALE so
 -- a check never runs against stale cells. Counts once in checks_used and once in a 60 per minute window.
--- Returns {results: [{key, status: ok|wrong|empty}], checksUsed}.
+-- Returns {results: [{key, status: ok|wrong|empty}], checksUsed, checksRemaining (null = unlimited)}.
 CREATE FUNCTION public.fn_crossword_play_check(
   p_student_id uuid, p_attempt_id uuid, p_scope text, p_keys text[], p_base_revision bigint)
 RETURNS jsonb
@@ -348,6 +355,7 @@ DECLARE
   v_puzzle uuid;
   v_limits jsonb;
   v_mode text;
+  v_checks_allowed jsonb;
   v_now timestamptz := pg_catalog.now();
   v_keys text[];
   v_words jsonb := '[]'::jsonb;
@@ -362,10 +370,14 @@ BEGIN
 
   v_limits := public.fn_crossword_attempt_limits(r.id);
   v_mode := v_limits ->> 'checkMode';
-  IF v_mode = 'submitOnly'
+  v_checks_allowed := v_limits -> 'checksAllowed';
+  IF v_mode = 'submitOnly' OR v_checks_allowed = pg_catalog.to_jsonb(0)
      OR (v_mode = 'onRequest' AND p_scope IS DISTINCT FROM 'word')
      OR p_scope IS NULL OR p_scope NOT IN ('cell', 'word', 'puzzle') THEN
     RAISE EXCEPTION 'CROSSWORD_PLAY_CHECK_NOT_ALLOWED' USING ERRCODE = 'P0001';
+  END IF;
+  IF pg_catalog.jsonb_typeof(v_checks_allowed) = 'number' AND r.checks_used >= (v_checks_allowed #>> '{}')::integer THEN
+    RAISE EXCEPTION 'CROSSWORD_PLAY_CHECK_LIMIT' USING ERRCODE = 'P0001';
   END IF;
 
   SELECT x.puzzle_id INTO v_puzzle FROM public.crossword_assignments x WHERE x.id = r.assignment_id;
@@ -428,7 +440,9 @@ BEGIN
           CASE WHEN p_scope = 'puzzle' THEN pg_catalog.jsonb_build_object('scope', 'puzzle')
                ELSE pg_catalog.jsonb_build_object('scope', p_scope, 'words', v_words) END);
 
-  RETURN pg_catalog.jsonb_build_object('results', v_results, 'checksUsed', r.checks_used);
+  RETURN pg_catalog.jsonb_build_object('results', v_results, 'checksUsed', r.checks_used,
+    'checksRemaining', CASE WHEN pg_catalog.jsonb_typeof(v_checks_allowed) = 'number'
+                            THEN pg_catalog.to_jsonb((v_checks_allowed #>> '{}')::integer - r.checks_used) ELSE 'null'::jsonb END);
 END;
 $$;
 

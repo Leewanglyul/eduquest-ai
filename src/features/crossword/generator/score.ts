@@ -65,6 +65,13 @@ export function scorePuzzle(stats: PuzzleStats, selectedWords: number): PuzzleSc
  * puzzle harder; more crossings, pre-filled cells, reveals and early checking make it easier. It is a number to
  * put next to a puzzle, not a promise; the weights are tested only for ordering.
  */
+/** Fewer checks make a puzzle harder: none 10, otherwise 10 minus the allowance (3 checks 7, 5 checks 5), unlimited 0. */
+function checkPenalty(settings: DifficultySettings): number {
+  if (settings.checkMode === "submitOnly" || settings.checksAllowed === 0) return 10;
+  if (settings.checksAllowed === null) return 0;
+  return Math.max(0, 10 - settings.checksAllowed);
+}
+
 export function describeDifficulty(stats: PuzzleStats, settings: DifficultySettings): number {
   const raw =
     3 * stats.avgWordLength +
@@ -72,6 +79,6 @@ export function describeDifficulty(stats: PuzzleStats, settings: DifficultySetti
     6 * stats.avgCrossingsPerWord -
     0.5 * settings.prefillPercent -
     4 * settings.revealsPerStudent +
-    (settings.checkMode === "submitOnly" ? 10 : 0);
+    checkPenalty(settings);
   return Math.max(0, Math.min(100, Math.round(raw)));
 }

@@ -208,7 +208,8 @@ export function CrosswordGenerateForm({ setId, setName, entries }: Props) {
           <p className="mt-1 text-xs text-slate-600">
             {preset.gridSize}×{preset.gridSize} 칸 · 단어 최대 {preset.maxWords}개 · 정답 최대{" "}
             {preset.maxWordLen}글자 · 미리 채워진 칸 약 {preset.prefillPercent}% · 글자 알려주기{" "}
-            {preset.revealsPerStudent}회
+            {preset.revealsPerStudent}회 · 확인{" "}
+            {preset.checksAllowed === null ? "제한 없음" : `${preset.checksAllowed}회`}
           </p>
         </fieldset>
 

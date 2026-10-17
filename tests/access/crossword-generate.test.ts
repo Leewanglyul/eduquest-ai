@@ -366,9 +366,11 @@ describe("M2-2.1 puzzle scoring", () => {
 
 describe("M2-2.1 difficulty presets and pre-filled cells", () => {
   it("pin the preset values", () => {
-    expect(DIFFICULTY_PRESETS.easy).toEqual({ gridSize: 10, maxWords: 10, maxWordLen: 5, prefillPercent: 25, revealsPerStudent: 3, checkMode: "anytime", chosungAllowed: true });
+    expect(DIFFICULTY_PRESETS.easy).toEqual({ gridSize: 10, maxWords: 10, maxWordLen: 5, prefillPercent: 25, revealsPerStudent: 3, checksAllowed: null, checkMode: "anytime", chosungAllowed: true });
     expect(DIFFICULTY_PRESETS.normal.gridSize).toBe(13);
-    expect(DIFFICULTY_PRESETS.hard).toMatchObject({ gridSize: 15, maxWords: 25, prefillPercent: 0, revealsPerStudent: 0, checkMode: "submitOnly", chosungAllowed: false });
+    // PM SP-1/SP-2 (2026-10-18): reveals 3/2/1, checks unlimited/5/3.
+    expect(DIFFICULTY_PRESETS.normal).toMatchObject({ revealsPerStudent: 2, checksAllowed: 5, checkMode: "onRequest" });
+    expect(DIFFICULTY_PRESETS.hard).toMatchObject({ gridSize: 15, maxWords: 25, prefillPercent: 0, revealsPerStudent: 1, checksAllowed: 3, checkMode: "onRequest", chosungAllowed: false });
   });
 
   it("turn a level into generator options that a teacher can override", () => {

@@ -41,14 +41,18 @@ export type DifficultyPreset = {
   maxWordLen: number;
   /** Share of cells the student sees filled in (never a whole word). */
   prefillPercent: number;
+  /** Letters a student may have revealed (PM SP-1: easy 3, normal 2, hard 1). A teacher may override. */
   revealsPerStudent: number;
+  /** Checks a student may use; null = unlimited (PM SP-2: easy unlimited, normal 5, hard 3). A teacher may override. */
+  checksAllowed: number | null;
+  /** Scopes a check may have: anytime = cell, word or puzzle; onRequest = a word; submitOnly = none. */
   checkMode: CheckMode;
   chosungAllowed: boolean;
 };
 
 /** Starting values for the PM (decision C2); a teacher may change any of them. */
 export const DIFFICULTY_PRESETS: Record<DifficultyLevel, DifficultyPreset> = {
-  easy: { gridSize: 10, maxWords: 10, maxWordLen: 5, prefillPercent: 25, revealsPerStudent: 3, checkMode: "anytime", chosungAllowed: true },
-  normal: { gridSize: 13, maxWords: 16, maxWordLen: 8, prefillPercent: 10, revealsPerStudent: 1, checkMode: "onRequest", chosungAllowed: true },
-  hard: { gridSize: 15, maxWords: 25, maxWordLen: 15, prefillPercent: 0, revealsPerStudent: 0, checkMode: "submitOnly", chosungAllowed: false },
+  easy: { gridSize: 10, maxWords: 10, maxWordLen: 5, prefillPercent: 25, revealsPerStudent: 3, checksAllowed: null, checkMode: "anytime", chosungAllowed: true },
+  normal: { gridSize: 13, maxWords: 16, maxWordLen: 8, prefillPercent: 10, revealsPerStudent: 2, checksAllowed: 5, checkMode: "onRequest", chosungAllowed: true },
+  hard: { gridSize: 15, maxWords: 25, maxWordLen: 15, prefillPercent: 0, revealsPerStudent: 1, checksAllowed: 3, checkMode: "onRequest", chosungAllowed: false },
 };

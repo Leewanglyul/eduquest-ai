@@ -276,6 +276,8 @@ PlayPayload = {
 
 ### C.4 Checks and reveals
 
+> Superseded by PM SP-1/SP-2 (2026-10-18): reveals easy 3 / normal 2 / hard 1, checks unlimited / 5 / 3, teacher may override. See [doc 08](08-m2-2-4a-student-play-foundation-plan.md) C.5. The table below is the original proposal.
+
 | Preset | Check | 초성 | Reveals |
 |---|---|---|---|
 | easy | any time: cell, word, puzzle | yes | 3 |

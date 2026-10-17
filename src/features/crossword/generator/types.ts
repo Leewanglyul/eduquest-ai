@@ -111,6 +111,8 @@ export type ValidationResult = { ok: true } | { ok: false; errors: ValidationErr
 export type DifficultySettings = {
   prefillPercent: number;
   revealsPerStudent: number;
+  /** null = unlimited */
+  checksAllowed: number | null;
   checkMode: CheckMode;
 };
 
