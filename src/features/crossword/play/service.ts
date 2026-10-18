@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 import { requireAttemptId, requirePlayAccess } from "./access";
 import { unwrapPlay } from "./errors";
+import { sortPlayable, stateOf, type PlayableRow } from "./list";
 import { loadPlayPayload } from "./payload";
 import { chooseFrozenPrefill, type PuzzleStructure } from "./prefill";
 import type { CheckResult, CheckScope, Direction, PlayPayload, SubmitResult } from "./types";
@@ -14,23 +15,12 @@ import type { CheckResult, CheckScope, Direction, PlayPayload, SubmitResult } fr
  * limits and the key live in the database functions; nothing here reads an answer.
  */
 
-export type PlayableRow = {
-  assignmentId: string;
-  puzzleId: string;
-  title: string;
-  classroomId: string;
-  classroomName: string;
-  level: "easy" | "normal" | "hard";
-  wordCount: number;
-  totalCells: number;
-  closesAt: string | null;
-  attemptId: string | null;
-  attemptStatus: "in_progress" | "completed" | null;
-  filledCount: number;
-  readonly: boolean;
-};
+export type { PlayableRow, PlayableState } from "./list";
 
-/** The student's puzzle list (open assignments, plus closed ones that already have an attempt). */
+/**
+ * The student's puzzle list: open assignments, plus closed ones that already have an attempt, in the fixed order of
+ * list.ts. The student id is the caller's session student; nothing else selects rows.
+ */
 export async function listPlayable(studentId: string): Promise<PlayableRow[]> {
   const rows = unwrapPlay<
     {
@@ -39,7 +29,7 @@ export async function listPlayable(studentId: string): Promise<PlayableRow[]> {
       attempt_id: string | null; attempt_status: "in_progress" | "completed" | null; filled_count: number; readonly: boolean;
     }[]
   >(await createSupabaseAdminClient().rpc("fn_crossword_play_list", { p_student_id: studentId }));
-  return rows.map((r) => ({
+  const mapped = rows.map((r) => ({
     assignmentId: r.assignment_id,
     puzzleId: r.puzzle_id,
     title: r.title,
@@ -54,6 +44,7 @@ export async function listPlayable(studentId: string): Promise<PlayableRow[]> {
     filledCount: r.filled_count,
     readonly: r.readonly,
   }));
+  return sortPlayable(mapped.map((r) => ({ ...r, state: stateOf(r) }) satisfies PlayableRow));
 }
 
 /** The pre-filled cells, chosen from lengths and positions only (no answer is read) and frozen at attempt creation. */
@@ -114,7 +105,7 @@ export async function savePatch(
   );
 }
 
-export async function checkCells(
+export async function check(
   studentId: string,
   assignmentId: string,
   input: { scope: CheckScope; keys: string[]; baseRevision: number },
@@ -131,7 +122,7 @@ export async function checkCells(
   );
 }
 
-export async function revealCell(
+export async function reveal(
   studentId: string,
   assignmentId: string,
   input: { key: string; baseRevision: number },
@@ -147,7 +138,7 @@ export async function revealCell(
   );
 }
 
-export async function chosungHint(
+export async function chosung(
   studentId: string,
   assignmentId: string,
   input: { number: number; direction: Direction },
@@ -163,7 +154,7 @@ export async function chosungHint(
   );
 }
 
-export async function submitAttempt(studentId: string, assignmentId: string, baseRevision: number): Promise<SubmitResult> {
+export async function submit(studentId: string, assignmentId: string, baseRevision: number): Promise<SubmitResult> {
   const attemptId = await requireAttemptId(studentId, assignmentId);
   return unwrapPlay(
     await createSupabaseAdminClient().rpc("fn_crossword_play_submit", {

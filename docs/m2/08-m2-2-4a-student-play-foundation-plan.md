@@ -476,6 +476,22 @@ Built: server modules (`play/errors|access|payload|service|api-guard|schemas`), 
 - **Not automated.** The hook and the board have no browser test (E.7 is not decided). Input on real devices is the G.5 validation, to be done on the bare board: Galaxy S24 and Tab S9 (Samsung Internet, Chrome) and Windows (Chrome, Edge), against SC1 to SC6.
 - **Opening the board.** It needs a published assignment for a classroom the student is enrolled in, and a student account with the forced password change done. Do not use real students before the governance gate (doc 14 approved, doc 13 re-signed). There is no link to the page from the student home on purpose.
 
+## Student play services (PM request "M2-2.4b Student Play Services", 2026-10-18)
+
+The seven services were built in F3 (`play/service.ts`); this request found them already present and changed only what was missing. They are **not** the 2.4b of the phase table above (screens): the PM's "2.4b" here means the backend services, and the screens remain to be scheduled.
+
+| Service | Function | Notes |
+|---|---|---|
+| list | `listPlayable(studentId)` | now returns the rows **in the fixed order** (in progress, new by soonest closing, closed, completed) with a `state`; `play/list.ts` is pure |
+| open | `startOrResume(studentId, assignmentId)` | creates the attempt once (six simultaneous opens give one), freezes the prefill keys |
+| save | `savePatch(studentId, assignmentId, patch, activeMs)` | merge patch |
+| check | `check(...)` | renamed from `checkCells` to the names of C.1 |
+| reveal | `reveal(...)` | renamed from `revealCell` |
+| 초성 | `chosung(...)` | renamed from `chosungHint` |
+| submit | `submit(studentId, assignmentId, baseRevision)` | renamed from `submitAttempt` |
+
+Requirements as met: the student id is a parameter that handlers fill from the session only (no handler, schema or body accepts one); the attempt is found through `crossword_attempt_members` (assignment + student), never through a client id; events keep word number and direction only (plus the completion count); the services return no answer (tests serialize every return value); and nothing assumes one owner: a test adds a **second member** to an attempt and the same services open it (no second attempt), merge both members' saves into one revision, draw checks from one pool, record the acting student on each event, and let either member complete it. Teams and sharing themselves are not built. No migration was needed; `db:types` has no diff.
+
 ## Appendix: the 14 design items
 
 | # | Item | Section |
