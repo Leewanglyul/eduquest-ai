@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IME lab v2 (M2-2.4a F0)</title>
+<style>
+  :root { color-scheme: light; --bd:#94a3b8; --acc:#1d4ed8; --ok:#166534; --bad:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { font: 16px/1.5 system-ui, "Noto Sans KR", sans-serif; margin: 0; padding: 12px; max-width: 760px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 16px 0 6px; }
+  fieldset { border: 1px solid var(--bd); border-radius: 6px; margin: 8px 0; padding: 8px 10px; }
+  legend { font-weight: 600; padding: 0 4px; }
+  label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 4px 0; min-height: 36px; }
+  input[type=text] { font-size: 16px; padding: 8px; border: 1px solid var(--bd); border-radius: 6px; width: 100%; }
+  button { font-size: 16px; min-height: 44px; padding: 6px 14px; border: 1px solid var(--bd); border-radius: 6px; background: #f1f5f9; }
+  button.primary { background: var(--acc); color: #fff; border-color: var(--acc); }
+  button.ok { background: #dcfce7; border-color: var(--ok); }
+  button.bad { background: #fee2e2; border-color: var(--bad); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #grid { position: relative; display: flex; gap: 4px; margin: 10px 0; flex-wrap: nowrap; }
+  .cell { width: 52px; height: 52px; border: 2px solid #334155; border-radius: 4px; font-size: 26px; display: flex; align-items: center; justify-content: center; background: #fff; user-select: none; }
+  .cell.sel { outline: 3px solid var(--acc); }
+  .cell.pending { color: #b45309; text-decoration: underline; background: #fffbeb; }
+  .cell input { width: 100%; height: 100%; border: 0; text-align: center; font-size: 26px; padding: 0; background: transparent; }
+  #proxy { position: absolute; z-index: 2; background: transparent; border: 0; color: transparent; caret-color: transparent; font-size: 16px; padding: 0; margin: 0; outline: none; }
+  #proxy.visible { color: #be185d; border: 1px dashed #be185d; caret-color: #be185d; }
+  .steps { background: #eff6ff; border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+  .pill { display: inline-block; border-radius: 99px; padding: 0 8px; font-size: 13px; border: 1px solid var(--bd); margin-right: 4px; }
+  .pass { color: var(--ok); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td, th { border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left; vertical-align: top; }
+  pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 260px; overflow: auto; background: #f8fafc; padding: 6px; }
+  .muted { color: #475569; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>IME lab v2: Korean cell input spike (M2-2.4a F0)</h1>
+<p class="muted">Throwaway page. Nothing here is app code. Records raw input events so the real input controller can be designed from evidence. See README.md.</p>
+
+<fieldset>
+  <legend>1. Run settings</legend>
+  <p><label style="display:block">기기 / 브라우저 (예: <code>S24 / Samsung Internet</code>)
+    <input type="text" id="device" placeholder="S24 / Samsung Internet" autocomplete="off"></label></p>
+  <p><label style="display:block">키보드 앱 (예: <code>삼성 키보드</code>, <code>Gboard</code>, <code>Microsoft 한글 IME</code>)
+    <input type="text" id="kbdApp" placeholder="삼성 키보드" autocomplete="off"></label></p>
+  <div class="row"><label><input type="checkbox" id="prediction"> 키보드 추천 단어 줄(예측) 켜져 있음</label></div>
+  <div class="row">
+    <span>키보드:</span>
+    <label><input type="radio" name="kbd" value="soft" checked> 화면(소프트)</label>
+    <label><input type="radio" name="kbd" value="hardware"> 하드웨어</label>
+  </div>
+  <div class="row">
+    <span>입력 방식:</span>
+    <label><input type="radio" name="approach" value="proxy" checked> A 하나의 입력창(proxy)</label>
+    <label><input type="radio" name="approach" value="percell"> B 칸마다 입력창</label>
+    <label><input type="radio" name="approach" value="word"> C 낱말로 입력</label>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="sentinel"> A 전용: 빈 입력창에 보이지 않는 문자(U+200B) 두기 (Backspace 감지용)</label>
+    <label><input type="checkbox" id="showProxy"> A 전용: 입력창 보이게</label>
+  </div>
+  <p class="muted">화면: <span id="env"></span></p>
+</fieldset>
+
+<fieldset>
+  <legend>2. 시험 선택</legend>
+  <div id="caseButtons" class="row"></div>
+</fieldset>
+
+<fieldset id="runBox" hidden>
+  <legend id="runTitle">3. 시험</legend>
+  <div class="steps" id="steps"></div>
+  <div id="pasteSrcBox" hidden>
+    <p class="muted">붙여넣기용 글자: 아래 칸을 길게 눌러(또는 Ctrl+A, Ctrl+C) 복사하세요.</p>
+    <input type="text" id="pasteSrc" value="사과나무" readonly>
+  </div>
+  <div id="gridWrap"><div id="grid"></div></div>
+  <div id="wordBox" hidden class="row">
+    <input type="text" id="wordInput" style="max-width:240px" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button id="wordGo" type="button">입력</button>
+  </div>
+  <p class="muted" id="live"></p>
+  <div class="row">
+    <button id="done" class="primary" type="button">시험 끝 (판정)</button>
+    <button id="reset" type="button">처음부터</button>
+  </div>
+</fieldset>
+
+<fieldset id="verdictBox" hidden>
+  <legend>4. 판정</legend>
+  <div id="auto"></div>
+  <p><label style="display:block">메모 (이상한 점, 키보드 이름 등)
+    <input type="text" id="note" autocomplete="off"></label></p>
+  <div class="row">
+    <button id="vpass" class="ok" type="button">통과로 기록</button>
+    <button id="vfail" class="bad" type="button">실패로 기록</button>
+  </div>
+  <details><summary>이번 시험의 이벤트 기록</summary><pre id="logDump"></pre></details>
+</fieldset>
+
+<fieldset>
+  <legend>5. 기록</legend>
+  <table id="results"><thead><tr><th>시험</th><th>방식</th><th>자동</th><th>판정</th></tr></thead><tbody></tbody></table>
+  <p><label style="display:block">기기 전체 의견: 삼성 인터넷 / 이 브라우저에서 계속 쓸 만한가요? (SC6)
+    <input type="text" id="usable" placeholder="예: 예 / 아니오, 이유" autocomplete="off"></label></p>
+  <div class="row">
+    <button id="save" class="primary" type="button">서버에 저장 (실패하면 파일로 받기)</button>
+    <button id="clear" type="button">기록 지우기</button>
+  </div>
+  <p class="muted" id="saveMsg"></p>
+</fieldset>
+
+<script src="lab.js"></script>
+</body>
+</html>
