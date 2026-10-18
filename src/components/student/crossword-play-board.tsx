@@ -413,7 +413,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
               aria-label={inputName}
               aria-describedby="play-input-help"
               lang="ko"
-              className="mt-1 block min-h-12 w-full rounded border-2 border-slate-600 p-2"
+              className="play-input mt-1 block min-h-12 w-full rounded border-2 border-slate-600 p-2"
               style={{ fontSize: 16 }}
             />
           </label>
@@ -433,7 +433,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
                 disabled={readOnly}
                 lang="ko"
                 autoComplete="off"
-                className="mt-1 block min-h-12 w-full rounded border border-slate-600 p-2"
+                className="play-input mt-1 block min-h-12 w-full rounded border border-slate-600 p-2"
                 style={{ fontSize: 16 }}
               />
             </label>

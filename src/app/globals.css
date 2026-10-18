@@ -17,6 +17,18 @@
   }
 }
 
+/* The tools bar is pinned to the bottom (3 rows on a 360px phone, 1 row on a tablet). When a field is scrolled into view
+   (a tap on a cell, the soft keyboard opening) the browser does not know the bar is there, so the field would stop
+   behind it. The margin tells it how much room to leave. */
+.play-input {
+  scroll-margin-bottom: 12rem;
+}
+@media (min-width: 640px) {
+  .play-input {
+    scroll-margin-bottom: 6rem;
+  }
+}
+
 /* The finishing moment: a bar sweeps across the banner (never over the puzzle). Short, no flashing, and off for people
    who ask their device for less motion. */
 @keyframes play-sweep {

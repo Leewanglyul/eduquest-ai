@@ -135,3 +135,12 @@ describe("student pages: gate and guard", () => {
     for (const f of SCREENS) expect(code(f), rel(f)).not.toMatch(/leaderboard|badge|ranking|teamId|team_id|presence|helpRequest|순위|리더보드|배지|경쟁/i);
   });
 });
+
+describe("student screens: pinned tools bar (M2-2.4d)", () => {
+  it("both text inputs of the board keep room above the pinned tools bar when scrolled into view", () => {
+    const c = code(src("components/student/crossword-play-board.tsx"));
+    const inputs = [...c.matchAll(/<input[\s\S]*?\/>/g)].map((m) => m[0]);
+    for (const i of inputs) expect(i).toMatch(/play-input/);
+    expect(fs.readFileSync(src("app/globals.css"), "utf8")).toMatch(/\.play-input\s*\{[^}]*scroll-margin-bottom/);
+  });
+});
