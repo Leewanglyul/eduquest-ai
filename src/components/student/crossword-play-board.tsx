@@ -471,7 +471,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
         <section aria-label="IME 기록" className="space-y-2 rounded border border-dashed border-amber-600 p-3 text-sm">
           <h2 className="font-semibold">IME 기록 (기기 점검용 · 시험 계정에서만)</h2>
           <p>입력한 내용이 기록에 들어갑니다. 파일은 이 기기에만 저장되고 어디로도 전송되지 않습니다. 기록된 이벤트 {traceCount}개.</p>
-          <label className="block">기기 / 브라우저 (예: S24 / Samsung Internet)
+          <label className="block">기기 / 브라우저 (예: Tab S9 / Samsung Internet)
             <input value={traceDevice} onChange={(e) => setTraceDevice(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
           </label>
           <label className="block">키보드 앱 (삼성 키보드, Gboard, Microsoft IME …)

@@ -90,9 +90,9 @@ This supports the §0.3 reading: the v1 failures came from the lab's deferred re
 
 - Automatic checks are not clean on three recordings: c4, c6 (twice) and the first c7. These are recording artifacts, not input faults. In c4 the log itself shows `닭`, `고`, `기` each committed once by `compositionend`; the tester then kept typing in the same case before recording, so the final cells were empty. c6 shows the required pending sequence `ㅅ 사 산 사 ㅅ` but no run ends with the final `ㅏ` → `사` and a clean automatic pass. The tester's verdict covers them; if a clean automatic row is wanted, c4 and c6 should be re-recorded once, one pass each.
 - Scope is one browser: **Edge on Windows, hardware keyboard, landscape, method A, no sentinel**. Windows Chrome has no v2 run yet. Nothing was run on a touch device.
-- **SC6 (usable on Samsung Internet) still has no evidence. It is the deciding gate for G.4.**
+- **SC6 (usable on Samsung Internet, on the Galaxy Tab S9) still has no evidence. It is the deciding gate for G.4.**
 
-**PM priority for the rest of F0:** Galaxy S24 / Samsung Internet is the final mobile confirmation. The matrix of G.1 is unchanged (Tab S9, Chrome on Android and Windows Chrome remain listed); the PM may narrow it. Until Samsung Internet is run, the decision stays "method A, word entry as second path" (G.4 first row is not yet reached) and F2/F3 proceed on that assumption with the fallback kept open.
+**PM test priority (2026-10-18), replacing the earlier priority on the Galaxy S24.** Real deployment order: (1) **Galaxy Tab S9 + Samsung Internet**, (2) Galaxy Tab S9 + Chrome, (3) Windows Chrome, (4) Windows Edge, (5) Galaxy S24 (still useful, no longer a deployment target). The deciding gate for G.4 (SC6) is therefore **Samsung Internet on the Galaxy Tab S9**; a result that appears only on the S24 is recorded but does not by itself change the decision. Until the Tab S9 is run, the decision stays "method A, word entry as second path" (G.4 first row is not yet reached) and F2/F3 proceed on that assumption with the fallback kept open. Windows Edge has a v2 run (usability pass); Windows Chrome has none yet.
 
 ---
 
@@ -334,7 +334,7 @@ Already answered in doc 07 (2026-10-17): **E.5** one attempt per student and ass
 | N1 | **Phase boundary.** Foundation = F0–F3 including a bare, unstyled play board, so the real component is validated on devices before any screen work. List/result/completion polish is 2.4b | Yes. The alternative (no board until 2.4b) delays the first real-component IME test by a whole phase |
 | N2 | **Who runs the device sessions.** F0 and the F3 re-validation need the PM or a teacher with the Galaxy S24, Tab S9 and a Windows machine, about 30–45 minutes per device/browser | PM names the person and the week; engineering supplies a one-page script |
 | N3 | **Reveal semantics** (§0.2 #1): a reveal always spends one and returns the letter, never says "already correct" | Yes |
-| N4 | **Fallback trigger.** If method A fails on Samsung Internet after the v2 fix, word entry becomes the primary input and the grid is display plus selection | Yes (already doc 07 H.1); confirm that a slower, field-based input is acceptable on Galaxy devices |
+| N4 | **Fallback trigger.** If method A fails on Samsung Internet on the Galaxy Tab S9 after the v2 fix, word entry becomes the primary input and the grid is display plus selection | Yes (already doc 07 H.1); confirm that a slower, field-based input is acceptable on Galaxy devices |
 | N5 | **Result "Growth" slot** stays empty in 2.4 (§D) | Yes |
 | N6 | **Completion moment intensity.** Text, grid settle and a brief highlight, no sound, no confetti, reduced-motion respected. Is a teacher on/off switch wanted? | No switch in 2.4 (CE-11 effects policy is for exploratory effects; this is a feedback moment); revisit if a teacher asks |
 | N7 | **Next-puzzle rule** (§D point 4) | Yes |
@@ -371,13 +371,13 @@ Doc 07 F.1–F.3 stands in full (attempt/payload/check/reveal/submit keyed by at
 
 The IME is the largest risk of the phase (doc 04 §9). Nothing in F1–F3 depends on its outcome except `ime/*`, the bare board and the choice of primary input, so F0 runs first and in parallel with F1.
 
-### G.1 Matrix (PM, 2026-10-17)
+### G.1 Matrix (PM, 2026-10-17; priority order changed 2026-10-18)
 
-| Device | Browsers |
-|---|---|
-| Galaxy S24 | Samsung Internet, Chrome |
-| Galaxy Tab S9 | Samsung Internet, Chrome |
-| Windows 11 desktop/laptop | Chrome, Edge |
+| Priority | Device | Browsers |
+|---|---|---|
+| 1 | Galaxy Tab S9 | **Samsung Internet** (the deciding gate), then Chrome (priority 2) |
+| 3, 4 | Windows 11 desktop/laptop | Chrome (3), Edge (4) |
+| 5 | Galaxy S24 | Samsung Internet, Chrome (useful, no longer a deployment target) |
 
 Each: portrait and landscape (phone and tablet), soft keyboard and, where available, hardware keyboard (tablet and Windows). Out of this round: iPadOS/macOS Safari, ChromeOS, other Windows browsers; they can be added later.
 
@@ -403,7 +403,7 @@ Cases c1–c10 as in `scripts/ime-lab/README.md` (one cell, syllables, batchim h
 | SC3 | no premature focus change during composition | automatic (blur while composing) |
 | SC4 | Backspace correct during active composition | automatic + tester |
 | SC5 | each Korean syllable commits exactly once | automatic |
-| SC6 | input usable on Samsung Internet | tester, written verdict |
+| SC6 | input usable on Samsung Internet (Galaxy Tab S9 is the deciding device) | tester, written verdict |
 
 A device/browser **passes** when c1–c9 pass SC1–SC5 with no tester fail, and the tester records SC6 where Samsung Internet is involved. c10 (Latin/digit) is advisory (E.10).
 
@@ -413,7 +413,7 @@ A device/browser **passes** when c1–c9 pass SC1–SC5 with no tester fail, and
 |---|---|
 | passes on every row of G.1 | proxy input is the grid's input; word entry stays as the second path |
 | fails only on a Windows browser | fix in the controller or document the browser; not a gate on its own |
-| fails on Samsung Internet (either Galaxy device) | **word entry is the primary input**; the grid is display plus selection; method B only if it passes where A fails |
+| fails on Samsung Internet **on the Galaxy Tab S9** | **word entry is the primary input**; the grid is display plus selection; method B only if it passes where A fails. A failure only on the S24 is recorded, and the PM decides whether it matters |
 | fails on Chrome for Android but passes on Samsung Internet | PM decision: Samsung Internet only, or word entry primary |
 
 ### G.5 Second validation, on the real component
