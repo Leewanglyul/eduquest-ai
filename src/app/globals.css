@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Student crossword play (M2-2.4). The cell size is ONE variable. Where container units exist (Chrome and Samsung
+   Internet of the last years) the grid fills its box: between 44px (a finger) and 64px, so a 6-column puzzle on a
+   Galaxy Tab gets big cells and a 15-column puzzle on a phone keeps 44px cells and scrolls inside its named region. */
+.play-grid-box {
+  container-type: inline-size;
+}
+.play-grid {
+  --cell: 2.75rem;
+}
+@supports (width: 1cqw) {
+  .play-grid {
+    --cell: clamp(2.75rem, calc((100cqw - 0.75rem) / var(--cols, 10)), 4rem);
+  }
+}
+
+/* The finishing moment: a bar sweeps across the banner (never over the puzzle). Short, no flashing, and off for people
+   who ask their device for less motion. */
+@keyframes play-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.play-sweep {
+  animation: play-sweep 1.6s ease-out 1 both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .play-sweep {
+    animation: none;
+  }
+}

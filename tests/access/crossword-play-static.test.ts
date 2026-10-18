@@ -85,7 +85,9 @@ describe("the browser bundle", () => {
   const clientEntries = CLIENT.filter((f) => /^\s*["']use client["']/.test(fs.readFileSync(f, "utf8")));
 
   it("there are client components to check", () => {
-    expect(clientEntries.map((f) => path.basename(f)).sort()).toEqual(["crossword-play-board.tsx", "use-grid-input.ts"]);
+    const names = clientEntries.map((f) => path.basename(f));
+    // the board, its hook, the finishing moment and the device-test panel are the client components
+    for (const n of ["crossword-play-board.tsx", "use-grid-input.ts", "completion-moment.tsx", "ime-trace-panel.tsx"]) expect(names, n).toContain(n);
   });
 
   it("client components import nothing server-only, no database client and no server module", () => {

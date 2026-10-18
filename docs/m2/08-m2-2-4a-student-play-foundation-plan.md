@@ -492,6 +492,33 @@ The seven services were built in F3 (`play/service.ts`); this request found them
 
 Requirements as met: the student id is a parameter that handlers fill from the session only (no handler, schema or body accepts one); the attempt is found through `crossword_attempt_members` (assignment + student), never through a client id; events keep word number and direction only (plus the completion count); the services return no answer (tests serialize every return value); and nothing assumes one owner: a test adds a **second member** to an attempt and the same services open it (no second attempt), merge both members' saves into one revision, draw checks from one pool, record the acting student on each event, and let either member complete it. Teams and sharing themselves are not built. No migration was needed; `db:types` has no diff.
 
+## Student play UI (PM request "M2-2.4c Student Play UI", 2026-10-18)
+
+(Naming again: the phase table above calls this step 2.4b, Screens.) Built on the F1 schema, the services and the IME controller, in the order Progress -> Growth -> Achievements: what the student did and how far they got comes first, the help they used is "tools", and nothing is a score, a rank or a comparison. No badges, no teams, no competition anywhere in these screens (a source test fails on those words).
+
+**Pages**
+
+| Route | What it is |
+|---|---|
+| `/student` | one added block, "풀 수 있는 퍼즐 n개", only when the go-live gate is open |
+| `/student/crosswords` | the puzzle list: a card per assignment with the state as a word and icon (새 퍼즐, 이어하기, 마감, 완료), filled cells as "채운 칸 n/N" (never correct cells), closing time in Korean time, one action |
+| `/student/crosswords/[assignmentId]` | the entry and the play screen; a finished or closed attempt goes to its result; a puzzle that is not theirs looks like one that does not exist |
+| `/student/crosswords/[assignmentId]/result` | the result: their own grid, number of words, time, the tools line, then what to do next (next puzzle, other puzzles, home). The growth slot is empty (`growth: null`) |
+
+**Components** (`components/student`): `play-grid` (real `role="grid"` with rows and named cells), `play-clues` (clue buttons that select the word), `play-tools`, `save-indicator` (saving / saved / offline, PM SP-3), `completion-moment`, `crossword-play-list`, `crossword-result`, `ime-trace-panel`, and the board that wires them. New pure modules: `play/a11y` (cell names, e.g. "가로 1번, 2글자, 첫 번째 칸, 입력됨, 사"), `play/labels`, `play/result`, `play/list` (`pickNextPlayable`, decision N7: the first puzzle the list itself would show that is still open, never chosen by a score), `loadResult` in the service.
+
+**Go-live gate in code.** `lib/flags.ts`: student play is ON by default only against a local Supabase stack and OFF against a hosted project until `CROSSWORD_PLAY_ENABLED=true` is set on purpose (`false` turns it off anywhere). Every page returns not-found when it is off and the home link is hidden. This enforces docs/pilot/14 (no real student before approval and a new signature) instead of relying on nobody knowing the URL. The API handlers keep their own checks (session, enrollment) and are not behind the flag.
+
+**Finishing moment.** A banner above the puzzle (it cannot cover a cell: a test checks it comes before the grid and uses no overlay, blur or fixed positioning), a bar that sweeps for about 1.6 s, no flashing, no sound, one polite announcement, focus on "결과 보기"; Escape or a tap goes on at once, otherwise it goes to the result after 2.6 s. With reduced motion the bar does not move and it never advances by itself (the CSS rule and the guard are tested; the OS setting itself was not emulated, see below).
+
+**Layout for a Galaxy Tab S9.** One cell-size variable: with container units the grid fills its box between 44 and 64 px (a 6-column puzzle gets 62-64 px cells on an 800 px tablet, a 15-column puzzle on a phone keeps 44 px and scrolls inside its named region). From 1024 px (the tablet in landscape) the grid is on the left and, on the right, the input, the word-entry field and the clue lists, so the place you type is always beside the grid; below 1024 px everything stacks. The tools bar is pinned at the bottom, the current clue is pinned at the top, and the play page asks for `interactive-widget=resizes-content` so the soft keyboard shrinks the page instead of covering the bar.
+
+**Browser verification** (production build, built-in browser at 375x812, 800x1280 and 1280x800, axe-core 4.10 with WCAG 2.0/2.1/2.2 A and AA plus best-practice): list, play and result pages at 375 px, the list and the play page at 800 px, the play page at 1280 px landscape: **0 violations**, no horizontal page scroll, 0 interactive elements under 44 px, grid cells 42-64 px. Walked through on the built app: sign-in, home block, list, open, a Korean syllable hand-off typed through composition events (pending cell underlined, committed once, the cell name says "조합 중" then "입력됨"), word entry, a word check (✓ marks, remaining count), the three save states (including offline and recovery), submit, the finishing moment, the result page, the next-puzzle link, and the list afterwards (in progress first, then new, then completed). Text contrast of the colour pairs used is 6.7:1 or better (AA needs 4.5:1).
+
+**Found and fixed while verifying in the browser:** (1) the submit label was invisible: two background utilities on one button and the white one won; a source test now fails on two background colours in one class string, also when a constant is spliced in (it fails on the original code); (2) on a landscape tablet the input fell below the grid, behind the tools bar: it now sits in the right column; (3) tools bar height on a phone (smaller text on narrow screens) and bottom padding.
+
+**Not verified, and why:** the real soft keyboard, touch and `interactive-widget` behaviour (no touch device here: this is the G.5 run, doc 09); Samsung Internet; any screen reader; the `prefers-reduced-motion` setting itself (the rule and the code path are tested, the setting was not toggled); axe reports "color-contrast" as "incomplete" in this environment (it cannot read the backgrounds), so contrast was computed by hand from the colour tokens; a real Galaxy Tab S9 pixel size and density (800x1280 and 1280x800 CSS pixels are stand-ins).
+
 ## Appendix: the 14 design items
 
 | # | Item | Section |

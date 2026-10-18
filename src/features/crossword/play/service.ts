@@ -3,8 +3,9 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 import { requireAttemptId, requirePlayAccess } from "./access";
-import { unwrapPlay } from "./errors";
-import { sortPlayable, stateOf, type PlayableRow } from "./list";
+import { PlayError, unwrapPlay } from "./errors";
+import { pickNextPlayable, sortPlayable, stateOf, type PlayableRow } from "./list";
+import type { ResultView } from "./result";
 import { loadPlayPayload } from "./payload";
 import { chooseFrozenPrefill, type PuzzleStructure } from "./prefill";
 import type { CheckResult, CheckScope, Direction, PlayPayload, SubmitResult } from "./types";
@@ -163,4 +164,50 @@ export async function submit(studentId: string, assignmentId: string, baseRevisi
       p_base_revision: baseRevision,
     }),
   );
+}
+
+/**
+ * Data for the result screen of an attempt that is completed or closed. Returns "playing" for an attempt that is still
+ * open and in progress (the page then sends the student back to the board). The letters are the student's own cells plus
+ * the cells they were given: no answer is read, and nothing is marked right or wrong.
+ */
+export async function loadResult(studentId: string, assignmentId: string): Promise<ResultView | { status: "playing" }> {
+  const access = await requirePlayAccess(studentId, assignmentId);
+  const attemptId = await requireAttemptId(studentId, assignmentId);
+  const db = createSupabaseAdminClient();
+
+  const [attemptRes, puzzleRes, wordsRes] = await Promise.all([
+    db.from("crossword_attempts").select("status, cells, checks_used, reveals_used, chosung_used, active_seconds").eq("id", attemptId).single(),
+    db.from("crossword_puzzles").select("title, rows, cols").eq("id", access.puzzleId).single(),
+    db.from("crossword_words").select("number, direction, row, col, length, single, clue").eq("puzzle_id", access.puzzleId).order("number").order("direction"),
+  ]);
+  if (attemptRes.error || puzzleRes.error || wordsRes.error) throw new PlayError("NOT_FOUND");
+  const attempt = attemptRes.data;
+  if (attempt.status !== "completed" && !access.readonly) return { status: "playing" };
+
+  const given = unwrapPlay<Record<string, string>>(
+    await db.rpc("fn_crossword_play_given", { p_student_id: studentId, p_attempt_id: attemptId }),
+  );
+  const words = (wordsRes.data ?? []).map((w) => ({
+    number: w.number, direction: w.direction, row: w.row, col: w.col, length: w.length ?? 1, single: w.single ?? false, clue: w.clue,
+  }));
+  const list = await listPlayable(studentId);
+  const next = pickNextPlayable(list, assignmentId);
+
+  return {
+    assignmentId,
+    title: puzzleRes.data.title,
+    status: attempt.status === "completed" ? "completed" : "closed",
+    rows: puzzleRes.data.rows,
+    cols: puzzleRes.data.cols,
+    words,
+    letters: { ...(attempt.cells as Record<string, string>), ...given },
+    givenKeys: Object.keys(given),
+    wordCount: words.length,
+    tools: { checks: attempt.checks_used, reveals: attempt.reveals_used, chosung: attempt.chosung_used },
+    activeSeconds: attempt.active_seconds ?? 0,
+    growth: null,
+    next: next ? { assignmentId: next.assignmentId, title: next.title, state: next.state } : null,
+    hasOtherPuzzles: list.some((r) => r.assignmentId !== assignmentId),
+  };
 }

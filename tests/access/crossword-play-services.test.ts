@@ -23,7 +23,7 @@ vi.mock("@/features/identity/service", async () => {
 import { NORMALIZER_VERSION } from "@/features/content/import/content-schemas";
 import { PlayError } from "@/features/crossword/play/errors";
 import { sortPlayable, stateOf, type PlayableRow } from "@/features/crossword/play/list";
-import { check, chosung, listPlayable, reveal, savePatch, startOrResume, submit } from "@/features/crossword/play/service";
+import { check, chosung, listPlayable, loadResult, reveal, savePatch, startOrResume, submit } from "@/features/crossword/play/service";
 import { generateCrosswordAction, publishCrosswordAction, saveCrosswordDraftAction } from "@/features/crossword/review/actions";
 import type { PreviewSuccess } from "@/features/crossword/review/service";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -397,5 +397,62 @@ describe("events and shared attempts", () => {
     expect(rowFor(await rows(s1), pHard, roomA)!.state).toBe("completed");
     expect(rowFor(await rows(s3), pHard, roomA)!.state).toBe("completed");
     noAnswer([viaS3, a, b, c1, c3], pHard);
+  });
+});
+
+// ---- 5. loadResult (the result screen's data) ----------------------------------------------------------------------
+
+describe("loadResult", () => {
+  it("a finished attempt: the student's own letters, the words, the tools used, no growth yet, and a next puzzle", async () => {
+    const view = await loadResult(sid[s2.id], pEasy.assignment[roomA]);
+    if (view.status === "playing") throw new Error("expected a result");
+    expect(view.status).toBe("completed");
+    expect(view.title).toBe(title("easy"));
+    expect(view.wordCount).toBe(pEasy.words.length);
+    expect(view.growth).toBeNull();
+    expect(view.tools).toEqual({ checks: 0, reveals: 0, chosung: 0 });
+    // finished with the correct letters, so the student's own grid equals the whole grid: typed plus given
+    expect(view.letters).toEqual(pEasy.key);
+    expect(view.givenKeys.every((k) => view.letters[k] === pEasy.key[k])).toBe(true);
+    // the next puzzle is the first one the list would show that is still open to this student
+    expect(view.next).not.toBeNull();
+    expect(view.next!.assignmentId).not.toBe(pEasy.assignment[roomA]);
+    expect(["new", "in_progress"]).toContain(view.next!.state);
+    expect(view.hasOtherPuzzles).toBe(true);
+    expect(Object.keys(view).sort()).toEqual(["assignmentId", "cols", "givenKeys", "growth", "hasOtherPuzzles", "letters", "next", "rows", "status", "title", "tools", "activeSeconds", "wordCount", "words"].sort());
+  });
+
+  it("the tools line counts what was used, per attempt (a shared attempt counts both members)", async () => {
+    const view = await loadResult(sid[s3.id], pHard.assignment[roomA]);
+    if (view.status === "playing") throw new Error("expected a result");
+    expect(view.tools).toEqual({ checks: 2, reveals: 0, chosung: 0 });
+  });
+
+  it("an attempt still being solved goes back to the board", async () => {
+    expect(await loadResult(sid[s2.id], pNormal.assignment[roomA])).toEqual({ status: "playing" });
+  });
+
+  it("a puzzle the class closed first: closed, with the letters and the tools, nothing marked right or wrong", async () => {
+    await admin.from("crossword_assignments").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", pNormal.assignment[roomA]);
+    const view = await loadResult(sid[s2.id], pNormal.assignment[roomA]);
+    if (view.status === "playing") throw new Error("expected a closed result");
+    expect(view.status).toBe("closed");
+    expect(view.tools.checks).toBeGreaterThan(0);
+    expect(view.tools.reveals).toBeGreaterThan(0);
+    expect(view.tools.chosung).toBeGreaterThan(0);
+    expect(Object.keys(view.letters).length).toBeGreaterThan(0);
+    expect(JSON.stringify(view)).not.toMatch(/"correct"|"wrong"|"ok"/);
+    await admin.from("crossword_assignments").update({ status: "open", closed_at: null }).eq("id", pNormal.assignment[roomA]);
+  });
+
+  it("only the student's own attempt: an outsider and an unstarted puzzle are not found", async () => {
+    await expect(loadResult(sid[s3.id], pNormal.assignment[roomA])).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(loadResult(sid[s2.id], pHard.assignment[roomA])).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(loadResult(sid[s2.id], "not-a-uuid")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("the result view carries no score, rank or comparison field", async () => {
+    const view = await loadResult(sid[s2.id], pEasy.assignment[roomA]);
+    expect(JSON.stringify(view)).not.toMatch(/score|rank|percent|points|average|classmates/i);
   });
 });

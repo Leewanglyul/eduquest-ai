@@ -97,7 +97,7 @@ describe("IME trace recorder", () => {
     const fs = await import("node:fs");
     const board = fs.readFileSync("src/components/student/crossword-play-board.tsx", "utf8");
     expect(board).toMatch(/get\("imetrace"\) === "1"/);
-    expect(board).toMatch(/traceOn \? \(e\) =>/);
+    expect(board).toMatch(/traceOn\s*\?\s*\(e\)\s*=>/);
     const rec = fs.readFileSync("src/components/student/ime-trace.ts", "utf8");
     expect(rec.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon|localStorage|sessionStorage|indexedDB/);
   });

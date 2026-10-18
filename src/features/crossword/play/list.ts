@@ -45,3 +45,16 @@ export function sortPlayable(rows: readonly PlayableRow[]): PlayableRow[] {
       a.assignmentId.localeCompare(b.assignmentId),
   );
 }
+
+/**
+ * The next puzzle after finishing one (decision N7): the first puzzle the list itself would show that the student can
+ * still work on (in progress, or not started, and open), other than the one just finished. Fixed and explainable;
+ * never chosen by a score, a speed or anyone else's progress. null when there is none.
+ */
+export function pickNextPlayable(rows: readonly PlayableRow[], currentAssignmentId: string): PlayableRow | null {
+  return (
+    sortPlayable(rows).find(
+      (r) => r.assignmentId !== currentAssignmentId && !r.readonly && (r.state === "new" || r.state === "in_progress"),
+    ) ?? null
+  );
+}

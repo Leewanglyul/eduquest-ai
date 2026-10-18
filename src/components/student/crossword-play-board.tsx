@@ -1,15 +1,18 @@
 "use client";
 
 /**
- * The bare play board of M2-2.4a F3: just enough to exercise the whole stack on the target devices (G.5). Nothing
- * here is styled for students yet; the list, result, completion moment and the final layout are M2-2.4b.
+ * The student's crossword play screen (M2-2.4). It owns the state of one attempt in the browser and wires the pieces:
+ * the grid and the clue lists (presentational), the one uncontrolled input that receives Korean (use-grid-input + the
+ * pure ImeController), the autosave queue and its three-state indicator (PM SP-3), the hint tools and the finishing
+ * moment. The key never reaches this component: it holds the student's own cells and the cells they were given.
  *
- * What it does: shows the grid, takes Korean input through ONE uncontrolled <input> (use-grid-input), keeps a word-entry
- * field as the second input path, autosaves through the SaveQueue, shows the save state (saving / saved / offline,
- * PM SP-3), and offers the tools the puzzle allows. The key never reaches this component: it holds the student's own
- * cells and the cells they were given, nothing else.
+ * Layout, mobile first: a clue bar pinned at the top; the grid in a named, scrollable region; the input and the
+ * word-entry field under it; the tools pinned at the bottom; the clue lists below (beside the grid from 1024px up, which
+ * is what a Galaxy Tab S9 in landscape gives).
  */
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { selectionAnnouncement } from "@/features/crossword/play/a11y";
 import {
   allFilled,
   firstOpenCell,
@@ -21,29 +24,26 @@ import {
   stepClue,
   wordCells,
   wordForSelection,
-  wordsAt,
   type Selection,
 } from "@/features/crossword/play/cells";
 import type { Intent } from "@/features/crossword/play/ime/controller";
 import { PLAY_ERROR_MESSAGES, PLAY_TEXT, playMessage } from "@/features/crossword/play/messages";
 import type { CheckResult, CheckStatus, PlayErrorCode, PlayLimits, PlayPayload, PlayWord, SubmitResult } from "@/features/crossword/play/types";
+import { CompletionMoment } from "./completion-moment";
 import { ImeTrace } from "./ime-trace";
+import { ImeTracePanel } from "./ime-trace-panel";
+import { PlayClues } from "./play-clues";
 import { callPlay, makeSaveSender, type ApiResult } from "./play-api";
+import { PlayGrid } from "./play-grid";
+import { PlayTools } from "./play-tools";
+import { SaveIndicator, blockedText } from "./save-indicator";
 import { SaveQueue, type QueueSnapshot } from "./save-queue";
 import { useGridInput } from "./use-grid-input";
-
-const MARK_TEXT: Record<CheckStatus, string> = { ok: "맞음", wrong: "다시 보기", empty: "비어 있음" };
-
-/** Why saving stopped: the real reason when the server named one, never a guess that it was closed. */
-function blockedText(code: PlayErrorCode | "UNKNOWN"): string {
-  if (code === "UNKNOWN") return PLAY_TEXT.blockedUnknown;
-  if (code === "READONLY" || code === "CLOSED") return PLAY_TEXT.closedBanner;
-  return playMessage(code);
-}
 
 export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   const { assignmentId, puzzle } = payload;
   const words = puzzle.words;
+  const resultHref = `/student/crosswords/${assignmentId}/result`;
 
   const [cells, setCells] = useState<Record<string, string>>(payload.cells);
   const [given, setGiven] = useState<Record<string, string>>(payload.given);
@@ -54,9 +54,11 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     return first ? { key: firstOpenCell(first, payload.cells, payload.given), direction: first.direction } : { key: "0,0", direction: "across" };
   });
   const [limits, setLimits] = useState<PlayLimits>(payload.limits);
-  const [chosung, setChosung] = useState<Record<string, string>>({});
+  const [chosungHints, setChosungHints] = useState<Record<string, string>>({});
   const [done, setDone] = useState(payload.attempt.status === "completed");
+  const [moment, setMoment] = useState(false);
   const [message, setMessage] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [save, setSave] = useState<QueueSnapshot>({ state: "saved", revision: payload.attempt.revision, blocked: null, pendingCells: 0 });
   const [wordText, setWordText] = useState("");
 
@@ -65,14 +67,10 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   const dirRef = useRef(sel.direction);
   dirRef.current = sel.direction;
   const lastInputAt = useRef(0);
+  const gridRegion = useRef<HTMLDivElement>(null);
 
   const queue = useMemo(
-    () =>
-      new SaveQueue({
-        send: makeSaveSender(assignmentId),
-        onChange: setSave,
-        initialRevision: payload.attempt.revision,
-      }),
+    () => new SaveQueue({ send: makeSaveSender(assignmentId), onChange: setSave, initialRevision: payload.attempt.revision }),
     [assignmentId, payload.attempt.revision],
   );
 
@@ -120,35 +118,22 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     [queue],
   );
 
-  // Device validation aid: open the board with ?imetrace=1 to record the IME events and download them (G.5, G.6).
+  // Device validation aid: open the board with ?imetrace=1 to record the IME events and download them (doc 09).
   const [traceOn, setTraceOn] = useState(false);
   const trace = useMemo(() => new ImeTrace(), []);
   const [traceCount, setTraceCount] = useState(0);
-  const [traceDevice, setTraceDevice] = useState("");
-  const [traceKeyboard, setTraceKeyboard] = useState("");
-  const [tracePrediction, setTracePrediction] = useState(false);
-  const [traceNote, setTraceNote] = useState("");
   useEffect(() => {
     setTraceOn(new URLSearchParams(window.location.search).get("imetrace") === "1");
   }, []);
-  const grid = useGridInput(applyIntents, traceOn ? (e) => { trace.record(e); setTraceCount(trace.size); } : undefined);
-  const downloadTrace = () => {
-    const fixture = trace.toFixture({
-      device: traceDevice || "unnamed device",
-      keyboardApp: traceKeyboard,
-      predictionStrip: tracePrediction,
-      orientation: (screen.orientation && screen.orientation.type) || (innerWidth > innerHeight ? "landscape" : "portrait"),
-      viewport: [innerWidth, innerHeight],
-      userAgent: navigator.userAgent,
-      note: traceNote,
-    });
-    const url = URL.createObjectURL(new Blob([JSON.stringify(fixture)], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ime-board-${(traceDevice || "device").replace(/[^w가-힣]+/g, "_")}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const grid = useGridInput(
+    applyIntents,
+    traceOn
+      ? (e) => {
+          trace.record(e);
+          setTraceCount(trace.size);
+        }
+      : undefined,
+  );
 
   // ---- keep the controller pointed at the selected word ---------------------------------------------------------
   const word = wordForSelection(words, sel);
@@ -163,14 +148,37 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       cells: keys.map((k) => cells[k] ?? given[k] ?? ""),
       locked: keys.map((k) => Boolean(given[k])),
     });
-    // cells/given are read for the mirror only when the word or the selection changes
+    // cells/given feed the controller's mirror only when the word or the selection changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word?.number, word?.direction, sel.key, traceOn]);
+
+  // Tell a screen reader where the student is, once per move (not on every letter).
+  useEffect(() => {
+    if (!word) return;
+    setAnnouncement(selectionAnnouncement(word, Math.max(0, wordCells(word).indexOf(sel.key))));
+  }, [word?.number, word?.direction, sel.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the selected cell visible: after a move, and when the soft keyboard changes the visible area.
+  const scrollSelectedIntoView = useCallback(() => {
+    const el = gridRegion.current?.querySelector<HTMLElement>(`[data-cell="${sel.key}"]`);
+    el?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [sel.key]);
+  useEffect(() => {
+    scrollSelectedIntoView();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", scrollSelectedIntoView);
+    return () => vv?.removeEventListener("resize", scrollSelectedIntoView);
+  }, [scrollSelectedIntoView]);
 
   const selectKey = (key: string) => {
     grid.flush(); // never lose a pending syllable when the student taps elsewhere
     const next = selectCell(words, sel, key);
     if (next) setSel(next);
+    grid.focus();
+  };
+  const selectWord = (w: PlayWord) => {
+    grid.flush();
+    setSel({ key: firstOpenCell(w, cells, given), direction: w.direction });
     grid.focus();
   };
 
@@ -264,14 +272,22 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     });
     setLimits((l) => ({ ...l, revealsRemaining: r.data.revealsRemaining }));
     setMessage("글자 하나를 알려 줬어요.");
-    if (word) grid.setWord({ length: wordCells(word).length, selected: Math.max(0, wordCells(word).indexOf(sel.key)), cells: wordCells(word).map((k) => (k === r.data.key ? r.data.char : cells[k] ?? given[k] ?? "")), locked: wordCells(word).map((k) => Boolean(given[k]) || k === r.data.key) });
+    if (word) {
+      const keys = wordCells(word);
+      grid.setWord({
+        length: keys.length,
+        selected: Math.max(0, keys.indexOf(sel.key)),
+        cells: keys.map((k) => (k === r.data.key ? r.data.char : (cells[k] ?? given[k] ?? ""))),
+        locked: keys.map((k) => Boolean(given[k]) || k === r.data.key),
+      });
+    }
   };
 
   const doChosung = async () => {
     if (!word) return;
     const r = await callPlay<{ chosung: string }>(assignmentId, "chosung", { number: word.number, direction: word.direction });
     if (!r.ok) return fail(r);
-    setChosung((c) => ({ ...c, [`${word.number}${word.direction}`]: r.data.chosung }));
+    setChosungHints((c) => ({ ...c, [`${word.number}${word.direction}`]: r.data.chosung }));
     setMessage("초성을 보여 줬어요.");
   };
 
@@ -282,7 +298,9 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     if (!r.ok) return fail(r);
     if (r.data.result === "completed") {
       setDone(true);
-      setMessage(PLAY_TEXT.completed);
+      setMessage("");
+      if (r.data.justCompleted) setMoment(true);
+      else window.location.assign(resultHref);
     } else if (r.data.result === "incomplete") setMessage(PLAY_TEXT.incompleteCell(r.data.empty));
     else setMessage(r.data.wrongCells !== undefined ? PLAY_TEXT.wrongCount(r.data.wrongCells) : PLAY_TEXT.wrongSome);
   };
@@ -296,12 +314,17 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     const open = keys.filter((k) => !given[k]);
     const writes = chars.slice(0, open.length).map((c, i) => [open[i], c] as const);
     setCells((prev) => ({ ...prev, ...Object.fromEntries(writes) }));
+    setMarks((prev) => {
+      const next = { ...prev };
+      for (const [k] of writes) delete next[k];
+      return next;
+    });
     for (const [k, c] of writes) queue.setCell(k, c);
     lastInputAt.current = Date.now();
     setWordText("");
   };
 
-  // ---- keys the controller does not own (Tab, Enter, up/down) ---------------------------------------------------
+  // ---- keys the controller does not own (Tab, up/down) ---------------------------------------------------------
   const onBoardKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (grid.isComposing() || e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Tab") {
@@ -316,176 +339,153 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     }
   };
 
-  const gridCells = useMemo(() => {
-    const set = new Set(words.flatMap(wordCells));
-    return set;
-  }, [words]);
-  const starts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const w of words) {
-      const k = wordCells(w)[0];
-      if (!m.has(k)) m.set(k, w.number);
-    }
-    return m;
-  }, [words]);
-  const selectedWordKeys = new Set(word ? wordCells(word) : []);
-
-  const across = words.filter((w) => w.direction === "across");
-  const down = words.filter((w) => w.direction === "down");
-  const anytime = limits.checkMode === "anytime";
-  const checksOut = limits.checksAllowed !== null && (limits.checksRemaining ?? 0) <= 0;
-  const canCheck = limits.checkMode !== "submitOnly" && limits.checksAllowed !== 0 && !checksOut;
-
-  const saveText = save.state === "saving" ? PLAY_TEXT.saveSaving : save.state === "offline" ? PLAY_TEXT.saveOffline : PLAY_TEXT.saveSaved;
+  const idx = word ? Math.max(0, wordCells(word).indexOf(sel.key)) : 0;
+  const inputName = word ? `${word.direction === "across" ? "가로" : "세로"} ${word.number}번 낱말, ${idx + 1}번째 칸 글자 쓰기` : "글자 쓰기";
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-4">
-      <h1 className="text-lg font-semibold">{puzzle.title}</h1>
+    <main className="mx-auto max-w-6xl px-3 pb-40 pt-3 sm:px-4 sm:pb-28 lg:px-6">
+      <header className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <Link href="/student/crosswords" className="inline-flex min-h-11 items-center text-sm underline">
+            ← 퍼즐 목록
+          </Link>
+          <h1 className="text-xl font-semibold">{puzzle.title}</h1>
+        </div>
+        <SaveIndicator snapshot={save} />
+      </header>
 
-      {/* PM SP-3: the three save states, for screen readers too */}
-      <p role="status" aria-live="polite" data-save-state={save.blocked ? "blocked" : save.state} className="text-sm">
-        {save.blocked ? blockedText(save.blocked) : saveText}
-        {!save.blocked && save.state === "offline" ? ` ${PLAY_TEXT.saveOfflineHelp}` : ""}
-      </p>
-      {readOnly && !done ? <p role="alert">{PLAY_TEXT.closedBanner}</p> : null}
-      {done ? <p role="status">{PLAY_TEXT.completed}</p> : null}
+      {readOnly && !done ? (
+        <p role="alert" className="mt-2 rounded border border-slate-600 bg-slate-100 px-3 py-2 text-sm">
+          {PLAY_TEXT.closedBanner} 쓴 글자는 그대로 볼 수 있어요.
+        </p>
+      ) : null}
 
-      <div role="region" aria-label="퍼즐 판" tabIndex={0} className="overflow-auto rounded border border-slate-300 p-2">
-        <div role="grid" aria-label={`${puzzle.title} 퍼즐 판`} style={{ display: "grid", gridTemplateColumns: `repeat(${puzzle.cols}, 40px)`, gap: 2 }}>
-          {Array.from({ length: puzzle.rows * puzzle.cols }, (_, i) => {
-            const r = Math.floor(i / puzzle.cols);
-            const c = i % puzzle.cols;
-            const key = `${r},${c}`;
-            if (!gridCells.has(key)) return <div key={key} role="presentation" style={{ width: 40, height: 40 }} />;
-            const letter = pending[key] ?? cells[key] ?? given[key] ?? "";
-            const isSel = key === sel.key;
-            const inWord = selectedWordKeys.has(key);
-            const here = wordsAt(words, key)[0];
-            const state = pending[key] ? "조합 중" : given[key] ? "알려 준 칸" : cells[key] ? "입력됨" : "비어 있음";
-            const mark = marks[key];
-            return (
-              <div
-                key={key}
-                role="gridcell"
-                aria-selected={isSel}
-                aria-label={`${here ? `${here.direction === "across" ? "가로" : "세로"} ${here.number}번` : ""}, ${state}${mark ? `, ${MARK_TEXT[mark]}` : ""}`}
-                onPointerDown={(e) => {
-                  e.preventDefault(); // keep focus (and any composition) in the one input
-                  selectKey(key);
-                }}
-                style={{
-                  position: "relative", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center",
-                  border: `2px solid ${isSel ? "#1d4ed8" : "#334155"}`, background: pending[key] ? "#fffbeb" : inWord ? "#eff6ff" : given[key] ? "#f1f5f9" : "#fff",
-                  fontSize: 22, textDecoration: pending[key] ? "underline" : undefined, userSelect: "none",
-                }}
-              >
-                {starts.has(key) ? <span style={{ position: "absolute", top: 0, left: 2, fontSize: 9 }}>{starts.get(key)}</span> : null}
-                {letter}
-                {mark ? <span aria-hidden style={{ position: "absolute", right: 1, bottom: 0, fontSize: 9 }}>{mark === "ok" ? "✓" : mark === "wrong" ? "✗" : "·"}</span> : null}
-              </div>
-            );
-          })}
+      {moment ? (
+        <div className="mt-3">
+          <CompletionMoment resultHref={resultHref} />
+        </div>
+      ) : null}
+
+      {/* the clue of the selected word, pinned so it stays in view while typing */}
+      <div className="sticky top-0 z-10 mt-3 border-b border-slate-300 bg-white/95 py-2">
+        {word ? (
+          <p className="text-base">
+            <strong>
+              {word.direction === "across" ? "가로" : "세로"} {word.number}번
+            </strong>{" "}
+            · {word.length}글자 · {word.clue}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-3 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
+        <div className="min-w-0">
+          <div ref={gridRegion} role="region" aria-label="퍼즐 판 (가로로 밀어서 볼 수 있어요)" tabIndex={0} className="play-grid-box max-h-[55dvh] overflow-auto rounded lg:max-h-[calc(100dvh-13rem)]">
+            <PlayGrid
+              label={`${puzzle.title} 퍼즐 판`}
+              rows={puzzle.rows}
+              cols={puzzle.cols}
+              words={words}
+              cells={cells}
+              given={given}
+              pending={pending}
+              marks={marks}
+              selection={sel}
+              onSelectCell={readOnly ? undefined : selectKey}
+            />
+          </div>
+
+        </div>
+
+        <div className="mt-4 min-w-0 lg:sticky lg:top-14 lg:mt-0 lg:self-start">
+          <p className="sr-only" id="play-input-help">
+            칸을 누른 뒤 글자를 쓰세요. 화살표 키로 칸을 옮기고, 탭 키로 다음 단서로 갑니다. 아래 낱말로 입력에서 낱말 전체를 한 번에 쓸 수도 있어요.
+          </p>
+          <label className="mt-4 block text-sm font-medium">
+            글자 쓰기
+            <input
+              {...grid.inputProps}
+              onKeyDown={(e) => {
+                onBoardKeyDown(e);
+                if (!e.defaultPrevented) grid.inputProps.onKeyDown(e);
+              }}
+              disabled={readOnly}
+              aria-label={inputName}
+              aria-describedby="play-input-help"
+              lang="ko"
+              className="mt-1 block min-h-12 w-full rounded border-2 border-slate-600 p-2"
+              style={{ fontSize: 16 }}
+            />
+          </label>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              enterWord();
+            }}
+            className="mt-3 flex items-end gap-2"
+          >
+            <label className="min-w-0 flex-1 text-sm font-medium">
+              낱말로 입력
+              <input
+                value={wordText}
+                onChange={(e) => setWordText(e.target.value)}
+                disabled={readOnly}
+                lang="ko"
+                autoComplete="off"
+                className="mt-1 block min-h-12 w-full rounded border border-slate-600 p-2"
+                style={{ fontSize: 16 }}
+              />
+            </label>
+            <button type="submit" disabled={readOnly || !word} className="min-h-12 rounded border border-slate-600 px-4 font-medium disabled:opacity-60">
+              넣기
+            </button>
+          </form>
+
+          <p role="status" aria-live="polite" className="mt-3 min-h-6 text-sm">
+            {message}
+          </p>
+          <p className="sr-only" role="status" aria-live="polite">
+            {announcement}
+          </p>
+        <aside aria-label="단서" className="mt-6 lg:max-h-[calc(100dvh-24rem)] lg:overflow-auto">
+          <PlayClues words={words} current={word} chosung={chosungHints} onSelectWord={readOnly ? undefined : selectWord} />
+          <details className="mt-4 text-sm">
+            <summary className="flex min-h-11 cursor-pointer items-center font-medium">키보드 사용법</summary>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>글자를 쓰면 다음 칸으로 넘어가요.</li>
+              <li>← → 로 칸을 옮기고, ↑ ↓ 로 위아래 칸으로 가요.</li>
+              <li>Tab 은 다음 단서, Shift+Tab 은 이전 단서예요.</li>
+              <li>Backspace 는 지우고 앞 칸으로 돌아가요. 글자를 만드는 중에는 그 글자를 고쳐요.</li>
+            </ul>
+          </details>
+        </aside>
         </div>
       </div>
 
-      <label className="block text-sm">
-        글자 입력 (칸을 누르고 쓰세요)
-        <input
-          {...grid.inputProps}
-          onKeyDown={(e) => {
-            onBoardKeyDown(e);
-            if (!e.defaultPrevented) grid.inputProps.onKeyDown(e);
-          }}
-          disabled={readOnly}
-          aria-label={word ? `${word.direction === "across" ? "가로" : "세로"} ${word.number}번 낱말 입력` : "글자 입력"}
-          className="mt-1 block w-full rounded border border-dashed border-slate-400 p-2"
-          style={{ fontSize: 16 }}
-          lang="ko"
-        />
-      </label>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          enterWord();
-        }}
-        className="flex gap-2"
-      >
-        <label className="flex-1 text-sm">
-          낱말로 입력
-          <input value={wordText} onChange={(e) => setWordText(e.target.value)} disabled={readOnly} className="mt-1 block w-full rounded border border-slate-400 p-2" style={{ fontSize: 16 }} lang="ko" autoComplete="off" />
-        </label>
-        <button type="submit" disabled={readOnly || !word} className="self-end rounded border border-slate-400 px-3" style={{ minHeight: 44 }}>
-          넣기
-        </button>
-      </form>
-
-      <div className="flex flex-wrap gap-2" role="group" aria-label="도구">
-        {anytime ? (
-          <>
-            <button type="button" disabled={readOnly || !canCheck} onClick={() => doCheck("cell")} className="rounded border px-3" style={{ minHeight: 44 }}>칸 확인</button>
-            <button type="button" disabled={readOnly || !canCheck} onClick={() => doCheck("puzzle")} className="rounded border px-3" style={{ minHeight: 44 }}>전체 확인</button>
-          </>
-        ) : null}
-        {limits.checkMode !== "submitOnly" ? (
-          <button type="button" disabled={readOnly || !canCheck} onClick={() => doCheck("word")} className="rounded border px-3" style={{ minHeight: 44 }}>
-            낱말 확인{limits.checksRemaining !== null ? ` (남은 ${limits.checksRemaining}번)` : ""}
-          </button>
-        ) : null}
-        {limits.revealsAllowed > 0 ? (
-          <button type="button" disabled={readOnly || limits.revealsRemaining <= 0} onClick={doReveal} className="rounded border px-3" style={{ minHeight: 44 }}>
-            글자 알려주기 (남은 {limits.revealsRemaining}번)
-          </button>
-        ) : null}
-        {limits.chosungAllowed ? (
-          <button type="button" disabled={readOnly} onClick={doChosung} className="rounded border px-3" style={{ minHeight: 44 }}>초성 보기</button>
-        ) : null}
-        <button type="button" disabled={readOnly || !allFilled(words, cells, given)} onClick={doSubmit} className="rounded border bg-slate-800 px-3 text-white" style={{ minHeight: 44 }}>
-          제출
-        </button>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-400 bg-white/95 px-3 py-2 sm:px-4">
+        <div className="mx-auto max-w-6xl">
+          <PlayTools
+            limits={limits}
+            disabled={readOnly}
+            canSubmit={allFilled(words, cells, given)}
+            onCheck={doCheck}
+            onReveal={doReveal}
+            onChosung={doChosung}
+            onSubmit={doSubmit}
+          />
+        </div>
       </div>
 
-      <p role="status" aria-live="polite" className="min-h-6 text-sm">{message}</p>
-
-      <section aria-label="단서" className="grid gap-4 sm:grid-cols-2">
-        {[
-          ["가로", across],
-          ["세로", down],
-        ].map(([title, list]) => (
-          <div key={title as string}>
-            <h2 className="font-semibold">{title as string}</h2>
-            <ol className="space-y-1 text-sm">
-              {(list as PlayWord[]).map((w) => {
-                const current = word?.number === w.number && word?.direction === w.direction;
-                return (
-                  <li key={`${w.number}${w.direction}`} aria-current={current ? "true" : undefined} style={{ fontWeight: current ? 700 : 400 }}>
-                    {w.number}. {w.clue} ({w.length}){chosung[`${w.number}${w.direction}`] ? ` · 초성 ${chosung[`${w.number}${w.direction}`]}` : ""}
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        ))}
-      </section>
       {traceOn ? (
-        <section aria-label="IME 기록" className="space-y-2 rounded border border-dashed border-amber-600 p-3 text-sm">
-          <h2 className="font-semibold">IME 기록 (기기 점검용 · 시험 계정에서만)</h2>
-          <p>입력한 내용이 기록에 들어갑니다. 파일은 이 기기에만 저장되고 어디로도 전송되지 않습니다. 기록된 이벤트 {traceCount}개.</p>
-          <label className="block">기기 / 브라우저 (예: Tab S9 / Samsung Internet)
-            <input value={traceDevice} onChange={(e) => setTraceDevice(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
-          </label>
-          <label className="block">키보드 앱 (삼성 키보드, Gboard, Microsoft IME …)
-            <input value={traceKeyboard} onChange={(e) => setTraceKeyboard(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
-          </label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={tracePrediction} onChange={(e) => setTracePrediction(e.target.checked)} /> 추천 단어 줄(예측) 켜 둠</label>
-          <label className="block">메모 (이상한 점)
-            <input value={traceNote} onChange={(e) => setTraceNote(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
-          </label>
-          <div className="flex gap-2">
-            <button type="button" onClick={downloadTrace} className="rounded border px-3" style={{ minHeight: 44 }}>기록 내려받기 (JSON)</button>
-            <button type="button" onClick={() => { trace.clear(); setTraceCount(0); }} className="rounded border px-3" style={{ minHeight: 44 }}>기록 지우기</button>
-          </div>
-        </section>
+        <ImeTracePanel
+          trace={trace}
+          count={traceCount}
+          onClear={() => {
+            trace.clear();
+            setTraceCount(0);
+          }}
+        />
       ) : null}
     </main>
   );
