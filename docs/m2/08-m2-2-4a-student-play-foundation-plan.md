@@ -418,7 +418,7 @@ A device/browser **passes** when c1–c9 pass SC1–SC5 with no tester fail, and
 
 ### G.5 Second validation, on the real component
 
-A pass in the lab does not transfer automatically: React rendering, autosave and the soft-keyboard viewport are not in the lab. After F3, the same cases are repeated on the bare board of the real build on every row of G.1, plus: type while an autosave is in flight; switch cell mid-composition; rotate the device during composition; leave the page during composition (`pagehide` flush must not save a pending syllable as committed); keyboard prediction strip on. The result is written into the 2.4c hardening record.
+A pass in the lab does not transfer automatically: React rendering, autosave and the soft-keyboard viewport are not in the lab. After F3, the same cases are repeated on the bare board of the real build on every row of G.1, plus: type while an autosave is in flight; switch cell mid-composition; rotate the device during composition; leave the page during composition (R6: `pagehide` commits the visible pending syllable exactly once and never a lone jamo; nothing doubles or disappears); keyboard prediction strip on. The result is written into the 2.4c hardening record.
 
 ### G.6 Fixtures
 
@@ -470,6 +470,9 @@ Built: server modules (`play/errors|access|payload|service|api-guard|schemas`), 
 - **Identity.** The student id comes only from the session profile (`getStudentIdForProfile(profile.id)`); no handler, schema or client code accepts a student id or an attempt id (the attempt is found from the URL's assignment id and the session). Tests send `studentId`, `attemptId`, `selected`, `currentWord`, `currentClue` and `focus` in every body and expect 400.
 - **Answers.** The payload is built field by field from explicit columns; the key never leaves the database except one counted reveal and the `given` cells. Tests assert no answer string of two or more characters appears in the payload or any reply, and that check replies carry no letter.
 - **Concurrency.** Ten parallel reveals at one base revision give exactly one success (the rest `STALE`), and parallel saves from two devices merge.
+- **Device procedure** is in [09](09-g5-device-validation.md): seed (`pnpm dev:seed-play`), a production build served on the LAN, the case list, the recording of IME events (`?imetrace=1`) and the result table. Verified before handing over: sign-in, the board and all tools on the built app, the three save states, and the LAN address over plain http (see the Origin fix below).
+- **Origin check.** Browsers send `Sec-Fetch-Site` only to secure contexts; over plain http on a LAN address it is absent, and `request.url` carries the bind address behind `next start -H 0.0.0.0`. The guard now compares `Origin` with the `Host` header. Found while preparing the device run: every phone save would have been refused (403) before this.
+- **Blocked banner.** A refused save no longer always reads "closed": it names its reason (closed or read-only, or "sign in again" when the session/permission was the cause).
 - **Not automated.** The hook and the board have no browser test (E.7 is not decided). Input on real devices is the G.5 validation, to be done on the bare board: Galaxy S24 and Tab S9 (Samsung Internet, Chrome) and Windows (Chrome, Edge), against SC1 to SC6.
 - **Opening the board.** It needs a published assignment for a classroom the student is enrolled in, and a student account with the forced password change done. Do not use real students before the governance gate (doc 14 approved, doc 13 re-signed). There is no link to the page from the student home on purpose.
 

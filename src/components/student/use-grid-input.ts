@@ -12,15 +12,19 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { ClipboardEvent, CompositionEvent, FormEvent, KeyboardEvent } from "react";
 import { ImeController, type ImeEvent, type ImeWord, type Intent } from "@/features/crossword/play/ime/controller";
+import type { TraceEvent } from "./ime-trace";
 
-export function useGridInput(onIntents: (intents: Intent[]) => void) {
+export function useGridInput(onIntents: (intents: Intent[]) => void, onTrace?: (event: TraceEvent) => void) {
   const controller = useMemo(() => new ImeController(), []);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const emitRef = useRef(onIntents);
   emitRef.current = onIntents;
+  const traceRef = useRef(onTrace);
+  traceRef.current = onTrace;
 
   const run = useCallback(
     (event: ImeEvent): Intent[] => {
+      traceRef.current?.(event);
       const intents = controller.handle(event);
       if (intents.length > 0) emitRef.current(intents);
       return intents;
@@ -84,11 +88,15 @@ export function useGridInput(onIntents: (intents: Intent[]) => void) {
     inputProps,
     inputRef,
     focus: () => inputRef.current?.focus(),
-    setWord: (word: ImeWord) => controller.setWord(word),
+    setWord: (word: ImeWord) => {
+      traceRef.current?.({ type: "setWord", word });
+      controller.setWord(word);
+    },
     /** The student tapped another cell of the word. */
     select: (index: number): Intent[] => run({ type: "select", index }),
     /** Commit a pending syllable (save, submit, leaving). */
     flush: (): Intent[] => {
+      traceRef.current?.({ type: "flush" });
       const intents = controller.flush();
       if (intents.length > 0) emitRef.current(intents);
       return intents;

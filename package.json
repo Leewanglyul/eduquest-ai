@@ -20,7 +20,8 @@
     "env:local": "node scripts/env-profile.mjs local",
     "env:hosted": "node scripts/env-profile.mjs hosted",
     "env:status": "node scripts/env-profile.mjs status",
-    "db:types": "supabase gen types typescript --local > src/types/database.ts"
+    "db:types": "supabase gen types typescript --local > src/types/database.ts",
+    "dev:seed-play": "vitest run --config vitest.dev-seed.config.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

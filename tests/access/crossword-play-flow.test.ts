@@ -499,6 +499,22 @@ describe("handler hygiene", () => {
     expect((await stateGET(sameOrigin, { params: Promise.resolve({ assignmentId: normal.assignmentId }) })).status).toBe(200);
   });
 
+  it("plain http on a LAN address (no Sec-Fetch headers) works when Origin matches Host, and still rejects a foreign Origin", async () => {
+    as(stu2); // stu1's attempt is completed by now (read-only); stu2's is still open
+    const lan = (origin: string) =>
+      new Request("http://0.0.0.0:3000/student/crosswords/x/api/save", {
+        method: "POST",
+        headers: { host: "192.168.0.96:3000", origin, "content-type": "application/json" },
+        body: JSON.stringify({ patch: {}, activeMs: 0 }),
+      });
+    const ok = await savePOST(lan("http://192.168.0.96:3000"), { params: Promise.resolve({ assignmentId: normal.assignmentId }) });
+    expect(ok.status).toBe(200);
+    const evil = await savePOST(lan("http://evil.example"), { params: Promise.resolve({ assignmentId: normal.assignmentId }) });
+    expect(evil.status).toBe(403);
+    const sameHostOtherPort = await savePOST(lan("http://192.168.0.96:8080"), { params: Promise.resolve({ assignmentId: normal.assignmentId }) });
+    expect(sameHostOtherPort.status).toBe(403);
+  });
+
   it("wrong content type and wrong method", async () => {
     as(stu1);
     const noType = new Request("http://localhost/x", { method: "POST", headers: { "sec-fetch-site": "same-origin", "content-type": "text/plain" }, body: "{}" });

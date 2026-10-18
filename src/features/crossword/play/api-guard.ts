@@ -42,14 +42,20 @@ const STATUS: Record<PlayErrorCode, number> = {
   SUBMIT_COOLDOWN: 429,
 };
 
-/** Same-origin only: a cross-site page must not be able to act as the student. */
+/**
+ * Same-origin only: a cross-site page must not be able to act as the student.
+ * Browsers send Sec-Fetch-Site only to secure contexts (https, localhost). Over plain http on a LAN address (a school
+ * test run) it is absent, so the Origin header is compared with the Host the browser used. request.url is NOT used for
+ * this: behind `next start -H 0.0.0.0` it carries the bind address, not the address the browser typed.
+ */
 export function isSameOrigin(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site !== null) return site === "same-origin" || site === "none";
   const origin = request.headers.get("origin");
   if (origin === null) return request.method === "GET";
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const host = request.headers.get("host") ?? new URL(request.url).host;
+    return new URL(origin).host === host;
   } catch {
     return false;
   }

@@ -11,3 +11,6 @@ coverage
 *.tsbuildinfo
 supabase/.branches
 supabase/.temp
+
+# Local hand-testing data written by pnpm dev:seed-play (holds answers and a test password)
+.dev-play-seed.json

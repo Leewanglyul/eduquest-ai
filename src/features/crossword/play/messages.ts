@@ -68,6 +68,8 @@ export const PLAY_TEXT = {
   wrongSome: "아직 틀린 칸이 있어요. 조금만 더 살펴볼까요?",
   wrongCount: (n: number) => `틀린 칸이 ${n}개 있어요. 조금만 더 살펴볼까요?`,
   closedBanner: "수업에서 닫힌 퍼즐입니다.",
+  /** The server refused saving for a reason the student cannot fix here (signed out, no permission). */
+  blockedUnknown: "저장할 수 없어요. 다시 로그인해 주세요.",
   // PM SP-3: the three save states
   saveSaved: "저장됨",
   saveSaving: "저장 중",

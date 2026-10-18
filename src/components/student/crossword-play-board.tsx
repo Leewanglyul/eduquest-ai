@@ -27,11 +27,19 @@ import {
 import type { Intent } from "@/features/crossword/play/ime/controller";
 import { PLAY_ERROR_MESSAGES, PLAY_TEXT, playMessage } from "@/features/crossword/play/messages";
 import type { CheckResult, CheckStatus, PlayErrorCode, PlayLimits, PlayPayload, PlayWord, SubmitResult } from "@/features/crossword/play/types";
+import { ImeTrace } from "./ime-trace";
 import { callPlay, makeSaveSender, type ApiResult } from "./play-api";
 import { SaveQueue, type QueueSnapshot } from "./save-queue";
 import { useGridInput } from "./use-grid-input";
 
 const MARK_TEXT: Record<CheckStatus, string> = { ok: "맞음", wrong: "다시 보기", empty: "비어 있음" };
+
+/** Why saving stopped: the real reason when the server named one, never a guess that it was closed. */
+function blockedText(code: PlayErrorCode | "UNKNOWN"): string {
+  if (code === "UNKNOWN") return PLAY_TEXT.blockedUnknown;
+  if (code === "READONLY" || code === "CLOSED") return PLAY_TEXT.closedBanner;
+  return playMessage(code);
+}
 
 export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   const { assignmentId, puzzle } = payload;
@@ -112,7 +120,35 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     [queue],
   );
 
-  const grid = useGridInput(applyIntents);
+  // Device validation aid: open the board with ?imetrace=1 to record the IME events and download them (G.5, G.6).
+  const [traceOn, setTraceOn] = useState(false);
+  const trace = useMemo(() => new ImeTrace(), []);
+  const [traceCount, setTraceCount] = useState(0);
+  const [traceDevice, setTraceDevice] = useState("");
+  const [traceKeyboard, setTraceKeyboard] = useState("");
+  const [tracePrediction, setTracePrediction] = useState(false);
+  const [traceNote, setTraceNote] = useState("");
+  useEffect(() => {
+    setTraceOn(new URLSearchParams(window.location.search).get("imetrace") === "1");
+  }, []);
+  const grid = useGridInput(applyIntents, traceOn ? (e) => { trace.record(e); setTraceCount(trace.size); } : undefined);
+  const downloadTrace = () => {
+    const fixture = trace.toFixture({
+      device: traceDevice || "unnamed device",
+      keyboardApp: traceKeyboard,
+      predictionStrip: tracePrediction,
+      orientation: (screen.orientation && screen.orientation.type) || (innerWidth > innerHeight ? "landscape" : "portrait"),
+      viewport: [innerWidth, innerHeight],
+      userAgent: navigator.userAgent,
+      note: traceNote,
+    });
+    const url = URL.createObjectURL(new Blob([JSON.stringify(fixture)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ime-board-${(traceDevice || "device").replace(/[^w가-힣]+/g, "_")}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ---- keep the controller pointed at the selected word ---------------------------------------------------------
   const word = wordForSelection(words, sel);
@@ -129,7 +165,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     });
     // cells/given are read for the mirror only when the word or the selection changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [word?.number, word?.direction, sel.key]);
+  }, [word?.number, word?.direction, sel.key, traceOn]);
 
   const selectKey = (key: string) => {
     grid.flush(); // never lose a pending syllable when the student taps elsewhere
@@ -180,7 +216,8 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     grid.flush();
     const saved = await queue.idle();
     if (!saved) {
-      setMessage(queue.snapshot.blocked ? PLAY_TEXT.closedBanner : `${PLAY_TEXT.saveOffline}. ${PLAY_TEXT.saveOfflineHelp}`);
+      const b = queue.snapshot.blocked;
+      setMessage(b ? blockedText(b) : `${PLAY_TEXT.saveOffline}. ${PLAY_TEXT.saveOfflineHelp}`);
       return null;
     }
     return queue.snapshot.revision;
@@ -307,7 +344,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
 
       {/* PM SP-3: the three save states, for screen readers too */}
       <p role="status" aria-live="polite" data-save-state={save.blocked ? "blocked" : save.state} className="text-sm">
-        {save.blocked ? PLAY_TEXT.closedBanner : saveText}
+        {save.blocked ? blockedText(save.blocked) : saveText}
         {!save.blocked && save.state === "offline" ? ` ${PLAY_TEXT.saveOfflineHelp}` : ""}
       </p>
       {readOnly && !done ? <p role="alert">{PLAY_TEXT.closedBanner}</p> : null}
@@ -430,6 +467,26 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
           </div>
         ))}
       </section>
+      {traceOn ? (
+        <section aria-label="IME 기록" className="space-y-2 rounded border border-dashed border-amber-600 p-3 text-sm">
+          <h2 className="font-semibold">IME 기록 (기기 점검용 · 시험 계정에서만)</h2>
+          <p>입력한 내용이 기록에 들어갑니다. 파일은 이 기기에만 저장되고 어디로도 전송되지 않습니다. 기록된 이벤트 {traceCount}개.</p>
+          <label className="block">기기 / 브라우저 (예: S24 / Samsung Internet)
+            <input value={traceDevice} onChange={(e) => setTraceDevice(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
+          </label>
+          <label className="block">키보드 앱 (삼성 키보드, Gboard, Microsoft IME …)
+            <input value={traceKeyboard} onChange={(e) => setTraceKeyboard(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
+          </label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={tracePrediction} onChange={(e) => setTracePrediction(e.target.checked)} /> 추천 단어 줄(예측) 켜 둠</label>
+          <label className="block">메모 (이상한 점)
+            <input value={traceNote} onChange={(e) => setTraceNote(e.target.value)} className="mt-1 block w-full rounded border p-2" style={{ fontSize: 16 }} />
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={downloadTrace} className="rounded border px-3" style={{ minHeight: 44 }}>기록 내려받기 (JSON)</button>
+            <button type="button" onClick={() => { trace.clear(); setTraceCount(0); }} className="rounded border px-3" style={{ minHeight: 44 }}>기록 지우기</button>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

@@ -11,5 +11,6 @@
 | 7 | [M2-2.4 student play plan](07-m2-2-4-student-play-plan.md) | Implementation plan for individual crossword solving: student list and access, play screen, cell input and Korean IME handling, server-side checks and reveals, autosave, completion, result screen, attempt/member schema (no single-owner assumption), student security and RLS review, tests, phases, open PM decisions |
 
 | 8 | [M2-2.4a student play foundation plan](08-m2-2-4a-student-play-foundation-plan.md) | Foundation slice of doc 7 (F0 IME validation, F1 schema, F2 play core, F3 service and bare board): corrections to doc 7, first real IME trace evidence, Korean IME rules R1–R10, API contract, IME validation requirements, phase mapping |
+| 9 | [G.5 device validation](09-g5-device-validation.md) | Basic-board device input checklist (Korean): local seed, LAN setup, case list A to G, IME event recording, result table |
 
 Documents 1–3 describe M2-1, which is implemented on `m2/m2-1-content-pipeline`. Document 4 is the M2-2 design; its generator core (M2-2.1) is implemented. Document 5 is the canonical plan for M2-2.2: schema (2a), readiness (2b) and the teacher backend (2c) are implemented, screens (2d) and hardening (2e) are not. Document 6 is future planning only: nothing in it is scheduled or implemented.
