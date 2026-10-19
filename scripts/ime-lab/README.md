@@ -18,7 +18,7 @@ It prints one URL per network interface. Open the `http://<ip>:4177/` URL on the
 | Galaxy Tab S9 | Samsung Internet, Chrome |
 | Windows 11 | Chrome, Edge |
 
-**Priority changed by the PM on 2026-10-18** (real deployment order): 1 Galaxy Tab S9 + Samsung Internet, 2 Galaxy Tab S9 + Chrome, 3 Windows Chrome, 4 Windows Edge, 5 Galaxy S24 (useful, no longer a deployment target). Run the lab in that order.
+**Priority changed by the PM on 2026-10-18** (real deployment order): 1 Galaxy Tab + Chrome, 2 Galaxy Tab + Samsung Internet (secondary), 3 Windows Chrome, 4 Windows Edge, 5 Galaxy S24 (useful, no longer a deployment target). Run the lab in that order.
 
 Run every case for each device/browser in **portrait and landscape** (phones and tablet), with the **soft keyboard** and, where possible, a **hardware keyboard** (the tablet and Windows). Type the device and browser in the first field (for example `S24 / Samsung Internet`) before saving.
 
@@ -52,7 +52,7 @@ For every case: all `compositionstart/update/end`, `beforeinput`, `input` (with 
 
 ## Decision it feeds
 
-H.1: input method A (one proxy input), B (per-cell), or C (word entry as primary). If A fails on **Samsung Internet**, 2.4e builds word entry as the primary input and the grid becomes display plus selection.
+H.1: input method A (one proxy input), B (per-cell), or C (word entry as primary). If A fails on **Chrome on the Galaxy Tab**, 2.4e builds word entry as the primary input and the grid becomes display plus selection.
 
 ## Limits of this spike
 

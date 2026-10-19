@@ -34,7 +34,7 @@ export function ImeTracePanel({ trace, count, onClear }: { trace: ImeTrace; coun
       <h2 className="font-semibold">IME 기록 (기기 점검용 · 시험 계정에서만)</h2>
       <p>입력한 내용이 기록에 들어갑니다. 파일은 이 기기에만 저장되고 어디로도 전송되지 않습니다. 기록된 이벤트 {count}개.</p>
       <label className="block">
-        기기 / 브라우저 (예: Tab S9 / Samsung Internet)
+        기기 / 브라우저 (예: Tab S9 / Chrome)
         <input value={device} onChange={(e) => setDevice(e.target.value)} className={field} style={{ fontSize: 16 }} />
       </label>
       <label className="block">
