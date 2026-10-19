@@ -48,12 +48,33 @@ const WORDS = [
   "대한민국", "국민", "민주주의", "의사", "사다리", "닭고기", "기러기", "아나운서", "서울", "울산", "산호초",
 ];
 
+// Fail fast: every step checks its error, and the end state is verified. A silent failure here once left DEVPLAY1 behind
+// and the next run died on idx_students_school_student_no.
+// Why attempts go first: deleting an auth user cascades to crossword_attempt_members, whose cleanup trigger deletes the
+// attempt as the *invoker*; GoTrue runs as supabase_auth_admin, which has no rights on crossword_*, so deleteUser fails
+// with "Database error deleting user" for any student who has an attempt. service_role can delete the attempts directly.
 async function cleanup() {
-  const { data: students } = await admin.from("students").select("profile_id").like("student_no", `${MARK}%`);
-  for (const s of students ?? []) await admin.auth.admin.deleteUser(s.profile_id);
-  await admin.from("crossword_puzzles").delete().like("title", `${MARK}%`);
-  await admin.from("content_sets").delete().like("title", `${MARK}%`);
-  await admin.from("classrooms").delete().like("name", `${MARK}%`);
+  const ok = <T extends { error: { message: string } | null }>(step: string, r: T): T => {
+    if (r.error) throw new Error(`dev seed cleanup: ${step}: ${r.error.message}`);
+    return r;
+  };
+  const { data: students } = ok("select students", await admin.from("students").select("id, profile_id").like("student_no", `${MARK}%`));
+  const ids = (students ?? []).map((s) => s.id);
+  if (ids.length > 0) {
+    const { data: members } = ok("select attempt members", await admin.from("crossword_attempt_members").select("attempt_id").in("student_id", ids));
+    const attemptIds = [...new Set((members ?? []).map((m) => m.attempt_id))];
+    if (attemptIds.length > 0) ok("delete attempts", await admin.from("crossword_attempts").delete().in("id", attemptIds));
+  }
+  for (const s of students ?? []) {
+    const { error } = await admin.auth.admin.deleteUser(s.profile_id);
+    if (error) throw new Error(`dev seed cleanup: deleteUser ${s.profile_id}: ${error.message}`);
+  }
+  ok("delete puzzles", await admin.from("crossword_puzzles").delete().like("title", `${MARK}%`));
+  ok("delete sets", await admin.from("content_sets").delete().like("title", `${MARK}%`));
+  ok("delete classrooms", await admin.from("classrooms").delete().like("name", `${MARK}%`));
+
+  const left = ok("verify students", await admin.from("students").select("student_no", { count: "exact", head: true }).like("student_no", `${MARK}%`));
+  if (left.count !== 0) throw new Error(`dev seed cleanup: ${left.count} student(s) with student_no like '${MARK}%' remain`);
 }
 
 describe("dev seed: play board on real devices", () => {
