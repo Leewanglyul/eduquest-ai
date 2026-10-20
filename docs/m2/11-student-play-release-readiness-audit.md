@@ -126,3 +126,11 @@ When C-1 to C-6 are met, the verdict becomes **CONDITIONAL GO** for one supervis
 | **TV-1** | Teacher visibility: teachers cannot see attempts (§5, condition C-6) | Managed as its own item, **not** folded into F-1 | Open. Needs a PM decision (accept for the first supervised class, or schedule M2-2.5 first) |
 
 No code, DB or feature flag change comes from this audit.
+
+### 12.1 Additions (PM, 2026-10-20)
+
+- **Notation:** documents are named with their folder: `pilot/12`, `pilot/13` (data governance policy and its sign-off) and `m2/12`, `m2/13` (F-1 design, teacher visibility review).
+- **F-1 stays OPEN.** Whether the gap is reproducible on the deployed app is **not verified**: the audit read the code only (no flag check in the six route handlers), and the deployment's environment value of `CROSSWORD_PLAY_ENABLED` and the deployed version were not checked.
+- **Interim control:** until F-1 is implemented, **no crossword puzzle is published on the hosted project.** This is an operating rule, not a code change.
+- **Order:** the Galaxy Tab and TalkBack runs happen **after** F-1. A "Hosted Acceptance" section for [09](09-g5-device-validation.md) (test classroom and students with the `SMOKE` prefix, cleanup, pass criteria) may be considered before those runs; it is not written yet.
+- **OP-1 (operating risk): untracked files in the repository root** (`accounts.txt`, `big.txt`, `first30.txt`, `s9-a.csv`, `s9-b.csv`, `signin-load.mjs`). They may contain personal data of pilot students or accounts; their content has **not** been inspected. Risk: an accidental `git add -A` and push. Until reviewed by their owner: do not commit them, move them out of the repository or ignore them. No file of this list has ever been committed (commits so far named files one by one).
