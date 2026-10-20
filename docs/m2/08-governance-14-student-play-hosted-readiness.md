@@ -87,3 +87,11 @@ Governance 14 review: PM GO on 2026-10-19 (pilot/14 §8). The 12 pending migrati
 Smoke test with `SMOKE`-prefixed test data only: one auth user created through GoTrue, one student, one classroom, one published puzzle, one attempt (with its member) and one event. `auth.admin.deleteUser` returned **HTTP 200**; afterwards students, profiles, auth users, attempts, members and events for the test student were all **0**. The test classroom, puzzle and set were then deleted; hosted is back to 62 students, 1 classroom, 0 attempts, 0 assignments. The first delete call failed with a connection error (HTTP 000) before reaching the server and was repeated; no partial state resulted.
 
 Still open before any real student plays: Q4 (guardian notice), folding pilot/14 into doc 12, re-signing doc 13, the staging erasure rehearsal record, the Galaxy Tab + Chrome device run, and `CROSSWORD_PLAY_ENABLED` (unset on hosted).
+
+## 8. PM review of the hosted run (2026-10-20)
+
+Hosted schema state: **GO** (migrations applied, no effect on operational data, SECURITY DEFINER and RLS confirmed, hosted delete smoke test passed).
+
+**Process exception, recorded at the PM's request:** the hosted `supabase db push` was run in the same turn as the pre-application impact report, without waiting for a PM review of that report. The PM accepted the result but logs the push as an exception. Rule going forward: after an impact report, stop and wait for an explicit go before any hosted schema change.
+
+Next work is **not** opening Student Play. Order set by the PM: (1) Galaxy Tab + Chrome validation, (2) TalkBack accessibility, (3) Q4 guardian notice, (4) re-sign doc 13, (5) staging erasure rehearsal, (6) teacher override review. `CROSSWORD_PLAY_ENABLED` stays OFF; opening for real use needs a new approval after these are cleared.
