@@ -148,6 +148,20 @@ describe("routes", () => {
     expect(guard).toMatch(/no-store/);
   });
 
+  it("F-1: the feature flag is the first thing playRoute checks, before the session, and startOrResume refuses too", () => {
+    const guard = code(src("features/crossword/play/api-guard.ts"));
+    const body = guard.slice(guard.indexOf("export async function playRoute"));
+    const flag = body.indexOf("isCrosswordPlayEnabled()");
+    expect(flag, "flag check inside playRoute").toBeGreaterThan(-1);
+    for (const later of ["request.method", "isSameOrigin(request)", "request.json()", "requireActiveProfile()"]) {
+      expect(body.indexOf(later), later).toBeGreaterThan(flag);
+    }
+    expect(body.slice(flag, flag + 90)).toMatch(/return jsonError\("NOT_FOUND", 404\)/);
+    const service = code(src("features/crossword/play/service.ts"));
+    const start = service.slice(service.indexOf("export async function startOrResume"));
+    expect(start.slice(0, start.indexOf("requirePlayAccess"))).toMatch(/isCrosswordPlayEnabled\(\)[\s\S]*PlayError\("NOT_FOUND"\)/);
+  });
+
   it("the page is behind the student guard", () => {
     expect(code(src("app/student/crosswords/[assignmentId]/page.tsx"))).toMatch(/requireStudentAreaPage\(\)/);
   });

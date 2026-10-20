@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isCrosswordPlayEnabled } from "@/lib/flags";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 import { requireAttemptId, requirePlayAccess } from "./access";
@@ -73,6 +74,9 @@ async function chooseAttemptPrefill(puzzleId: string): Promise<string[]> {
  * A closed assignment resumes an existing attempt read-only; without one it is refused.
  */
 export async function startOrResume(studentId: string, assignmentId: string): Promise<PlayPayload> {
+  // Second, defensive gate (m2/12 F-1): this is the only function that creates an attempt (student data). It must not
+  // run while Student Play is off, even if a future caller forgets the page or route check.
+  if (!isCrosswordPlayEnabled()) throw new PlayError("NOT_FOUND");
   const access = await requirePlayAccess(studentId, assignmentId);
   const prefill = access.readonly ? [] : await chooseAttemptPrefill(access.puzzleId);
   unwrapPlay(

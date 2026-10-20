@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { requireActiveProfile } from "@/features/identity/service";
+import { isCrosswordPlayEnabled } from "@/lib/flags";
 import { IdentityError } from "@/features/identity/errors";
 import { studentMustChangePassword } from "@/lib/rbac/student-guard";
 import { getStudentIdForProfile } from "./access";
@@ -64,7 +65,7 @@ export function isSameOrigin(request: Request): boolean {
 type RouteContext = { params: Promise<{ assignmentId: string }> };
 
 /**
- * One wrapper for all six handlers: same-origin and JSON checks, session-derived identity (a signed-in, active student
+ * One wrapper for all six handlers: the feature flag (404 when off), same-origin and JSON checks, session-derived identity (a signed-in, active student
  * who finished the forced password change), strict body validation, the service call, and errors turned into short JSON
  * that never carries an expected value or a database message.
  */
@@ -74,6 +75,10 @@ export async function playRoute<B>(
   options: { method: "GET" | "POST"; body?: ZodType<B> },
   run: (ctx: { studentId: string; assignmentId: string; body: B }) => Promise<unknown>,
 ): Promise<Response> {
+  // Release gate (m2/12 F-1): with Student Play off, every play endpoint behaves as if it did not exist, like the pages.
+  // First on purpose: no body, cookie, session or database is touched, and the answer says nothing about the feature.
+  if (!isCrosswordPlayEnabled()) return jsonError("NOT_FOUND", 404);
+
   if (request.method !== options.method) return jsonError("METHOD_NOT_ALLOWED", 405);
   if (!isSameOrigin(request)) return jsonError("FORBIDDEN", 403);
 

@@ -573,3 +573,47 @@ describe("handler hygiene", () => {
     expect(performance.now() - t0).toBeLessThan(1500);
   });
 });
+
+// ---- F-1 (docs/m2/12): Student Play off means the API is off, and no student data is written -------------------------
+describe("the feature flag turns the API off", () => {
+  const counts = async () => {
+    const { count: attempts } = await admin.from("crossword_attempts").select("id", { count: "exact", head: true }).in("assignment_id", [normal.assignmentId, hard.assignmentId]);
+    const { data: rev } = await admin.from("crossword_attempts").select("revision, cells").eq("assignment_id", normal.assignmentId).order("id");
+    return { attempts, rev };
+  };
+
+  it("with the flag off every route answers 404 for an enrolled student and for nobody, and nothing is written", async () => {
+    const before = await counts();
+    vi.stubEnv("CROSSWORD_PLAY_ENABLED", "false");
+    try {
+      const k = Object.keys(normal.key)[0];
+      for (const who of [stu1, stu2, null]) {
+        as(who);
+        const bodies: Record<string, unknown> = {
+          save: { patch: { [k]: "가" }, activeMs: 0 },
+          check: { scope: "cell", keys: [k], baseRevision: 0 },
+          reveal: { key: k, baseRevision: 0 },
+          chosung: { number: 1, direction: "across" },
+          submit: { baseRevision: 0 },
+        };
+        for (const name of Object.keys(HANDLERS)) {
+          // brand-new assignment too: a student who never opened it must not get an attempt created by any route
+          for (const aid of [normal.assignmentId, hard.assignmentId]) {
+            const r = await call(name as keyof typeof HANDLERS, aid, bodies[name]);
+            expect(r.status, `${name} as ${who?.id ?? "nobody"}`).toBe(404);
+            expect(r.json).toEqual({ error: "NOT_FOUND" });
+          }
+        }
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(await counts()).toEqual(before);
+  });
+
+  it("switching the flag back on restores the normal behaviour", async () => {
+    as(stu1);
+    const r = await call("state", normal.assignmentId);
+    expect(r.status).toBe(200);
+  });
+});
