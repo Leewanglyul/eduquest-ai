@@ -1,6 +1,6 @@
 # 14. Crossword attempts: data governance draft
 
-Status: **DRAFT for the PM and the school's data-protection contact. Not in force. Not for signature.** Written 2026-10-18 with M2-2.4a F1 (`supabase/migrations/20261019000001`–`3`). The signed D6 documents ([12](12-d6-data-governance-policy.md), [13](13-d6-signoff.md)) are **not modified** by this draft; this text becomes revisions of 12 and 13 only after approval, and 13 must then be signed again for the new data.
+Status: **DRAFT for the PM and the school's data-protection contact. Not in force. Not for signature. PM review: GO on 2026-10-19 (see §8); doc 13 is not yet re-signed.** Written 2026-10-18 with M2-2.4a F1 (`supabase/migrations/20261019000001`–`3`). The signed D6 documents ([12](12-d6-data-governance-policy.md), [13](13-d6-signoff.md)) are **not modified** by this draft; this text becomes revisions of 12 and 13 only after approval, and 13 must then be signed again for the new data.
 
 Go-live gate (doc 04 C13/CW-13, doc 07 E.1): **no real student may play a crossword before this is approved and 13 is re-signed.** The tables exist and are empty; nothing writes to them until the student screens exist (M2-2.4b+), which are not built yet.
 
@@ -88,3 +88,12 @@ select
 4. Only then enable the student screens for real students.
 
 None of these steps is done by M2-2.4a F1.
+
+
+## 8. PM review record (2026-10-19)
+
+**Decision: GO** for the governance review of this draft. Reasons given by the PM: (1) the data is needed for the learning record; (2) it is the base data of the Student Profile feature; (3) students never see each other's real names; (4) the student-erasure rule was checked; (5) the pilot Student Play validation needs it.
+
+What this GO covers: creating the attempt tables on the hosted project (migrations `20261019000001`-`4`, with their `…17`/`…18` predecessors) so the pilot validation can run, and the hosted erasure smoke test with test accounts. The erasure rule of §4 now works with the auth-user path (`d5e329a`: GoTrue `deleteUser` with an attempt was HTTP 500 before the fix).
+
+What it does **not** cover, and is still open before any real student plays (§7): the answer to Q4 (guardian notice, school contact), folding §1-§5 into doc 12, **re-signing doc 13**, and the staging erasure rehearsal with recorded zero counts. `CROSSWORD_PLAY_ENABLED` stays unset on hosted until those are done. Q3 (entry/autosave events) and Q6 / G4 (shared attempts) stay as recommended in §6: not now.

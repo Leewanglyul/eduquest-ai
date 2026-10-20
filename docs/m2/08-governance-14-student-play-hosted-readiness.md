@@ -78,3 +78,12 @@ Pass criteria: no HTTP error, and `students = profiles = attempts = members = 0`
 | Teacher override screen (reveal and check limits) | not built |
 
 **NO-GO** until the rows marked "not met" are closed. Rules that stay as they are: pilot/14 §4 and doc 06 §12.5 G4 (a member erased keeps the attempt and the other members, no change without a separate decision); learning visibility and puzzle readability are never reduced; students never see each other's real names.
+
+
+## 7. Hosted execution record (2026-10-20)
+
+Governance 14 review: PM GO on 2026-10-19 (pilot/14 §8). The 12 pending migrations were applied to `eduquest-ai-pilot` with `supabase db push` (`20261017000001` to `20261019000004`, no error; `migration list` shows no pending). Existing data was unchanged (62 students, 1 classroom). `fn_crossword_attempt_members_cleanup` is `SECURITY DEFINER` on hosted; RLS is on for the new tables; no crossword table is in a publication.
+
+Smoke test with `SMOKE`-prefixed test data only: one auth user created through GoTrue, one student, one classroom, one published puzzle, one attempt (with its member) and one event. `auth.admin.deleteUser` returned **HTTP 200**; afterwards students, profiles, auth users, attempts, members and events for the test student were all **0**. The test classroom, puzzle and set were then deleted; hosted is back to 62 students, 1 classroom, 0 attempts, 0 assignments. The first delete call failed with a connection error (HTTP 000) before reaching the server and was repeated; no partial state resulted.
+
+Still open before any real student plays: Q4 (guardian notice), folding pilot/14 into doc 12, re-signing doc 13, the staging erasure rehearsal record, the Galaxy Tab + Chrome device run, and `CROSSWORD_PLAY_ENABLED` (unset on hosted).
