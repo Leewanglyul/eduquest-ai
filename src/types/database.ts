@@ -714,6 +714,11 @@ isOneToOne: false
 "fn_crossword_actor_role":
 { Args: { "p_actor_id": string,"p_school_id": string }; Returns: Database["public"]['Enums']["user_role"]
                            },
+"fn_crossword_assignment_progress":
+{ Args: { "p_actor_id": string,"p_assignment_id": string,"p_school_id": string }; Returns: {
+              "checks_used": number,"chosung_used": number,"completed_at": string,"display_name": string,"filled_count": number,"last_saved_at": string,"reveals_used": number,"state": string,"student_id": string,"student_no": string,"total_cells": number,"wrong_submits": number
+            }[]
+                           },
 "fn_crossword_attempt_limits":
 { Args: { "p_attempt_id": string }; Returns: Json
                            },

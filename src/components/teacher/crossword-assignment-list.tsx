@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { closeCrosswordAssignmentAction } from "@/features/crossword/review/actions";
 import type { CrosswordDetail } from "@/features/crossword/review/service";
@@ -11,12 +12,14 @@ import { BTN_SECONDARY } from "./crossword-ui";
 type Props = {
   assignments: CrosswordDetail["assignments"];
   puzzleStatus: "draft" | "published" | "archived";
+  /** Where the progress pages of this puzzle live; set only while Student Play is on, so the link is absent otherwise. */
+  progressBase?: string;
 };
 
 const when = (iso: string | null) => (iso ? iso.slice(0, 16).replace("T", " ") : "제한 없음");
 
 /** Where the puzzle is given out. Closing an assignment stops the classroom from playing it; the puzzle stays as it is. */
-export function CrosswordAssignmentList({ assignments, puzzleStatus }: Props) {
+export function CrosswordAssignmentList({ assignments, puzzleStatus, progressBase }: Props) {
   const router = useRouter();
   const close = useCrosswordAction(closeCrosswordAssignmentAction);
 
@@ -76,6 +79,11 @@ export function CrosswordAssignmentList({ assignments, puzzleStatus }: Props) {
                 <td className="border border-slate-200 px-2 py-1">{when(a.opensAt)}</td>
                 <td className="border border-slate-200 px-2 py-1">{when(a.closesAt)}</td>
                 <td className="border border-slate-200 px-2 py-1">
+                  {progressBase ? (
+                    <Link href={`${progressBase}/${a.id}`} className="mr-3 inline-flex min-h-11 items-center text-sm underline">
+                      진행 보기
+                    </Link>
+                  ) : null}
                   {a.status === "open" && puzzleStatus === "published" ? (
                     <button
                       type="button"

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { isCrosswordPlayEnabled } from "@/lib/flags";
 import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 import { CrosswordAssignmentList } from "@/components/teacher/crossword-assignment-list";
 import { CrosswordClueLists } from "@/components/teacher/crossword-clue-lists";
@@ -106,7 +107,11 @@ export default async function CrosswordReviewPage({ params }: PageProps) {
       ) : null}
 
       {!isDraft ? (
-        <CrosswordAssignmentList assignments={assignments} puzzleStatus={puzzle.status} />
+        <CrosswordAssignmentList
+          assignments={assignments}
+          puzzleStatus={puzzle.status}
+          progressBase={isCrosswordPlayEnabled() ? `/teacher/crosswords/${puzzleId}/assignments` : undefined}
+        />
       ) : null}
 
       {puzzle.status === "published" ? (

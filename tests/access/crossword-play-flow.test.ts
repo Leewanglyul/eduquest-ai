@@ -37,6 +37,8 @@ import { PlayError } from "@/features/crossword/play/errors";
 import { PLAY_ERROR_MESSAGES } from "@/features/crossword/play/messages";
 import { BODY_KEYS } from "@/features/crossword/play/schemas";
 import { listPlayable, startOrResume } from "@/features/crossword/play/service";
+import { CrosswordError } from "@/features/crossword/messages";
+import { getAssignmentProgress } from "@/features/crossword/results/service";
 import type { PlayPayload } from "@/features/crossword/play/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -615,5 +617,64 @@ describe("the feature flag turns the API off", () => {
     as(stu1);
     const r = await call("state", normal.assignmentId);
     expect(r.status).toBe(200);
+  });
+});
+
+// ---- TV-1 (docs/m2/14, 16): what the teacher sees of the attempts made above ----------------------------------------------
+describe("teacher progress of an assignment", () => {
+  const actorOf = (p: SessionProfile) => ({ id: p.id, school_id: p.school_id, role: p.role });
+  const stranger = mk("00000000-0000-4000-8000-0000000000f7", "teacher", "PL stranger");
+  const roomAdmin = mk("00000000-0000-4000-8000-0000000000f8", "admin", "PL admin");
+
+  it("the owner sees every enrolled student with the numbers the student sees, and nothing else", async () => {
+    for (const p of [stranger, roomAdmin]) await ensureUser(p);
+    const rows = await getAssignmentProgress(actorOf(teacher), normal.assignmentId);
+    const mine = rows.filter((r) => r.studentNo.startsWith(RUN));
+    expect(mine.map((r) => r.studentNo)).toEqual([`${RUN}-1`, `${RUN}-2`]); // stu3 is not enrolled in this classroom
+    for (const [i, p] of [stu1, stu2].entries()) {
+      as(p);
+      const own = await stateOf(normal.assignmentId);
+      const row = mine[i];
+      expect(row.studentId).toBe(studentRow[p.id]);
+      expect(row.state).toBe(own.attempt.status === "completed" ? "completed" : "in_progress");
+      expect(row.filledCount).toBe(new Set([...Object.keys(own.cells), ...Object.keys(own.given)]).size);
+      expect(row.totalCells).toBe(Object.keys(normal.key).length);
+      expect(row.checksUsed).toBe(own.limits.checksAllowed === null ? row.checksUsed : own.limits.checksAllowed - (own.limits.checksRemaining ?? 0));
+    }
+    // an allow-list: counts, states and times; never a letter, an answer or a cell key
+    expect(Object.keys(rows[0]).sort()).toEqual(["checksUsed", "chosungUsed", "completedAt", "displayName", "filledCount", "lastSavedAt", "revealsUsed", "state", "studentId", "studentNo", "totalCells", "wrongSubmits"]);
+    const text = JSON.stringify(rows);
+    for (const answer of normal.answers.filter((a) => Array.from(a).length >= 2)) expect(text).not.toContain(answer);
+    for (const cell of Object.keys(normal.key)) expect(text).not.toContain(`"${cell}"`);
+  });
+
+  it("an enrolled student who never opened the puzzle is listed as not started", async () => {
+    const rows = await getAssignmentProgress(actorOf(teacher), hard.assignmentId);
+    const mine = rows.filter((r) => r.studentNo.startsWith(RUN));
+    expect(mine.length).toBeGreaterThanOrEqual(2);
+    for (const r of mine.filter((x) => x.state === "not_started")) {
+      expect(r).toMatchObject({ filledCount: 0, checksUsed: 0, revealsUsed: 0, chosungUsed: 0, wrongSubmits: 0, lastSavedAt: null, completedAt: null });
+    }
+  });
+
+  it("the school admin may read it; a teacher who is not staff of the classroom, a student and a bad id may not", async () => {
+    expect((await getAssignmentProgress(actorOf(roomAdmin), normal.assignmentId)).length).toBeGreaterThan(0);
+    const refuse = async (actor: ReturnType<typeof actorOf>, aid: string) => {
+      const err = await getAssignmentProgress(actor, aid).then(() => null, (e: unknown) => e);
+      expect(err).toBeInstanceOf(CrosswordError);
+      return (err as CrosswordError).code;
+    };
+    expect(await refuse(actorOf(stranger), normal.assignmentId)).toBe("NOT_FOUND");
+    expect(await refuse(actorOf(stu1), normal.assignmentId)).toBe("FORBIDDEN");
+    expect(await refuse(actorOf(teacher), "not-a-uuid")).toBe("NOT_FOUND");
+    expect(await refuse(actorOf(teacher), "00000000-0000-4000-8000-00000000ffff")).toBe("NOT_FOUND");
+  });
+
+  it("reading progress writes nothing", async () => {
+    const before = await admin.from("crossword_attempts").select("id, revision, updated_at").in("assignment_id", [normal.assignmentId, hard.assignmentId]).order("id");
+    await getAssignmentProgress(actorOf(teacher), normal.assignmentId);
+    await getAssignmentProgress(actorOf(teacher), hard.assignmentId);
+    const after = await admin.from("crossword_attempts").select("id, revision, updated_at").in("assignment_id", [normal.assignmentId, hard.assignmentId]).order("id");
+    expect(after.data).toEqual(before.data);
   });
 });
