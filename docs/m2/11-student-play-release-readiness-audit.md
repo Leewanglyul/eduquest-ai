@@ -84,7 +84,7 @@ The data groundwork matches product note 01 §8 and doc 07 B: per-word hint even
 | # | Risk | Likelihood | Impact | Status |
 |---|---|---|---|---|
 | R1 | Korean IME input fails on Galaxy Tab + Chrome (SC1-SC5) | unknown, largest risk per doc 04 §9 | High: the core interaction | No real-device data; Windows Chrome traces pass, Edge had failures that led to the v2 controller. Fallback exists (word entry) |
-| R2 | Governance: doc 13 not re-signed, Q4 (guardian notice) open | certain until done | High: legal gate (pilot/14 §7) | Open |
+| R2 | Governance: `pilot/12` revision not final and `pilot/13` unresolved. Q4 (guardian notice) is, by PM judgment of 2026-10-21, covered by the school's existing consent procedure and is not a separate blocker (confirmation by the school's data-protection contact pending) | certain until done | High: legal gate (pilot/14 §7) | Open |
 | R3 | API routes ignore the flag (F-1) | certain | Medium | Open, small fix |
 | R4 | Teacher has no view of attempts (§5) | certain | Medium: blind classroom use | Needs PM decision |
 | R5 | Hosted flow never run end to end (publish, play, resume, submit, erase) | certain | Medium | Run with test accounts before release |
@@ -101,7 +101,7 @@ Must be done (blockers):
 
 - **C-1** Galaxy Tab + Chrome run of doc 09 A-F on the **hosted** deployment, with a written SC6 verdict and no SC1-SC5 failure (otherwise word entry becomes the primary input first).
 - **C-2** TalkBack session on the tablet, result recorded.
-- **C-3** Q4 answered, pilot/14 folded into doc 12, **doc 13 re-signed** by the PM and school.
+- **C-3** `pilot/14` folded into `pilot/12` (final revision) and **`pilot/13` resolved** by the PM and school (a signed copy, if any, is a school operations record); the school's data-protection contact confirms that the existing consent procedure covers the play data (PM judgment on Q4).
 - **C-4** Flag gap F-1 fixed and tested (a code change, to be scheduled and approved separately).
 - **C-5** One full hosted run with test accounts: publish a test puzzle, play and resume from two devices, submit, erase the student. Test data removed afterwards.
 - **C-6** PM decision on teacher visibility: accept "no results screen" for the first class, or schedule M2-2.5 first.

@@ -20,7 +20,7 @@ Out of scope (doc 13 Should/Could, doc 10 overrides, M2-2.5 results, teacher res
 
 ## 2. Preconditions (not engineering)
 
-1. **Doc 12 amendment** and **doc 13 (pilot) re-signature** (PM decisions 5 and 6), plus an addition to [pilot/14](../pilot/14-crossword-attempts-governance-draft.md) §3 ("Teachers, admins: none yet") and an answer to Q5 (owner and co-teachers).
+1. **Doc 12 amendment** and **doc 13 (pilot) re-signature** (PM decisions 5 and 6), plus an addition to [pilot/14](../pilot/14-crossword-attempts-governance-draft.md) §3 ("Teachers, admins: none yet") and an answer to Q5 (owner and co-teachers). (Clarified 2026-10-21: "re-signature" means `pilot/13` is resolved; whether it is a re-signature or part of the first signature depends on the school's operations record, and Q4 is by PM judgment covered by the school's existing consent procedure.)
 2. Order: the governance text and sign-off come before this feature is switched on for a real class. They do not block local development or review of this design.
 3. Any hosted database change follows the rule "impact report, then PM go, then push" (2026-10-20).
 

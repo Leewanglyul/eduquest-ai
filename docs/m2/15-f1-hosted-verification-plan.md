@@ -84,5 +84,5 @@ F-1 stays recorded as implemented and verified at the gate level; it stops being
 
 1. **Production setup does not match the working assumption.** Production tracks `main` and has no deployment, so `eduquest-ai-pilot.vercel.app` currently has nothing in Production. Pushing or merging to `main` would create the first Production deployment, using the Production-scope Supabase variables. No merge to `main` without PM approval. What the PM described as Production (m1 branch, commit `a4d95b8`) corresponds to Previews, not to a Production deployment.
 2. **Preview variables.** For hosted acceptance (device runs, student sign-in) a deployment with Supabase variables is needed. Adding Preview-scope variables makes Previews share the pilot database; that is a Vercel configuration change for the owner, with secrets never passed through chat, and is not done here.
-3. **Students count 62 to 64** on the hosted database since 2026-10-20: cause not established.
+3. **Students count 62 to 64** on the hosted database since 2026-10-20: cause not established. PM decision 2026-10-21: the 64 are assumed to possibly include real students and are treated as real student data.
 4. **Unchanged:** `CROSSWORD_PLAY_ENABLED` is off everywhere; no Production, database or flag change; Galaxy Tab testing has not started.

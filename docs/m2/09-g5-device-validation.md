@@ -288,4 +288,4 @@ select
 
 ### 9.9 이 절이 다루지 않는 것
 
-TalkBack·NVDA 세션(`m2/11` C-2), 교사 가시성(TV-1, [m2/14](14-tv1-teacher-visibility-design.md)), 교사 override([m2/10](10-teacher-override-review.md)), 실제 학생이 쓰는 수업(`pilot/12` 개정, `pilot/13` 재서명, Q4 보호자 고지 이후).
+TalkBack·NVDA 세션(`m2/11` C-2), 교사 가시성(TV-1, [m2/14](14-tv1-teacher-visibility-design.md)), 교사 override([m2/10](10-teacher-override-review.md)), 실제 학생이 쓰는 수업(`pilot/12` 개정, `pilot/13` 정리 이후. Q4 보호자 고지는 PM 판단으로 학교의 기존 동의 절차에 포함되며 별도 차단 요인이 아닙니다).

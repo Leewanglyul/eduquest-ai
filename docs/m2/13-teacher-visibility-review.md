@@ -134,7 +134,7 @@ If B is chosen: keep it narrowly scoped to the Must items, do the governance add
 3. Typed letters, answers and the student's grid are **not shown**.
 4. The progress count (filled / total) is approved as a collection and display purpose.
 5. **Doc 12 must be amended** (teacher access to attempt data, progress purpose).
-6. **Doc 13 (pilot) must be re-signed.**
+6. **Doc 13 (pilot) must be re-signed.** (Clarified 2026-10-21: whether this is a re-signature or part of the first signature depends on the school's operations record of a signed copy; the repository does not manage it.)
 7. **TV-1 stays a Student Play release blocker.**
 
 Next step: the minimal implementation design, [14-tv1-teacher-visibility-design.md](14-tv1-teacher-visibility-design.md). Implementation, DB and migrations have not started.
