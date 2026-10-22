@@ -188,14 +188,14 @@ Expected: TalkBack focus is not lost on rotation; nothing important is covered o
 
 - **R1. Supported path.** The path that must work completely is the **word path**: sign in, list, open, choose a word from the clue list, type in "글자 쓰기" or "낱말로 입력", use tools, submit, result (T1 to T8).
 - **R2. Pass per scenario.** A scenario passes when its expected behaviour is met with no Blocker and no Major. A scenario with only Minor findings passes and the findings are logged.
-- **R3. Grid path (PM decision, 2026-10-22).** The release criterion is that **a TalkBack user can complete the crossword through the clue-list path**. Direct interaction with the grid cells is **desirable but not required**. T9 is run and its result recorded (including whether a double tap selects a cell, D1). **A grid failure with a successful clue-list completion is a Major issue, not a Blocker.** Such a Major is recorded in the decision record, does **not** change the outcome of §6.3 and does **not** count toward the two-Major limit of PASS, provided T4 to T8 pass without the grid. If the grid path breaks something on the clue-list path (for example a selection that steals focus), that is judged under the normal severities.
+- **R3. Grid path (PM decision, 2026-10-22).** The release criterion is that **a TalkBack user can complete the crossword through the clue-list path**. Direct interaction with the grid cells is **desirable but not required**. T9 is run and its result recorded (including whether a double tap selects a cell, D1). **A grid failure with a successful clue-list completion is a Major issue, not a Blocker.** The Major is **not excluded automatically** from the count of Majors or from the outcome of §6.3: it counts like any other Major, and **the PM decides, after seeing the actual result, whether it is accepted** (PM correction, 2026-10-22). Being a Major and not a Blocker means only that a successful clue-list completion keeps the plan out of FAIL. If the grid path breaks something on the clue-list path (for example a selection that steals focus), that is judged under the normal severities.
 - **R4. Retest.** A fix is retested on the same scenario, device and settings and the report keeps both results.
 
 ### 6.3 Outcome
 
 | Outcome | Condition |
 |---|---|
-| **PASS** | the tester completes a puzzle through the **clue-list path** (PM criterion) and all P1 scenarios (T1 to T8) pass; no Blocker anywhere; P2 scenarios other than T9 have no Blocker and at most two Majors, each with a mitigation the PM accepts in writing; a grid failure found in T9 is a Major that does not change the outcome while the clue-list path is completed (R3) |
+| **PASS** | the tester completes a puzzle through the **clue-list path** (PM criterion) and all P1 scenarios (T1 to T8) pass; no Blocker anywhere; P2 scenarios other than T9 have no Blocker and at most two Majors, each with a mitigation the PM accepts in writing; a grid failure found in T9 is a Major (not a Blocker, R3) that **counts** toward the Major limit and is accepted or not by the PM after seeing the result |
 | **CONDITIONAL PASS** | no Blocker; P1 scenarios pass except for Majors that the PM accepts in writing with a dated mitigation (for example a fix scheduled and a retest); the release condition C-2 of `m2/11` is then met only with that acceptance |
 | **FAIL** | any Blocker, or a P1 scenario that does not pass, or the tester could not complete a puzzle on the word path |
 
@@ -243,6 +243,6 @@ Nothing in this plan authorises creating test data, switching the flag or deploy
 |---|---|---|
 | 1 | Who is the tester? | **An accessibility-trained engineer is preferred**; real TalkBack users are welcome but not required for the release gate. The weaker evidence of an engineer is stated in the report (R8) |
 | 2 | Keyboard | **Samsung Keyboard is required**; **Gboard is optional** (an extra run if time allows) |
-| 3 | Release criterion and the grid path | **If a TalkBack user can complete the crossword through the clue-list path, it passes.** Direct grid interaction is desirable, not required. **A grid failure with a successful clue-list completion is a Major issue, not a Blocker** (rule R3) |
+| 3 | Release criterion and the grid path | **If a TalkBack user can complete the crossword through the clue-list path, it passes.** Direct grid interaction is desirable, not required. **A grid failure with a successful clue-list completion is a Major issue, not a Blocker** (rule R3). The Major is **not excluded automatically** from the Major count or the final outcome; the PM decides whether to accept it after seeing the actual result (correction of 2026-10-22) |
 | 4 | When | **After the Galaxy Tab validation readiness and after the database-connected deployment readiness** |
 | 5 | Where it sits | Phase 7 of the integrated plan [21](21-hosted-acceptance-and-galaxy-tab-validation-plan.md) |
