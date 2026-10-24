@@ -42,6 +42,8 @@ Not closed here: governance and sign-off (separate process), teacher override, t
 
 The current state: the Vercel project has **no Production deployment**; the M1 and M2 branches deploy as **Previews** protected by Vercel Authentication; the Supabase variables exist in the **Production scope only**, so no current deployment is connected to a database; the pilot Supabase project holds **64 students that may include real ones**; a second Supabase project exists in the same organisation and is not linked (its state was **not inspected**).
 
+**Update, 2026-10-25 (the paragraph above is the state when this plan was written).** The second project (the acceptance project) was prepared and a Preview of the M2 branch is now connected to it: Preview-scope variables for the branch `m2/m2-1-content-pipeline` only, commit `078ab22`, Ready, unique URL `eduquest-ai-pilot-qbrjc7mtn-sonline-2.vercel.app`; the Production-scope variables and the pilot project are unchanged. The dashboard offers a Share function but the PM decided **not to use it**: tablets pass Deployment Protection through the owner's own signed-in device and the unique deployment URL (D2). The Supabase dashboard of both projects shows **no project backups and no PITR** (Free plan label, observed 2026-10-25 (Supabase dashboard, read-only; recorded about 02:34 PC local time)); this does not say that no other recovery means exist and it states no retention period.
+
 | Option | What it is | Fidelity | Data risk | Effort and approvals | Verdict |
 |---|---|---|---|---|---|
 | **A. LAN** | production build on the PC against the **local** database (the seed of 09 §1), the tablet on the same Wi-Fi, HTTP | input and tablet behaviour yes; HTTPS, school network, hosted limits no | none (local data) | low; no hosted approval | **Stage 1** (input verdict) and **supporting path** (PM, D1). Not acceptance for H1 to H6 |
@@ -76,6 +78,7 @@ TalkBack (Stage 3) may start when **both** PM conditions hold: Stage 1 is finish
 | 0.5 | Devices: Galaxy Tab model(s) charged, Chrome and Samsung Keyboard versions recorded, Samsung Keyboard set as the keyboard with the prediction strip controllable, TalkBack installed, optional hardware keyboard, screen recording available | tester |
 | 0.6 | People: tester(s) for Stage 1 and 2 (the user, per the earlier plan), TalkBack tester (accessibility-trained engineer) and a separate observer, Ops for windows and cleanup | PM |
 | 0.7 | Record sheets (§9) and the stop conditions (§8) read by everyone | all |
+| 0.8 | **Pre-test check, before every run:** (a) the Supabase project is **active** (not paused; a paused project is reported, not restarted: restarting and any setting change need a separate approval); (b) the target deployment is **Ready** and its commit, deployment ID and unique URL are noted; (c) a `SMOKE` teacher can **sign in** on that deployment; (d) baseline counts (§5.3) are taken | engineering, owner |
 
 ### Stage 1. Galaxy Tab input validation (LAN)
 
@@ -104,6 +107,24 @@ Run on the acceptance environment of Stage 0. Everything creates only `SMOKE` da
 | 2.8 | **Student erase on hosted** with an attempt (the procedure of `m2/18` §4 step 6, through the Auth API) and the counts | C-5 |
 | 2.9 | *(Included, **informational only**: PM decision D3; it needs the approval 0.3 for the TV-1 migration)* **TV-1 page**: apply the TV-1 migration, run the 18 database checks of `m2/18`, then the page checks with the `SMOKE` teachers: the link is absent with the flag off and present with it on; owner, co-teacher and admin open the progress page; the other teacher and a student get "not found"; the table shows no letters, answers or grid. **A failure is recorded separately and does not fail Stage 2** | TV-1 hosted verification (informational) |
 | 2.10 | **Close the flag window** (end time recorded; the flag is off again) | |
+
+### Flag window runbook (used by steps 2.4 and 2.10)
+
+The flag `CROSSWORD_PLAY_ENABLED` is read from the deployment environment, so a change takes effect only on a **new deployment**. Rolling back therefore takes as long as a redeploy.
+
+**Open (needs the PM approval of 0.3; start time recorded)**
+1. Scope: add `CROSSWORD_PLAY_ENABLED=true` in **Preview, branch `m2/m2-1-content-pipeline` only**. Never Production, never Development, never all Preview branches. The owner enters the value; nothing secret is involved, but the change is the owner's.
+2. Redeploy that branch's Preview (no promotion, no merge to `main`).
+3. Record: **deployment ID, unique URL, commit SHA, Ready**, the variable name and its scope (as listed, value not needed), start time, approver.
+4. Judge the ON state by conditions, not by one status code: with a signed-in `SMOKE` student, a real published assignment and a valid request, the routes answer normally; without a session, with an assignment that is not the student's, or with a malformed request they answer the documented error (401, 403, 404, 400 and so on). **Not every call is expected to return 200.** Use the cases of 2.3 and the play steps of 2.5 to 2.8 as the checks.
+
+**Close (end time recorded)**
+5. Remove the variable (or set `false`) in the same scope and **redeploy** the branch Preview. Record the new deployment ID, unique URL, commit SHA, Ready and the variable state as listed.
+6. **OFF check:** call the six routes with their supported methods (`state` by GET; `save`, `check`, `reveal`, `chosung`, `submit` by POST) on the new deployment: each must answer **JSON 404 `{"error":"NOT_FOUND"}` with `Cache-Control: no-store`**.
+7. **Previous ON deployment:** the earlier deployment keeps its own unique URL and its own variable values and **stays reachable behind Deployment Protection**. Check whether that URL still answers; if it does, it still has the flag ON. Decide with the PM whether it is left, or removed by the owner (a separate approval; a deployment is not deleted by this plan). Do not use that URL for further runs.
+8. Take the counts of §5.3 and compare with the baseline.
+
+**Turning the flag off does not delete anything.** Test students, attempts, puzzles and assignments stay until the cleanup of §5.4 is approved and run.
 
 ### Stage 3. TalkBack validation
 

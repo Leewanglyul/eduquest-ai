@@ -86,3 +86,18 @@ F-1 stays recorded as implemented and verified at the gate level; it stops being
 2. **Preview variables.** For hosted acceptance (device runs, student sign-in) a deployment with Supabase variables is needed. Adding Preview-scope variables makes Previews share the pilot database; that is a Vercel configuration change for the owner, with secrets never passed through chat, and is not done here.
 3. **Students count 62 to 64** on the hosted database since 2026-10-20: cause not established. PM decision 2026-10-21: the 64 are assumed to possibly include real students and are treated as real student data.
 4. **Unchanged:** `CROSSWORD_PLAY_ENABLED` is off everywhere; no Production, database or flag change; Galaxy Tab testing has not started.
+
+## 7. Update after the record above (added 2026-10-25; sections 1 to 6 are unchanged)
+
+The record above describes the state on the date of the original verification and is not rewritten. Later facts, in order:
+
+| Fact | Where |
+|---|---|
+| A **second Supabase project (the acceptance project, `yqdvmfxhnapuefjhwtap`)** was prepared: the 29 migrations were applied, self sign-up is off, email confirmation stays on, and it holds only two `SMOKE` staff accounts (one teacher, one admin) until test data is created | [m2/21](21-hosted-acceptance-and-galaxy-tab-validation-plan.md) |
+| **Preview-scope variables** with the three Supabase names now exist for the branch `m2/m2-1-content-pipeline` only, with the acceptance values. The Production-scope variables are unchanged | Vercel, owner action |
+| The Preview of commit `078ab22` was **redeployed** and is Ready. It is therefore **connected to the acceptance database**, not to the pilot database. Unique URL: `eduquest-ai-pilot-qbrjc7mtn-sonline-2.vercel.app` | Vercel |
+| The `SMOKE` teacher and the `SMOKE` admin signed in on that deployment and reached their dashboards | acceptance project sign-in records |
+| With the flag off, the six play routes answer a JSON 404 `NOT_FOUND` with `no-store` (state by GET, the others by POST) | probe of 2026-10-24 |
+| Deployment Protection stays on. The dashboard offers a Share function; it is **not used** (PM decision). Tablets reach the deployment through the owner's own signed-in device and the unique URL | PM, D2 |
+
+Still true: `CROSSWORD_PLAY_ENABLED` is defined in no scope, nothing is published or assigned, there is no Production deployment, and the pilot database is untouched.

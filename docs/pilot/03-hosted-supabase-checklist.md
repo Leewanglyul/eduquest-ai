@@ -108,6 +108,8 @@ The app lockout (5 failures → 15 minutes) protects the app path. Because auth 
 | 10.4 | Alerts | Project usage and error-rate alerts to a monitored address | |
 | 10.5 | Network restrictions / SSL enforcement | SSL enforced; restrict direct DB access if the plan allows | The app does not use direct DB connections |
 
+**Observation, 2026-10-25 (Supabase dashboard, read-only; recorded about 02:34 PC local time).** Both hosted projects (`eduquest-ai-pilot` `anlxidvwtogguyzrrvbs` and the acceptance project `yqdvmfxhnapuefjhwtap`) sit in an organisation labelled **FREE**. On the Database > Backups pages the dashboard shows **no project backups provided** ("Free Plan does not include project backups"), **no scheduled backup list** and **point-in-time recovery not available** (shown as a Pro add-on). Items 10.1 and 10.2 therefore **cannot be carried out as written** until the plan or the recovery method is decided. This records what the dashboard shows. It does **not** establish that no other recovery means exist (for example a dump taken by the operator), and it does not state a retention period. Not checked: the organisation billing page, the pause status and pause history of the projects, and whether any dump exists. Decision on how data is protected: pending (PM).
+
 ## 11. Things to leave off
 
 Realtime and Storage are unused: leave them untouched. No Edge Functions, no database webhooks, no auth hooks.
