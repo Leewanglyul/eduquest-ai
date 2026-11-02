@@ -2,7 +2,11 @@
  * The hint tools, as tools and not penalties: check, reveal a letter, 초성, and submit. Only what the puzzle allows is
  * shown; the counts are facts about what is left ("남은 3번"). Buttons are at least 48px tall for a finger.
  */
+import { PLAY_TEXT } from "@/features/crossword/play/messages";
 import type { PlayLimits } from "@/features/crossword/play/types";
+
+/** Team mode only: the one fixed "call the teacher" button (G2). Open = the team is already waiting for the teacher. */
+export type TeacherCall = { open: boolean; waitSeconds: number | null; onCall: () => void };
 
 type Props = {
   limits: PlayLimits;
@@ -12,13 +16,14 @@ type Props = {
   onReveal: () => void;
   onChosung: () => void;
   onSubmit: () => void;
+  teacherCall?: TeacherCall;
 };
 
 const BASE = "min-h-12 rounded border px-3 py-2 text-sm font-medium sm:px-4 sm:text-base disabled:cursor-not-allowed disabled:opacity-60";
 const BTN = `${BASE} border-slate-600 bg-white text-slate-900`;
 const SUBMIT = `${BASE} ml-auto border-slate-900 bg-slate-900 text-white`;
 
-export function PlayTools({ limits, disabled, canSubmit, onCheck, onReveal, onChosung, onSubmit }: Props) {
+export function PlayTools({ limits, disabled, canSubmit, onCheck, onReveal, onChosung, onSubmit, teacherCall }: Props) {
   const anytime = limits.checkMode === "anytime";
   const checksLeft = limits.checksRemaining;
   const checkBlocked = limits.checkMode === "submitOnly" || limits.checksAllowed === 0 || (checksLeft !== null && checksLeft <= 0);
@@ -50,6 +55,21 @@ export function PlayTools({ limits, disabled, canSubmit, onCheck, onReveal, onCh
       {limits.chosungAllowed ? (
         <button type="button" className={BTN} disabled={disabled} onClick={onChosung}>
           초성 보기
+        </button>
+      ) : null}
+      {teacherCall && !disabled ? (
+        <button
+          type="button"
+          className={BTN}
+          data-teacher-call={teacherCall.open ? "open" : teacherCall.waitSeconds ? "wait" : "ready"}
+          disabled={teacherCall.open || teacherCall.waitSeconds !== null}
+          onClick={teacherCall.onCall}
+        >
+          {teacherCall.open
+            ? PLAY_TEXT.callTeacherOpen
+            : teacherCall.waitSeconds !== null
+              ? PLAY_TEXT.callTeacherWait(teacherCall.waitSeconds)
+              : PLAY_TEXT.callTeacher}
         </button>
       ) : null}
       <button type="button" className={SUBMIT} disabled={disabled || !canSubmit} onClick={onSubmit}>

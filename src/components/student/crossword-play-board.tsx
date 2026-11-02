@@ -28,16 +28,30 @@ import {
 } from "@/features/crossword/play/cells";
 import type { Intent } from "@/features/crossword/play/ime/controller";
 import { PLAY_ERROR_MESSAGES, PLAY_TEXT, playMessage } from "@/features/crossword/play/messages";
-import type { CheckResult, CheckStatus, PlayErrorCode, PlayLimits, PlayPayload, PlayWord, SubmitResult } from "@/features/crossword/play/types";
+import { teamLimits, type TeamSnapshot } from "@/features/crossword/play/team";
+import type {
+  CheckResult,
+  CheckStatus,
+  HelpCall,
+  PlayErrorCode,
+  PlayLimits,
+  PlayPayload,
+  PlayWord,
+  SubmitResult,
+  TeamState,
+} from "@/features/crossword/play/types";
 import { CompletionMoment } from "./completion-moment";
 import { ImeTrace } from "./ime-trace";
 import { ImeTracePanel } from "./ime-trace-panel";
 import { PlayClues } from "./play-clues";
-import { callPlay, makeSaveSender, type ApiResult } from "./play-api";
+import { callPlay, makeSaveSender, makeTeamStateFetcher, type ApiResult } from "./play-api";
 import { PlayGrid } from "./play-grid";
 import { PlayTools } from "./play-tools";
 import { SaveIndicator, blockedText } from "./save-indicator";
 import { SaveQueue, type QueueSnapshot } from "./save-queue";
+import { checkWithOneRetry, decidePoll } from "./team-board";
+import { TeamNotice } from "./team-notice";
+import { TeamPoller } from "./team-poller";
 import { useGridInput } from "./use-grid-input";
 
 export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
@@ -69,9 +83,43 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   const lastInputAt = useRef(0);
   const gridRegion = useRef<HTMLDivElement>(null);
 
+  // ---- team mode only (payload.team present); individual mode never sets or reads any of this --------------------
+  const team = payload.team ?? null;
+  const [teacherCallOpen, setTeacherCallOpen] = useState(false);
+  /** Server-given wait before the next teacher call (HELP_COOLDOWN retryAfterSeconds), as a deadline. */
+  const [callWaitUntil, setCallWaitUntil] = useState<number | null>(null);
+  const [callWaitLeft, setCallWaitLeft] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ text: string | null; stamp: number }>({ text: null, stamp: 0 });
+  const pollerRef = useRef<TeamPoller | null>(null);
+  const cellsRef = useRef(cells);
+  cellsRef.current = cells;
+  const givenRef = useRef(given);
+  givenRef.current = given;
+  const selKeyRef = useRef(sel.key);
+  selKeyRef.current = sel.key;
+  /** Revision of the last team-state answer (the poller's known revision). Only team-state moves it. */
+  const teamRevision = useRef(payload.attempt.revision);
+  const snapshot = useRef<TeamSnapshot | null>(null);
+  const finished = useRef(false);
+  const momentShown = useRef(false);
+
   const queue = useMemo(
-    () => new SaveQueue({ send: makeSaveSender(assignmentId), onChange: setSave, initialRevision: payload.attempt.revision }),
-    [assignmentId, payload.attempt.revision],
+    () =>
+      new SaveQueue({
+        send: makeSaveSender(assignmentId),
+        onChange: setSave,
+        initialRevision: payload.attempt.revision,
+        // K-5, team mode only: a refused save because a teammate revealed a cell drops that cell and sends the rest
+        ...(payload.team
+          ? {
+              recoverLocked: async () => {
+                await pollerRef.current?.pollNow();
+                return new Set(Object.keys(givenRef.current));
+              },
+            }
+          : {}),
+      }),
+    [assignmentId, payload.attempt.revision, payload.team],
   );
 
   // ---- intents from the IME controller -> board state ----------------------------------------------------------
@@ -219,6 +267,130 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue]);
 
+  // ---- team mode: the shared attempt (P3) -----------------------------------------------------------------------
+  /** The team completed (by this student's submit or a teammate's): freeze, stop polling, celebrate once in memory. */
+  const finishTeam = (celebrate: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    queue.freeze(); // K-9: unsent typing is discarded and nothing is sent any more
+    pollerRef.current?.dispose();
+    pollerRef.current = null;
+    setDone(true);
+    setMessage(PLAY_TEXT.teamCompleted);
+    if (celebrate && !momentShown.current) {
+      momentShown.current = true;
+      setMoment(true);
+    }
+  };
+
+  /** Keep the IME controller's copy of the selected word in step with what the board shows (I-5). */
+  const mirrorWord = (nextCells: Record<string, string>, nextGiven: Record<string, string>) => {
+    const keys = activeKeys.current;
+    if (keys.length === 0 || grid.isComposing()) return;
+    grid.setWord({
+      length: keys.length,
+      selected: Math.max(0, keys.indexOf(selKeyRef.current)),
+      cells: keys.map((k) => nextCells[k] ?? nextGiven[k] ?? ""),
+      locked: keys.map((k) => Boolean(nextGiven[k])),
+    });
+  };
+
+  const applyTeamState = (s: TeamState) => {
+    if (finished.current) return;
+    const d = decidePoll({
+      state: s,
+      unconfirmed: queue.unconfirmed(),
+      composing: grid.isComposing() ? activeKeys.current : [], // K-2
+      current: cellsRef.current,
+      previous: snapshot.current,
+    });
+    teamRevision.current = Math.max(teamRevision.current, d.revision);
+    setTeacherCallOpen(d.helpOpen);
+    setLimits((l) => teamLimits(l, d.used));
+    if (d.grid) {
+      const g = d.grid;
+      for (const k of g.discard) queue.discard(k); // K-5
+      snapshot.current = g.snapshot;
+      cellsRef.current = g.cells;
+      givenRef.current = g.given;
+      setCells(g.cells); // K-1
+      setGiven(g.given);
+      setMarks((prev) => {
+        const out = { ...prev };
+        for (const k of g.changedKeys) delete out[k];
+        return out;
+      });
+      if (g.teammateChanged) setNotice((n) => ({ text: PLAY_TEXT.teammateChanged, stamp: n.stamp + 1 })); // K-4, D9
+      mirrorWord(g.cells, g.given);
+    }
+    if (d.completed) finishTeam(true);
+  };
+  const applyRef = useRef(applyTeamState);
+  applyRef.current = applyTeamState;
+
+  useEffect(() => {
+    if (!team || payload.readonly || payload.attempt.status === "completed") return;
+    const poller = new TeamPoller({
+      fetchState: makeTeamStateFetcher(assignmentId),
+      onState: (s) => applyRef.current(s),
+      onStop: (code) => setMessage(playMessage(code)),
+      // null: the first poll returns the whole grid, so later teammate changes can be told apart (K-4)
+      initialKnown: null,
+    });
+    pollerRef.current = poller;
+    poller.start();
+    const onVisibility = () => poller.setVisible(document.visibilityState === "visible");
+    // K-10: back online, save first, then poll
+    const online = () => void queue.idle().then(() => poller.setOnline(true));
+    const offline = () => poller.setOnline(false);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    if (!navigator.onLine) poller.setOnline(false);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+      poller.dispose();
+      if (pollerRef.current === poller) pollerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue]);
+
+  // K-9: a save refused as read-only in team mode usually means a teammate just completed: look at once.
+  useEffect(() => {
+    if (team && save.blocked === "READONLY" && !finished.current) void pollerRef.current?.pollNow();
+  }, [team, save.blocked]);
+
+  // The wait before the next teacher call counts down from the server's own number of seconds.
+  useEffect(() => {
+    if (callWaitUntil === null) return;
+    const tick = () => {
+      const left = Math.ceil((callWaitUntil - Date.now()) / 1000);
+      if (left <= 0) {
+        setCallWaitUntil(null);
+        setCallWaitLeft(null);
+      } else setCallWaitLeft(left);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [callWaitUntil]);
+
+  const doCallTeacher = async () => {
+    if (!team || finished.current || readOnly) return;
+    const r = await callPlay<HelpCall>(assignmentId, "help", {});
+    if (r.ok) {
+      setTeacherCallOpen(true);
+      setMessage(PLAY_TEXT.callTeacherSent);
+      return;
+    }
+    if (r.kind === "rejected" && r.code === "HELP_COOLDOWN" && r.seconds !== undefined && r.seconds > 0) {
+      setCallWaitUntil(Date.now() + r.seconds * 1000);
+    }
+    fail(r);
+  };
+
   // ---- tools: they work on SAVED state at the confirmed revision -------------------------------------------------
   const savedRevision = async (): Promise<number | null> => {
     grid.flush();
@@ -228,12 +400,19 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       setMessage(b ? blockedText(b) : `${PLAY_TEXT.saveOffline}. ${PLAY_TEXT.saveOfflineHelp}`);
       return null;
     }
-    return queue.snapshot.revision;
+    // I-7, team mode: teammates move the shared revision too; the newest one known (own save or team-state) is current
+    return team ? Math.max(queue.snapshot.revision, teamRevision.current) : queue.snapshot.revision;
   };
 
   const fail = (r: Extract<ApiResult<unknown>, { ok: false }>) => {
     if (r.kind === "offline") {
       setMessage(`${PLAY_TEXT.saveOffline}. ${PLAY_TEXT.saveOfflineHelp}`);
+      return;
+    }
+    if (r.code === "STALE" && team) {
+      // I-6: never reload a shared board; a teammate is typing
+      setMessage(PLAY_TEXT.checkBusy);
+      void pollerRef.current?.pollNow();
       return;
     }
     if (r.code === "STALE") {
@@ -245,10 +424,24 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   };
 
   const doCheck = async (scope: "cell" | "word" | "puzzle") => {
+    if (finished.current) return;
     const rev = await savedRevision();
     if (rev === null) return;
     const keys = scope === "cell" ? [sel.key] : scope === "word" && word ? wordCells(word) : [];
-    const r = await callPlay<{ results: CheckResult[]; checksRemaining: number | null }>(assignmentId, "check", { scope, keys, baseRevision: rev });
+    // K-6, P3-D6: in team mode a STALE check polls and retries exactly once; individual mode does not retry
+    const r = await checkWithOneRetry({
+      team: team !== null,
+      check: (baseRevision) =>
+        callPlay<{ results: CheckResult[]; checksRemaining: number | null }>(assignmentId, "check", { scope, keys, baseRevision }),
+      firstRevision: rev,
+      pollNow: async () => {
+        await pollerRef.current?.pollNow();
+      },
+      nextRevision: savedRevision,
+      stillOpen: () => !finished.current,
+    });
+    if (!r.ok && r.kind === "busy") return setMessage(PLAY_TEXT.checkBusy);
+    if (!r.ok && r.kind === "skipped") return;
     if (!r.ok) return fail(r);
     setMarks((prev) => ({ ...prev, ...Object.fromEntries(r.data.results.map((x) => [x.key, x.status])) }));
     setLimits((l) => ({ ...l, checksRemaining: r.data.checksRemaining }));
@@ -257,6 +450,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   };
 
   const doReveal = async () => {
+    if (finished.current) return;
     if (given[sel.key]) return setMessage(PLAY_ERROR_MESSAGES.LOCKED_CELL);
     if (!window.confirm(`이 칸의 글자를 알려 줄까요? 남은 횟수 ${limits.revealsRemaining}번`)) return;
     const rev = await savedRevision();
@@ -284,7 +478,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   };
 
   const doChosung = async () => {
-    if (!word) return;
+    if (!word || finished.current) return;
     const r = await callPlay<{ chosung: string }>(assignmentId, "chosung", { number: word.number, direction: word.direction });
     if (!r.ok) return fail(r);
     setChosungHints((c) => ({ ...c, [`${word.number}${word.direction}`]: r.data.chosung }));
@@ -292,11 +486,18 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   };
 
   const doSubmit = async () => {
+    if (finished.current) return;
     const rev = await savedRevision();
     if (rev === null) return;
     const r = await callPlay<SubmitResult>(assignmentId, "submit", { baseRevision: rev });
     if (!r.ok) return fail(r);
     if (r.data.result === "completed") {
+      if (team) {
+        // the whole team is done: same path as a completion seen by polling, celebrated once
+        finishTeam(r.data.justCompleted);
+        if (!r.data.justCompleted) window.location.assign(resultHref);
+        return;
+      }
       setDone(true);
       setMessage("");
       if (r.data.justCompleted) setMoment(true);
@@ -350,6 +551,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
             ← 퍼즐 목록
           </Link>
           <h1 className="text-xl font-semibold">{puzzle.title}</h1>
+          {team ? <p className="text-sm font-medium text-slate-800">{PLAY_TEXT.teamHeading(team.label, team.memberCount)}</p> : null}
         </div>
         <SaveIndicator snapshot={save} />
       </header>
@@ -445,6 +647,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
           <p role="status" aria-live="polite" className="mt-3 min-h-6 text-sm">
             {message}
           </p>
+          {team ? <TeamNotice text={notice.text} stamp={notice.stamp} /> : null}
           <p className="sr-only" role="status" aria-live="polite">
             {announcement}
           </p>
@@ -473,6 +676,9 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
             onReveal={doReveal}
             onChosung={doChosung}
             onSubmit={doSubmit}
+            teacherCall={
+              team ? { open: teacherCallOpen, waitSeconds: callWaitLeft, onCall: () => void doCallTeacher() } : undefined
+            }
           />
         </div>
       </div>

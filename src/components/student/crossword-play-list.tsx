@@ -5,6 +5,7 @@
  */
 import Link from "next/link";
 import { LEVEL_LABEL, STATE_LABEL, formatClosing } from "@/features/crossword/play/labels";
+import { PLAY_TEXT } from "@/features/crossword/play/messages";
 import type { PlayableRow } from "@/features/crossword/play/list";
 
 export function CrosswordPlayList({ rows }: { rows: readonly PlayableRow[] }) {
@@ -32,6 +33,7 @@ export function CrosswordPlayList({ rows }: { rows: readonly PlayableRow[] }) {
               <h2 className="text-lg font-semibold">{r.title}</h2>
               <p className="text-sm text-slate-800">
                 {r.classroomName} · 낱말 {r.wordCount}개 · {LEVEL_LABEL[r.level]}
+                {r.team ? ` · ${PLAY_TEXT.teamListTag}` : ""}
               </p>
               {r.state === "in_progress" || (r.state === "closed" && r.filledCount > 0) ? (
                 <p className="text-sm">
@@ -43,13 +45,21 @@ export function CrosswordPlayList({ rows }: { rows: readonly PlayableRow[] }) {
                 {r.state === "closed" ? "수업에서 닫힌 퍼즐이에요." : r.state === "completed" ? "완성했어요." : (closing ?? "마감 시간이 없어요.")}
               </p>
               <div className="mt-auto pt-2">
-                <Link
-                  href={href}
-                  className="inline-flex min-h-12 items-center justify-center rounded border-2 border-slate-900 bg-slate-900 px-5 py-2 text-base font-semibold text-white"
-                >
-                  {label.action}
-                  <span className="sr-only"> {r.title}</span>
-                </Link>
+                {r.team?.waiting ? (
+                  // D-4: not in a team yet; the card says so and cannot be opened
+                  <p data-team-waiting="true" className="inline-flex min-h-12 items-center rounded border-2 border-slate-500 px-5 py-2 text-base font-medium">
+                    {PLAY_TEXT.teamWaiting}
+                    <span className="sr-only"> {r.title}. {PLAY_TEXT.teamWaitingHelp}</span>
+                  </p>
+                ) : (
+                  <Link
+                    href={href}
+                    className="inline-flex min-h-12 items-center justify-center rounded border-2 border-slate-900 bg-slate-900 px-5 py-2 text-base font-semibold text-white"
+                  >
+                    {label.action}
+                    <span className="sr-only"> {r.title}</span>
+                  </Link>
+                )}
               </div>
             </article>
           </li>

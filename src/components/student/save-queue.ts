@@ -44,6 +44,12 @@ export type SaveQueueOptions = {
   backoffMs?: readonly number[];
   maxActiveMsPerSave?: number;
   timers?: Timers;
+  /**
+   * Team mode only (K-5). When a save is refused with LOCKED_CELL, a teammate has revealed one of the cells: this
+   * returns the keys that are now given; they are dropped and the rest is sent again instead of blocking the queue.
+   * Without it (individual mode) LOCKED_CELL blocks, as before.
+   */
+  recoverLocked?: () => Promise<ReadonlySet<string>>;
 };
 
 const DEFAULT_TIMERS: Timers = {
@@ -58,8 +64,11 @@ export class SaveQueue {
   private readonly backoff: readonly number[];
   private readonly maxActive: number;
   private readonly timers: Timers;
+  private readonly recoverLocked: SaveQueueOptions["recoverLocked"];
 
   private dirty = new Map<string, string | null>();
+  private sending: Record<string, string | null> = {};
+  private frozen = false;
   private activeMs = 0;
   private revision: number;
   private inFlight = false;
@@ -77,6 +86,12 @@ export class SaveQueue {
     this.maxActive = options.maxActiveMsPerSave ?? 30_000;
     this.timers = options.timers ?? DEFAULT_TIMERS;
     this.revision = options.initialRevision;
+    this.recoverLocked = options.recoverLocked;
+  }
+
+  /** Cells typed here that the server has not confirmed yet (in flight or waiting); the newest value of a cell wins. */
+  unconfirmed(): Map<string, string | null> {
+    return new Map([...Object.entries(this.sending), ...this.dirty]);
   }
 
   get snapshot(): QueueSnapshot {
@@ -144,6 +159,21 @@ export class SaveQueue {
     this.settle(false);
   }
 
+  /**
+   * Team mode (K-9): the team has completed the puzzle. Unsent cells are discarded, no timer runs and nothing is ever
+   * sent again; the board is read-only from here on.
+   */
+  freeze(): void {
+    this.frozen = true;
+    this.clearTimer();
+    this.dirty = new Map();
+    this.activeMs = 0;
+    this.offline = false;
+    this.blocked = "READONLY";
+    this.changed();
+    this.settle(false);
+  }
+
   // ---------------------------------------------------------------------------------------------------------
 
   private async run(keepalive: boolean): Promise<void> {
@@ -155,6 +185,7 @@ export class SaveQueue {
     const patch = Object.fromEntries(this.dirty);
     const activeMs = Math.min(this.activeMs, this.maxActive);
     this.dirty = new Map();
+    this.sending = patch;
     this.inFlight = true;
     this.changed();
 
@@ -165,6 +196,13 @@ export class SaveQueue {
       outcome = { kind: "offline" };
     }
     this.inFlight = false;
+    this.sending = {};
+    if (this.frozen) {
+      // frozen while this save was in flight: whatever the answer, nothing is put back and nothing is retried
+      if (outcome.kind === "ok") this.revision = Math.max(this.revision, outcome.revision);
+      this.changed();
+      return;
+    }
 
     if (outcome.kind === "ok") {
       this.activeMs = Math.max(0, this.activeMs - activeMs);
@@ -181,6 +219,7 @@ export class SaveQueue {
     for (const [k, v] of Object.entries(patch)) if (!this.dirty.has(k)) this.dirty.set(k, v);
 
     if (outcome.kind === "rejected") {
+      if (outcome.code === "LOCKED_CELL" && this.recoverLocked && (await this.dropLocked(Object.keys(patch)))) return;
       this.blocked = outcome.code ?? "UNKNOWN";
       this.changed();
       this.settle(false);
@@ -191,6 +230,28 @@ export class SaveQueue {
     this.changed();
     this.settle(false);
     this.schedule(this.backoff[Math.min(this.failures - 1, this.backoff.length - 1)]);
+  }
+
+  /**
+   * K-5: ask the board which cells are given now, drop those from what is waiting and send the rest. Returns false when
+   * none of the refused cells is given (the refusal has another cause), so the queue blocks as before.
+   */
+  private async dropLocked(keys: string[]): Promise<boolean> {
+    this.inFlight = true; // nothing else is sent while the board refreshes what is given
+    let locked: ReadonlySet<string>;
+    try {
+      locked = await this.recoverLocked!();
+    } catch {
+      locked = new Set();
+    }
+    this.inFlight = false;
+    const dropped = keys.filter((k) => locked.has(k));
+    if (dropped.length === 0) return false;
+    for (const k of dropped) this.dirty.delete(k);
+    this.changed();
+    if (this.dirty.size > 0) this.schedule(0);
+    else this.settleIfDone();
+    return true;
   }
 
   private schedule(ms: number): void {

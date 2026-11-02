@@ -1,0 +1,85 @@
+/**
+ * The team-mode decisions of the play board, as plain functions so they are tested without a browser (P3, I-4, I-6).
+ * The board owns the state and the side effects; these functions only decide.
+ */
+import { lockedPendingKeys, mergeTeamCells, teammateChanges, type TeamSnapshot } from "@/features/crossword/play/team";
+import type { CellKey, TeamState } from "@/features/crossword/play/types";
+import type { ApiResult } from "./play-api";
+
+export type PollInput = {
+  state: TeamState;
+  /** The save queue's unconfirmed cells before this poll is applied. */
+  unconfirmed: ReadonlyMap<CellKey, string | null>;
+  /** Cells of the selected word while the IME is composing; empty otherwise. */
+  composing: readonly CellKey[];
+  current: Readonly<Record<CellKey, string>>;
+  previous: TeamSnapshot | null;
+};
+
+export type PollDecision = {
+  revision: number;
+  helpOpen: boolean;
+  used: TeamState["used"];
+  /** Present only when the server sent a changed grid. */
+  grid?: {
+    cells: Record<CellKey, string>;
+    given: Record<CellKey, string>;
+    /** Unconfirmed cells that became given: drop them from the save queue (K-5). */
+    discard: CellKey[];
+    snapshot: TeamSnapshot;
+    /** Cells whose letter changed on screen: their check marks are cleared. */
+    changedKeys: CellKey[];
+    /** Show the neutral "다른 팀원이 수정했어요" (K-4): never who, never how many. */
+    teammateChanged: boolean;
+  };
+  completed: boolean;
+};
+
+export function decidePoll(input: PollInput): PollDecision {
+  const s = input.state;
+  const out: PollDecision = { revision: s.revision, helpOpen: s.helpOpen, used: s.used, completed: s.status === "completed" };
+  if (!s.changed || !s.cells || !s.given) return out;
+  const given = s.given;
+  const discard = lockedPendingKeys(input.unconfirmed, given);
+  const unconfirmed = new Map([...input.unconfirmed].filter(([k]) => !discard.includes(k)));
+  const cells = mergeTeamCells({ server: s.cells, given, unconfirmed, composing: input.composing, current: input.current });
+  const snapshot: TeamSnapshot = { cells: s.cells, otherKeys: s.otherKeys ?? [] };
+  const keys = new Set([...Object.keys(cells), ...Object.keys(input.current)]);
+  const changedKeys = [...keys].filter((k) => cells[k] !== input.current[k] || given[k] !== undefined);
+  return {
+    ...out,
+    grid: {
+      cells,
+      given,
+      discard,
+      snapshot,
+      changedKeys,
+      teammateChanged: teammateChanges(input.previous, snapshot, unconfirmed).length > 0,
+    },
+  };
+}
+
+/**
+ * K-6, P3-D6: a check in team mode that meets STALE (a teammate saved meanwhile) polls, takes the newer revision and
+ * retries exactly once. A second STALE becomes "busy" (the board says "팀원이 입력 중이에요"). Individual mode never
+ * retries: the board keeps its reload.
+ */
+export async function checkWithOneRetry<T>(options: {
+  team: boolean;
+  check: (baseRevision: number) => Promise<ApiResult<T>>;
+  firstRevision: number;
+  pollNow: () => Promise<void>;
+  /** The revision to retry with (after the poll), or null when the board cannot check now. */
+  nextRevision: () => Promise<number | null>;
+  stillOpen: () => boolean;
+}): Promise<ApiResult<T> | { ok: false; kind: "busy" } | { ok: false; kind: "skipped" }> {
+  const first = await options.check(options.firstRevision);
+  if (!options.team || first.ok || first.kind !== "rejected" || first.code !== "STALE") return first;
+  await options.pollNow();
+  if (!options.stillOpen()) return { ok: false, kind: "skipped" };
+  const rev = await options.nextRevision();
+  if (rev === null) return { ok: false, kind: "skipped" };
+  const second = await options.check(rev);
+  if (!second.ok && second.kind === "rejected" && second.code === "STALE") return { ok: false, kind: "busy" };
+  return second;
+}

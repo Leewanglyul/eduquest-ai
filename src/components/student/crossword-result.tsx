@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { formatMinutes } from "@/features/crossword/play/labels";
 import { PLAY_TEXT, toolsSummary } from "@/features/crossword/play/messages";
-import { nextStep, type ResultView } from "@/features/crossword/play/result";
+import { nextStep, participationLine, type ResultView } from "@/features/crossword/play/result";
 import { PlayGrid } from "./play-grid";
 
 const PRIMARY = "inline-flex min-h-12 items-center justify-center rounded border-2 border-slate-900 bg-slate-900 px-5 py-2 text-base font-semibold text-white";
@@ -23,6 +23,9 @@ export function CrosswordResult({ view }: { view: ResultView }) {
   const step = nextStep(view.next, hasOtherPuzzles);
   const time = formatMinutes(view.activeSeconds);
   const finished = view.status === "completed";
+  const team = view.team ?? null;
+  const participation = team ? participationLine(team.participation) : null;
+  const gridTitle = team ? (finished ? "우리 팀이 푼 퍼즐" : "우리 팀이 쓴 글자") : finished ? "내가 푼 퍼즐" : "내가 쓴 글자";
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-3 py-4 sm:px-4 lg:px-6">
@@ -31,17 +34,31 @@ export function CrosswordResult({ view }: { view: ResultView }) {
           ← 퍼즐 목록
         </Link>
         <h1 className="text-2xl font-semibold">{view.title}</h1>
+        {team ? <p className="text-base">{team.label}</p> : null}
         <p className="mt-1 text-lg font-medium" data-result-status={view.status}>
-          {finished ? PLAY_TEXT.completed : PLAY_TEXT.closedBanner}
+          {finished ? (team ? PLAY_TEXT.teamCompleted : PLAY_TEXT.completed) : PLAY_TEXT.closedBanner}
         </p>
+        {participation ? (
+          // D-8: only after completion; P3-D4: positive only, and nothing at all when this student did not take part
+          <p className="mt-1 text-base" data-participation={participation}>
+            {participation === "all" ? PLAY_TEXT.participationAll : PLAY_TEXT.participationMe}
+          </p>
+        ) : null}
       </header>
 
       <section aria-labelledby="result-progress" data-slot="progress">
         <h2 id="result-progress" className="text-lg font-semibold">
-          {finished ? "내가 푼 퍼즐" : "내가 쓴 글자"}
+          {gridTitle}
         </h2>
-        <div className="play-grid-box mt-2 overflow-auto rounded" role="region" aria-label="내가 푼 퍼즐 판" tabIndex={0}>
-          <PlayGrid label={`${view.title} 내가 푼 퍼즐`} rows={view.rows} cols={view.cols} words={view.words} cells={typed} given={given} />
+        <div className="play-grid-box mt-2 overflow-auto rounded" role="region" aria-label={team ? `${gridTitle} 판` : "내가 푼 퍼즐 판"} tabIndex={0}>
+          <PlayGrid
+            label={team ? `${view.title} ${gridTitle}` : `${view.title} 내가 푼 퍼즐`}
+            rows={view.rows}
+            cols={view.cols}
+            words={view.words}
+            cells={typed}
+            given={given}
+          />
         </div>
         <p className="mt-2 text-base">
           낱말 {view.wordCount}개{time ? ` · 푼 시간 ${time}` : ""}

@@ -34,6 +34,18 @@ export default async function CrosswordPlayPage({ params }: PageProps) {
     payload = await startOrResume(studentId, assignmentId);
   } catch (err) {
     if (err instanceof PlayError) {
+      if (err.code === "NO_TEAM") {
+        // D-4: a team puzzle, but the teacher has not put this student in a team yet
+        return (
+          <main className="mx-auto max-w-2xl space-y-4 p-4">
+            <h1 className="text-xl font-semibold">{PLAY_TEXT.teamWaiting}</h1>
+            <p role="status">{playMessage("NO_TEAM")}</p>
+            <Link href="/student/crosswords" className="inline-flex min-h-12 items-center rounded border-2 border-slate-900 px-5 font-semibold">
+              퍼즐 목록으로
+            </Link>
+          </main>
+        );
+      }
       if (err.code === "CLOSED" || err.code === "NOT_OPEN_YET") {
         return (
           <main className="mx-auto max-w-2xl space-y-4 p-4">

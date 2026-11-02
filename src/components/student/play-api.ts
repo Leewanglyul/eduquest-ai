@@ -3,8 +3,9 @@
  * A network failure or a 5xx is "offline" (try again later); anything else the server said is "rejected" with the
  * stable code. No student or attempt id is sent: the server derives both from the session and the URL.
  */
-import { PLAY_ERROR_CODES, type PlayErrorCode } from "@/features/crossword/play/types";
+import { PLAY_ERROR_CODES, type PlayErrorCode, type TeamState } from "@/features/crossword/play/types";
 import type { SaveRequest, SendOutcome } from "./save-queue";
+import type { PollOutcome } from "./team-poller";
 
 export type ApiResult<T> =
   | { ok: true; data: T }
@@ -16,11 +17,12 @@ const codeOf = (value: unknown): PlayErrorCode | null =>
 
 export async function callPlay<T>(
   assignmentId: string,
-  name: "state" | "save" | "check" | "reveal" | "chosung" | "submit",
+  name: "state" | "save" | "check" | "reveal" | "chosung" | "submit" | "team-state" | "help",
   body?: object,
-  options: { keepalive?: boolean } = {},
+  options: { keepalive?: boolean; known?: number | null } = {},
 ): Promise<ApiResult<T>> {
-  const url = `/student/crosswords/${assignmentId}/api/${name}`;
+  const query = name === "team-state" && typeof options.known === "number" ? `?known=${options.known}` : "";
+  const url = `/student/crosswords/${assignmentId}/api/${name}${query}`;
   let res: Response;
   try {
     res = await fetch(url, {
@@ -57,6 +59,16 @@ export function makeSaveSender(assignmentId: string) {
   return async (request: SaveRequest, options: { keepalive: boolean }): Promise<SendOutcome> => {
     const r = await callPlay<{ revision: number }>(assignmentId, "save", { patch: request.patch, activeMs: request.activeMs }, options);
     if (r.ok) return { kind: "ok", revision: Number(r.data.revision) };
+    if (r.kind === "offline") return { kind: "offline" };
+    return { kind: "rejected", code: r.code };
+  };
+}
+
+/** The TeamPoller's fetch: GET team-state with the revision this browser knows. */
+export function makeTeamStateFetcher(assignmentId: string) {
+  return async (known: number | null): Promise<PollOutcome> => {
+    const r = await callPlay<TeamState>(assignmentId, "team-state", undefined, { known });
+    if (r.ok) return { kind: "ok", state: r.data };
     if (r.kind === "offline") return { kind: "offline" };
     return { kind: "rejected", code: r.code };
   };
