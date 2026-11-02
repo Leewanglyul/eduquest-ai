@@ -180,7 +180,7 @@ Conceptual only: **no implementation, no legal or retention commitment.**
 
 | | Operational data | Growth data |
 |---|---|---|
-| Centre | **session and Course Room** | **the student, in concept** |
+| Centre | **session and Course Room** | **the persistent internal student identity** (resolved 2026-11-03; earlier "the student, in concept") |
 | Examples | attempts, teams, solves and credits, help requests, signal counts, session state, last-progress timestamps | dictionary entries, stages, review history (outcomes only), badges, review intervals |
 | Purpose | run a session and review it afterwards | the student's personal learning record and review scheduling |
 | Conceptual retention need | short (as long as the teacher reviews the session) | long enough for growth to mean anything |
@@ -193,17 +193,21 @@ amendment (OX-13; `docs/pilot`).
 
 ## 8. Data Ownership Decisions Before Stage 3
 
-The distinction above is **directional**. Before Stage 3, a **separate governance decision** is required for each of:
+**Resolved (PM, 2026-11-03):** personal association of Growth Data → the **persistent internal student identity**
+(constitution "Student identity"; Growth Model 5.1). This is personal association, not legal ownership, and it resolves
+nothing else.
 
-| # | Topic |
-|---|---|
-| DO-1 | Course Room succession |
-| DO-2 | Teacher access to previous growth |
-| DO-3 | School-year transition |
-| DO-4 | Transfer (within and out of the school) |
-| DO-5 | Erasure |
-| DO-6 | Student and guardian access to growth data |
-| DO-7 | Retention |
+The rest stays **directional**. Before Stage 3, a **separate governance decision** is still required for each of:
+
+| # | Topic | Status | Relation to the identity principle |
+|---|---|---|---|
+| DO-1 | Course Room succession | open | the record's association does not move with a room; what a successor room may use is open |
+| DO-2 | Teacher access to previous growth | open | association is settled; who may see it is not |
+| DO-3 | School-year transition | open | the association continues across years in concept; what is kept and shown is open |
+| DO-4 | Transfer (within and out of the school) | open | the internal identity is per school today; transfer rules are open |
+| DO-5 | Erasure | open | erasure of the identity and its records is open (with account deactivation, deletion and merge, TPS OD-TP19, OD-TP20) |
+| DO-6 | Student and guardian access to growth data | open | the subject of the record is known; access rights are open |
+| DO-7 | Retention | open | the association says whose record it is, not how long it is kept |
 
 ---
 
@@ -340,5 +344,6 @@ readable (CE-11).
 | Version | Date | Change |
 |---|---|---|
 | v1 draft | 2026-11-02 | First draft: sections 1 to 10 and review |
+| v1.1 | 2026-11-03 | Section 7 and 8: personal association of Growth Data resolved (persistent internal student identity); DO-1 to DO-7 kept open with their relation to the principle |
 | v1 cleanup | 2026-11-02 | Headings aligned to the final structure 1 to 16; supersession note for the draft stage names; Stage 1 status records P2 Acceptance closed |
 | v1 | 2026-11-02 | **Conditionally approved.** Stage 1, 2 approved; Stage 3 redefined as Student Agency in Teacher-Governed Learning and Stage 4 as Teacher Community First, both deferred; gates LT-1 to LT-3; KPI correction; data ownership decisions DO-1 to DO-7; strategy areas; scope removals; review classification R1 to R4; Course Room hierarchy |

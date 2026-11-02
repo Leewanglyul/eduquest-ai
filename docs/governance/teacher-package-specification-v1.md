@@ -49,6 +49,9 @@ Gaps:
 
 ### 2.1 Review of the QR join model (PKG G-9: roster → QR join → name selection → session join)
 
+> **Reinterpreted (2026-11-03, PKG I-12):** this review remains valid for QR join as an **access convenience**. Name
+> selection is not a long-term identity model, and a QR code or join link is never the student's identity (2.2).
+
 Not built. Issues only; no redesign here (as requested).
 
 | # | Issue | Against |
@@ -64,6 +67,22 @@ OX-7 and OX-8 refer to a **student verification code** that the teacher can rese
 model with a per-student code (which would address QR-2 and QR-3), but the model is not specified yet. See OD-2, OD-16.
 
 ---
+
+### 2.2 Student identity direction (PM, 2026-11-03; constitution, PKG I-12)
+
+Direction-level flow (no implementation, no change to the current sign-in):
+
+**Roster → persistent student account creation or linking → access-information distribution → access reset →
+Course Room membership management**
+
+- Teachers **manage access** (distribute and reset access information, manage Course Room membership).
+- Access management **does not determine** which identity a growth record is associated with: personal growth records
+  are associated with the persistent internal student identity (Growth Model 5.1).
+- The **current sign-in implementation is unchanged** (per-student account, username and password).
+- Identity verification, account recovery and the QR UX remain **future specifications** (OD-2, OD-16, OD-TP18 to
+  OD-TP25).
+- Gate 3 SMOKE accounts are temporary test identities: their activity is never converted into, merged into or retained
+  as a real student's growth record, and they follow the Governance #6 cleanup.
 
 ## 3. Team Formation
 
@@ -284,7 +303,7 @@ Decisions the PM must take before the related workflow is built.
 | # | Decision | Area | Related |
 |---|---|---|---|
 | OD-1 | How a Course Room that mixes classrooms is modelled (second enrolment or a new unit) | section 1 | OPS J-1 |
-| OD-2 | QR join: whether to adopt it given QR-1 to QR-6, and what replaces the missing credential | section 2.1 | OPS J-4; PKG G-9 |
+| OD-2 | QR join (reinterpreted 2026-11-03: an access convenience on top of persistent accounts, never the identity): whether to adopt it given QR-1 to QR-6, and what replaces the missing credential | section 2.1 | OPS J-4; PKG G-9 |
 | OD-3 | Random grouping: proposal only, or saved directly | section 3 | TF-8 |
 | OD-4 | Heterogeneous grouping: which data may be used (none, teacher's own labels, earlier results); where it is stored | section 3 | TF-6, TF-7; `docs/pilot/12` |
 | OD-5 | Team Challenge: definition (time limit, target, both), limits, and what "challenge" changes | section 4 | PKG G-4 |
@@ -299,6 +318,14 @@ Decisions the PM must take before the related workflow is built.
 | OD-14 | School admin rights: write in Course Room management (today) but read-only in team and play operation; keep the split or align | section 1 | P2 D-1; PKG C-8 |
 | OD-15 | Skip a flawed clue and accept an answer: effect on completion, solves, credits and a competition score | section 5 | OX-7; D-7, D-10 |
 | OD-16 | Student verification code: what it is, how it combines with QR join and the existing accounts | section 2.1 | OX-7, OX-8; OD-2 |
+| OD-TP18 | Provisioning source and account linking (who creates the persistent account, how an existing account is linked to a new Course Room) | 2.2 | PKG I-12 |
+| OD-TP19 | Deactivation versus deletion of a student account | 2.2 | G4; LT DO-5 |
+| OD-TP20 | Duplicate-account merge | 2.2 | LT DO-5 |
+| OD-TP21 | Shared or cross-school course provisioning | 2.2, 1 | OD-1; LT DO-4 |
+| OD-TP22 | Separation of the internal id from real-name records | 2.2 | OX-13 |
+| OD-TP23 | Join-link expiry and scope | 2.1, 2.2 | OD-2 |
+| OD-TP24 | Identity verification and account recovery | 2.2 | OD-16 |
+| OD-TP25 | Applicable school policy and legal review for minors (no consent procedure is assumed here) | 2.2 | `docs/pilot` |
 | OD-TP17 | **Assignment Close Authority Alignment.** Gate 3 compatibility decision (PM, 2026-11-02): `/live` reuses the existing `fn_close_crossword_assignment` behaviour unchanged (puzzle-scoped; the school admin may close). Open: assignment-scoped vs puzzle-scoped close authority; school-admin close authority; cross-Course-Room teacher authority; alignment of the puzzle page and `/live`; audit of teacher session actions. **Status:** local Gate 3 non-blocking; hosted Gate 3 with SMOKE accounts non-blocking; **real-student pilot blocking** unless resolved or explicitly re-approved | sections 5, 7 | OD-9, OD-14 |
 
 ### 10.2 Technical Risks
@@ -340,6 +367,7 @@ Decisions the PM must take before the related workflow is built.
 |---|---|---|
 | v1 draft | 2026-11-02 | Sections 1 to 10 per the PM task; section 10 split into governance gaps, technical risks and future enhancements |
 | v1 draft rev. 2 | 2026-11-02 | Aligned with OX-1 to OX-13 and Design Vision v1: overrides approved (OX-7), launch flow, verification code, OD-15, OD-16 |
+| v1.1 | 2026-11-03 | Student identity direction 2.2 (PKG I-12); 2.1 and OD-2 reinterpreted; OD-TP18 to OD-TP25 recorded |
 | v1 | 2026-11-02 | **Approved** (specification / governance approval) |
 | v1 draft rev. 4 | 2026-11-02 | Gate 3 scope decisions G3-D1 to G3-D7 (7.1); in-class view for Gate 3; per-student balance excluded from the MVP; OD-7, OD-9, OD-10, OD-13 updated |
 | v1 draft rev. 3 | 2026-11-02 | Final reconciliation: in-class vs post-session dashboard (I-10); signals and clue-sharing game actions separated (6.5); amended G1; no behaviour-type metrics |

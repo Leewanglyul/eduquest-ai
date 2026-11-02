@@ -32,6 +32,18 @@ Every feature, design and analytics decision follows it.
 prohibited. Teacher-configured team comparison may be enabled for instructional purposes under the projection-safety
 rules ([Operational UX Principles](docs/governance/operational-ux-principles-v1.md) OX-5, OX-12).
 
+## Student identity (PM, 2026-11-03)
+
+Student identity is persistent and personal. Teachers may manage student access within Course Rooms, but personal
+growth records are associated with the student's persistent internal identity. QR codes and join links are access
+conveniences, not the identity of the student. Personal growth records are not associated primarily with a nickname,
+a device, a QR code, a temporary join code, a team, a session, an attempt, an assignment or a Course Room; Course Room
+membership may change, but the personal association of the growth record remains.
+
+This principle does not by itself approve cross-Course-Room access, successor-teacher access, school-year transfer,
+transfer between schools, long-term retention, student or guardian access, or erasure and account-merging behaviour;
+each needs its own data-governance decision.
+
 ## Governance rule
 
 Any future collaboration proposal must:
@@ -39,3 +51,10 @@ Any future collaboration proposal must:
 1. reference the [Collaboration Governance Package](docs/governance/eduquest-collaboration-governance-package-v1.md);
 2. identify conflicts before proceeding;
 3. explain its alignment with the approved principles.
+
+## Changes
+
+| Date | Change |
+|---|---|
+| 2026-11-02 | First approved text; interpretation of rules 4 and 5 |
+| 2026-11-03 | Student identity principle added |

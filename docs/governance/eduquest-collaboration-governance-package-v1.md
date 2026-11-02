@@ -5,7 +5,7 @@ analytics decisions (see [README](README.md) for the hierarchy and [PROJECT_CONS
 Documentation only: this package changes no code, schema, flag or deployment.
 **Resynchronized 2026-11-02 (v1.1)** with the PM clarifications in section G; where an earlier entry disagrees with
 section G, section G wins. **v1.2 (2026-11-02):** communication policy, section H, with the PM decisions on it (H.7).
-**Final reconciliation (2026-11-02):** supersessions recorded in section I.
+**Final reconciliation (2026-11-02):** supersessions recorded in section I. **Amended 2026-11-03:** I-12 student identity.
 
 Combines three PM-approved documents:
 
@@ -193,7 +193,7 @@ These supersede earlier assumptions in this package and in lower-level documents
 | G-6 | **Teacher Dashboard** is a core feature: intervention tools, progress monitoring, help requests, concept understanding signals. Its data is for instructional support, not direct grading |
 | G-7 | **Collaboration** prioritizes real classroom interaction over fictional world-building; world-building may exist as a motivational layer |
 | G-8 | **Shared progress:** "Course Room shared progress" or "Course Room shared world" replaces "class-wide shared world" |
-| G-9 | **Student identification:** teacher roster → QR join → student name selection → session join. Anonymous nicknames are not the preferred long-term model |
+| G-9 | **Superseded in part by I-12 (2026-11-03).** **Student identification:** teacher roster → QR join → student name selection → session join. Anonymous nicknames are not the preferred long-term model |
 | G-10 | **Communication:** revised 2026-11-02, see section H. Structured collaboration signals are approved; free text team chat is deferred; open, private and direct messaging and unrestricted social chat are rejected for the MVP. (Replaces the earlier "Chat: DEFERRED", whose text was cut off) |
 
 Open points created by these clarifications: see [teacher-dashboard-and-classroom-operations-v1.md](teacher-dashboard-and-classroom-operations-v1.md) section J.
@@ -306,3 +306,4 @@ Each entry replaces the earlier position everywhere in the governance documents.
 | I-9 | Constitution rules 4 and 5 | "rankings are prohibited", "direct student comparison is prohibited" | individual student rankings and direct individual comparison are prohibited; teacher-configured team comparison may be enabled for instructional purposes under projection safety (OX-12) |
 | I-11 | First Gate 3 scope | signals and live presence assumed in Gate 3 | excluded: Ask Team, current-clue awareness, Realtime, Migration C; the in-class view shows student state, team help state, blocked state and close only; per-student balance excluded from the MVP (TPS 7.1) |
 | I-10 | Teacher Dashboard during class | team progress view, per-student detail | during class only: teacher help calls, operationally blocked teams, missing / not-started students, time and intervention controls, session status; analysis moves to post-session |
+| I-12 | Student identity (PM, 2026-11-03) | G-9: teacher roster → QR join → student name selection → session join; anonymous nicknames not preferred | **Student identity is persistent and personal**; personal growth records are associated with the persistent internal student identity (constitution). **Superseded:** anonymous nickname identity is not the long-term identity model; name-selection-only identity is not the long-term identity model. **Reinterpreted:** QR codes and join links remain, as access conveniences only, never the identity. **Direction:** persistent individual accounts. Cross-Course-Room access, successor-teacher access, transfer, retention, student or guardian access, erasure and merging are not approved by this entry |

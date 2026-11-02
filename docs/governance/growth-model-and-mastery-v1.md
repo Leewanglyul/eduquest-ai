@@ -180,7 +180,7 @@ Growth Model (Priority 1); the student-facing dictionary screen is Priority 3 (P
 | **Word collection** | one entry per word the student encountered: the word, its clue and meaning from the published puzzle version where it was first met, date first encountered, the Course Room | the student's typed letters |
 | **Mastery state** | current stage (section 2), internal review interval and due date | any score or level number shown to the student |
 | **Review history** | per recall attempt: date, outcome (success / assisted / not recalled), mode (Individual Check or review) | wrong letters, keystrokes, time per word, current clue (I-3) |
-| **Ownership** | the entry belongs to the **student**; it follows the student across Course Rooms of the same school | - |
+| **Personal association** (reinterpreted 2026-11-03; was "Ownership") | the entry is associated with the **persistent internal student identity** (5.1); the Course Room and puzzle where the word was met are provenance references. Whether it is shown or used across Course Rooms is not decided (OD-G10; LT DO-2) | - |
 
 Privacy rules:
 - The student sees their whole dictionary, in plain Korean, with what each stage means (product/01 §6.2 rule 7).
@@ -190,6 +190,18 @@ Privacy rules:
 - Every entry cascades from the student and is deleted with the student's data (G4, section 8).
 - Puzzle versions are immutable, so the clue and meaning can be referenced, not copied; if the content is deleted,
   the entry keeps only the word (OD-G6).
+
+### 5.1 Subject key and provenance (PM, 2026-11-03; constitution "Student identity")
+
+- **Growth records are keyed to the persistent internal student identity.**
+- Assignment, session, attempt and Course Room ids may be kept as **provenance references** (where a word was met or
+  recalled); they are **not** the subject key of the personal record.
+- Changing Course Room membership does not change the personal association of the record.
+- **Gate 3 SMOKE-account activity is never converted into, merged into or retained as a real student's growth record.**
+  Gate 3 accounts are temporary test identities and follow the Governance #6 cleanup.
+- This is a statement of association, not of legal ownership. Implementation stays **blocked** on the Growth Data
+  governance and retention amendment (section 8, R-4); cross-Course-Room access, transfer, retention, student or
+  guardian access, erasure and merging remain open (OD-G9, OD-G10; LT DO-1 to DO-7).
 
 ---
 
@@ -243,7 +255,7 @@ rules (product/01 §4).
 | **Storage purpose** | the student's personal learning record and the scheduling of spaced repetition; teacher diagnosis (section 9) |
 | **Retention expectation** | growth needs time: at least a **course term**, ideally the **school year**, and across the student's Course Rooms in the same school |
 | **Deletion: student erasure** | dictionary, stages and review history are deleted with the student (cascade, G4) |
-| **Deletion: student leaves a Course Room** | entries stay with the student (they belong to the student); the teacher of that room loses access (section 9) |
+| **Deletion: student leaves a Course Room** | entries stay associated with the persistent internal student identity (reinterpreted 2026-11-03; earlier "they belong to the student"); the teacher of that room loses access (section 9) |
 | **Deletion: year end** | handled by the year-end procedure of OX-9 (keep, archive or delete per category) |
 | **Deletion: content deleted** | the entry keeps the word only (OD-G6) |
 | **Derived from attempts** | recall outcomes are extracted when an attempt is submitted, so they survive the attempt's own retention |
@@ -313,7 +325,7 @@ later in a different puzzle shows lasting growth (Retained). Review Mode (7 ques
 previous units, on by default) gives due words that chance. Growth never affects scores, competition or combos, and
 growth data has its own retention policy, separate from operational data. A hidden review interval schedules spaced
 repetition. The personal dictionary holds the words, their stage and a minimal outcome history without letters; it
-belongs to the student, is private from classmates, and is visible to teachers only as post-session aggregates for
+is associated with the student's persistent internal identity (5.1), is private from classmates, and is visible to teachers only as post-session aggregates for
 their own Course Room.
 
 ## B. Proposed mastery model
@@ -377,4 +389,5 @@ with an internal Leitner-style interval for review scheduling. The explanation s
 | Version | Date | Change |
 |---|---|---|
 | v1 draft | 2026-11-02 | First draft, sections 1 to 10 and outputs A to E |
+| v1.1 | 2026-11-03 | 5.1 subject key and provenance (persistent internal student identity); "Ownership" wording reinterpreted as personal association; Gate 3 SMOKE accounts excluded from growth records |
 | v1 | 2026-11-02 | **Approved.** Official model Encountered → Recall → Retained; explanation deferred; GM-1 to GM-5 (Review Mode); growth never affects scores, competition or combos; separate retention for growth and operational data; philosophy statement |
