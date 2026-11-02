@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { PlayError, unwrapPlay } from "./errors";
 import { requireAttemptId, requirePlayAccess } from "./access";
 import type { CheckMode } from "../generator/constants";
-import type { PlayLimits, PlayPayload, PlayWord } from "./types";
+import type { PlayLimits, PlayPayload, PlayWord, TeamInfo } from "./types";
 
 type LimitsRow = { checkMode: CheckMode; checksAllowed: number | null; revealsAllowed: number; chosungAllowed: boolean };
 
@@ -58,6 +58,8 @@ export async function loadPlayPayload(studentId: string, assignmentId: string): 
     chosungAllowed: rawLimits.chosungAllowed,
   };
 
+  const team = access.team ? await loadTeamInfo(attemptId) : null;
+
   return {
     v: 1,
     assignmentId,
@@ -68,5 +70,35 @@ export async function loadPlayPayload(studentId: string, assignmentId: string): 
     limits,
     readonly: access.readonly || attempt.status === "completed",
     closesAt: assignmentRes.data.closes_at,
+    // Team mode only: an individual payload keeps exactly its earlier fields.
+    ...(team ? { team } : {}),
   };
+}
+
+/**
+ * The team of a shared attempt, as the student may see it: the label and the number of its members who are still
+ * actively enrolled (P3-D1). No member name or id leaves this function.
+ */
+export async function loadTeamInfo(attemptId: string): Promise<TeamInfo> {
+  const db = createSupabaseAdminClient();
+  const teamRes = await db
+    .from("crossword_teams")
+    .select("label, assignment_id, crossword_team_members(student_id)")
+    .eq("attempt_id", attemptId)
+    .single();
+  if (teamRes.error || !teamRes.data) throw new PlayError("NOT_FOUND");
+  const members = ((teamRes.data.crossword_team_members ?? []) as { student_id: string }[]).map((m) => m.student_id);
+  const assignment = await db.from("crossword_assignments").select("classroom_id").eq("id", teamRes.data.assignment_id).single();
+  if (assignment.error) throw new PlayError("NOT_FOUND");
+  let memberCount = 0;
+  if (members.length > 0) {
+    const { count } = await db
+      .from("classroom_enrollments")
+      .select("student_id", { count: "exact", head: true })
+      .eq("classroom_id", assignment.data.classroom_id)
+      .eq("status", "active")
+      .in("student_id", members);
+    memberCount = count ?? 0;
+  }
+  return { label: teamRes.data.label, memberCount };
 }

@@ -26,6 +26,8 @@ export const checkBodySchema = z
 export const revealBodySchema = z.object({ key: cellKey, baseRevision: revision }).strict();
 export const chosungBodySchema = z.object({ number: z.number().int().min(1).max(999), direction: z.enum(["across", "down"]) }).strict();
 export const submitBodySchema = z.object({ baseRevision: revision }).strict();
+/** "선생님 부르기" sends an empty object: no student, no cell, no word, no clue. */
+export const helpBodySchema = z.object({}).strict();
 
 /** The exact key sets, for the tests that pin "no extra field is ever sent". */
 export const BODY_KEYS = {

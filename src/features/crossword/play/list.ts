@@ -22,6 +22,11 @@ export type PlayableRow = {
   readonly: boolean;
   /** 새 퍼즐 · 이어하기 · 마감 · 완료 */
   state: PlayableState;
+  /**
+   * Team mode only (absent for individual puzzles): the puzzle is played with a team. `waiting` = the teacher has not
+   * put this student in a team yet, so the card shows "팀 배정 대기" and cannot be opened (D-4).
+   */
+  team?: { waiting: boolean };
 };
 
 export function stateOf(row: Pick<PlayableRow, "attemptId" | "attemptStatus" | "readonly">): PlayableState {
@@ -54,7 +59,11 @@ export function sortPlayable(rows: readonly PlayableRow[]): PlayableRow[] {
 export function pickNextPlayable(rows: readonly PlayableRow[], currentAssignmentId: string): PlayableRow | null {
   return (
     sortPlayable(rows).find(
-      (r) => r.assignmentId !== currentAssignmentId && !r.readonly && (r.state === "new" || r.state === "in_progress"),
+      (r) =>
+        r.assignmentId !== currentAssignmentId &&
+        !r.readonly &&
+        r.team?.waiting !== true &&
+        (r.state === "new" || r.state === "in_progress"),
     ) ?? null
   );
 }

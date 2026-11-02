@@ -124,9 +124,10 @@ describe("the browser bundle", () => {
 
 describe("routes", () => {
   const apiDir = src("app/student/crosswords/[assignmentId]/api");
-  const names = ["check", "chosung", "reveal", "save", "state", "submit"];
+  // M2-3.4 P3 added the two team handlers (team-state, help): they are held to every check below like the first six.
+  const names = ["check", "chosung", "help", "reveal", "save", "state", "submit", "team-state"];
 
-  it("all six handlers live under /student so the middleware keeps the session fresh", () => {
+  it("all play handlers live under /student so the middleware keeps the session fresh", () => {
     expect(fs.readdirSync(apiDir).sort()).toEqual(names);
     expect(fs.readFileSync(src("middleware.ts"), "utf8")).toMatch(/matcher:\s*\[[^\]]*"\/student\/:path\*"/);
     expect(fs.existsSync(src("app/api/crossword-play"))).toBe(false);

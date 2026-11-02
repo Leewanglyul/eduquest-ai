@@ -8,13 +8,31 @@
  */
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
-export function isCrosswordPlayEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  const explicit = env.CROSSWORD_PLAY_ENABLED;
-  if (explicit === "true") return true;
-  if (explicit === "false") return false;
+const pointsAtLocalStack = (env: Record<string, string | undefined>): boolean => {
   try {
     return LOCAL_HOSTS.has(new URL(env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname);
   } catch {
     return false;
   }
+};
+
+export function isCrosswordPlayEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  const explicit = env.CROSSWORD_PLAY_ENABLED;
+  if (explicit === "true") return true;
+  if (explicit === "false") return false;
+  return pointsAtLocalStack(env);
+}
+
+/**
+ * Team play (M2-3.4, Gate 2 E-5): a second switch on top of Student Play. It is ON only when Student Play is on AND
+ * COLLAB_PLAY_ENABLED allows it, with the same rule: on by default against a local stack, off against a hosted project
+ * until set to "true" there on purpose, "false" turns it off anywhere. With it off a team-mode assignment does not exist
+ * for students, and the team routes and teacher team pages answer "not found".
+ */
+export function isCollabPlayEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  if (!isCrosswordPlayEnabled(env)) return false;
+  const explicit = env.COLLAB_PLAY_ENABLED;
+  if (explicit === "true") return true;
+  if (explicit === "false") return false;
+  return pointsAtLocalStack(env);
 }

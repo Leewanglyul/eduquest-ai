@@ -245,14 +245,14 @@ isOneToOne: false
                   ]
                 },"crossword_assignments": {
                   Row: {
-                    "classroom_id": string,"closed_at": string | null,"closes_at": string | null,"created_at": string,"created_by": string | null,"id": string,"opens_at": string | null,"puzzle_id": string,"status": Database["public"]['Enums']["crossword_assignment_status"]
+                    "classroom_id": string,"closed_at": string | null,"closes_at": string | null,"created_at": string,"created_by": string | null,"id": string,"opens_at": string | null,"play_mode": Database["public"]['Enums']["crossword_play_mode"],"puzzle_id": string,"status": Database["public"]['Enums']["crossword_assignment_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "classroom_id": string,"closed_at"?: string | null,"closes_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"opens_at"?: string | null,"puzzle_id": string,"status"?: Database["public"]['Enums']["crossword_assignment_status"]
+                    "classroom_id": string,"closed_at"?: string | null,"closes_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"opens_at"?: string | null,"play_mode"?: Database["public"]['Enums']["crossword_play_mode"],"puzzle_id": string,"status"?: Database["public"]['Enums']["crossword_assignment_status"]
                   }
                   Update: {
-                    "classroom_id"?: string,"closed_at"?: string | null,"closes_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"opens_at"?: string | null,"puzzle_id"?: string,"status"?: Database["public"]['Enums']["crossword_assignment_status"]
+                    "classroom_id"?: string,"closed_at"?: string | null,"closes_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"opens_at"?: string | null,"play_mode"?: Database["public"]['Enums']["crossword_play_mode"],"puzzle_id"?: string,"status"?: Database["public"]['Enums']["crossword_assignment_status"]
                   }
                   Relationships: [
                     {
@@ -285,6 +285,38 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_crossword_puzzles_summary"
       referencedColumns: ["puzzle_id"]
+    }
+                  ]
+                },"crossword_attempt_cell_writers": {
+                  Row: {
+                    "attempt_id": string,"cell_key": string,"student_id": string | null,"written_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempt_id": string,"cell_key": string,"student_id"?: string | null,"written_at"?: string
+                  }
+                  Update: {
+                    "attempt_id"?: string,"cell_key"?: string,"student_id"?: string | null,"written_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crossword_attempt_cell_writers_attempt_id_fkey"
+      columns: ["attempt_id"]
+isOneToOne: false
+      referencedRelation: "crossword_attempts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_attempt_cell_writers_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_attempt_cell_writers_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "v_students_safe"
+      referencedColumns: ["id"]
     }
                   ]
                 },"crossword_attempt_events": {
@@ -321,14 +353,14 @@ isOneToOne: false
                   ]
                 },"crossword_attempt_members": {
                   Row: {
-                    "assignment_id": string,"attempt_id": string,"joined_at": string,"student_id": string
+                    "assignment_id": string,"attempt_id": string,"joined_at": string,"last_active_at": string | null,"student_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "assignment_id": string,"attempt_id": string,"joined_at"?: string,"student_id": string
+                    "assignment_id": string,"attempt_id": string,"joined_at"?: string,"last_active_at"?: string | null,"student_id": string
                   }
                   Update: {
-                    "assignment_id"?: string,"attempt_id"?: string,"joined_at"?: string,"student_id"?: string
+                    "assignment_id"?: string,"attempt_id"?: string,"joined_at"?: string,"last_active_at"?: string | null,"student_id"?: string
                   }
                   Relationships: [
                     {
@@ -348,6 +380,58 @@ isOneToOne: false
       columns: ["student_id"]
 isOneToOne: false
       referencedRelation: "v_students_safe"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"crossword_attempt_word_credits": {
+                  Row: {
+                    "attempt_id": string,"direction": Database["public"]['Enums']["crossword_direction"],"number": number,"student_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempt_id": string,"direction": Database["public"]['Enums']["crossword_direction"],"number": number,"student_id": string
+                  }
+                  Update: {
+                    "attempt_id"?: string,"direction"?: Database["public"]['Enums']["crossword_direction"],"number"?: number,"student_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crossword_attempt_word_credits_attempt_id_number_direction_fkey"
+      columns: ["attempt_id","number","direction"]
+isOneToOne: false
+      referencedRelation: "crossword_attempt_word_solves"
+      referencedColumns: ["attempt_id","number","direction"]
+    },{
+      foreignKeyName: "crossword_attempt_word_credits_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_attempt_word_credits_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "v_students_safe"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"crossword_attempt_word_solves": {
+                  Row: {
+                    "attempt_id": string,"direction": Database["public"]['Enums']["crossword_direction"],"number": number,"solved_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempt_id": string,"direction": Database["public"]['Enums']["crossword_direction"],"number": number,"solved_at"?: string
+                  }
+                  Update: {
+                    "attempt_id"?: string,"direction"?: Database["public"]['Enums']["crossword_direction"],"number"?: number,"solved_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crossword_attempt_word_solves_attempt_id_fkey"
+      columns: ["attempt_id"]
+isOneToOne: false
+      referencedRelation: "crossword_attempts"
       referencedColumns: ["id"]
     }
                   ]
@@ -457,6 +541,96 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_crossword_puzzles_summary"
       referencedColumns: ["puzzle_id"]
+    }
+                  ]
+                },"crossword_team_help_requests": {
+                  Row: {
+                    "created_at": string,"id": string,"resolved_at": string | null,"resolved_by": string | null,"team_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"resolved_at"?: string | null,"resolved_by"?: string | null,"team_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"resolved_at"?: string | null,"resolved_by"?: string | null,"team_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crossword_team_help_requests_resolved_by_fkey"
+      columns: ["resolved_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_team_help_requests_team_id_fkey"
+      columns: ["team_id"]
+isOneToOne: false
+      referencedRelation: "crossword_teams"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"crossword_team_members": {
+                  Row: {
+                    "assignment_id": string,"joined_at": string,"student_id": string,"team_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "assignment_id": string,"joined_at"?: string,"student_id": string,"team_id": string
+                  }
+                  Update: {
+                    "assignment_id"?: string,"joined_at"?: string,"student_id"?: string,"team_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crossword_team_members_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_team_members_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "v_students_safe"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_team_members_team_id_assignment_id_fkey"
+      columns: ["team_id","assignment_id"]
+isOneToOne: false
+      referencedRelation: "crossword_teams"
+      referencedColumns: ["id","assignment_id"]
+    }
+                  ]
+                },"crossword_teams": {
+                  Row: {
+                    "assignment_id": string,"attempt_id": string | null,"created_at": string,"created_by": string | null,"id": string,"label": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "assignment_id": string,"attempt_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"label": string
+                  }
+                  Update: {
+                    "assignment_id"?: string,"attempt_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"label"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crossword_teams_assignment_id_fkey"
+      columns: ["assignment_id"]
+isOneToOne: false
+      referencedRelation: "crossword_assignments"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crossword_teams_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "fk_crossword_teams_attempt"
+      columns: ["attempt_id","assignment_id"]
+isOneToOne: false
+      referencedRelation: "crossword_attempts"
+      referencedColumns: ["id","assignment_id"]
     }
                   ]
                 },"crossword_words": {
@@ -790,9 +964,12 @@ isOneToOne: false
 "fn_crossword_play_given":
 { Args: { "p_attempt_id": string,"p_student_id": string }; Returns: Json
                            },
+"fn_crossword_play_is_team":
+{ Args: { "p_attempt_id": string }; Returns: boolean
+                           },
 "fn_crossword_play_list":
 { Args: { "p_student_id": string }; Returns: {
-              "assignment_id": string,"attempt_id": string,"attempt_status": Database["public"]['Enums']["crossword_attempt_status"],"classroom_id": string,"classroom_name": string,"closes_at": string,"filled_count": number,"level": Database["public"]['Enums']["crossword_level"],"puzzle_id": string,"readonly": boolean,"title": string,"total_cells": number,"word_count": number
+              "assignment_id": string,"attempt_id": string,"attempt_status": Database["public"]['Enums']["crossword_attempt_status"],"classroom_id": string,"classroom_name": string,"closes_at": string,"filled_count": number,"level": Database["public"]['Enums']["crossword_level"],"play_mode": Database["public"]['Enums']["crossword_play_mode"],"puzzle_id": string,"readonly": boolean,"team_waiting": boolean,"title": string,"total_cells": number,"word_count": number
             }[]
                            },
 "fn_crossword_play_reveal":
@@ -811,6 +988,72 @@ isOneToOne: false
 { Args: { "p_puzzle_id": string }; Returns: {
               "ch": string,"dir": string,"key": string,"num": number,"single": boolean
             }[]
+                           },
+"fn_crossword_team_actor_ok":
+{ Args: { "p_actor_id": string,"p_assignment_id": string,"p_school_id": string,"p_write": boolean }; Returns: {
+              "classroom_id": string,
+"closed_at": string | null,
+"closes_at": string | null,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"opens_at": string | null,
+"play_mode": Database["public"]['Enums']["crossword_play_mode"],
+"puzzle_id": string,
+"status": Database["public"]['Enums']["crossword_assignment_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "crossword_assignments"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"fn_crossword_team_assign":
+{ Args: { "p_actor_id": string,"p_school_id": string,"p_student_id": string,"p_team_id": string }; Returns: Json
+                           },
+"fn_crossword_team_create":
+{ Args: { "p_actor_id": string,"p_assignment_id": string,"p_label": string,"p_school_id": string }; Returns: Json
+                           },
+"fn_crossword_team_delete":
+{ Args: { "p_actor_id": string,"p_school_id": string,"p_team_id": string }; Returns: Json
+                           },
+"fn_crossword_team_for_write":
+{ Args: { "p_actor_id": string,"p_school_id": string,"p_team_id": string }; Returns: {
+              "assignment_id": string,
+"attempt_id": string | null,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"label": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "crossword_teams"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"fn_crossword_team_help_request":
+{ Args: { "p_attempt_id": string,"p_student_id": string }; Returns: Json
+                           },
+"fn_crossword_team_help_resolve":
+{ Args: { "p_actor_id": string,"p_request_id": string,"p_school_id": string }; Returns: Json
+                           },
+"fn_crossword_team_list":
+{ Args: { "p_actor_id": string,"p_assignment_id": string,"p_school_id": string }; Returns: {
+              "display_name": string,"help_open": boolean,"label": string,"member_count": number,"started": boolean,"student_id": string,"student_no": string,"team_id": string,"under_min": boolean
+            }[]
+                           },
+"fn_crossword_team_play_start":
+{ Args: { "p_assignment_id": string,"p_prefill_keys": (string)[],"p_student_id": string }; Returns: Json
+                           },
+"fn_crossword_team_record_solves":
+{ Args: { "p_attempt_id": string,"p_keys": (string)[] }; Returns: undefined
+                           },
+"fn_crossword_team_state":
+{ Args: { "p_attempt_id": string,"p_known_revision": number,"p_student_id": string }; Returns: Json
+                           },
+"fn_crossword_team_unassign":
+{ Args: { "p_actor_id": string,"p_school_id": string,"p_student_id": string,"p_team_id": string }; Returns: Json
                            },
 "fn_crossword_validate_words":
 { Args: { "p_cols": number,"p_rows": number,"p_words": Json }; Returns: string
@@ -836,6 +1079,9 @@ isOneToOne: false
 "fn_set_crossword_archived":
 { Args: { "p_actor_id": string,"p_archive": boolean,"p_puzzle_id": string,"p_school_id": string }; Returns: Json
                            },
+"fn_set_crossword_assignment_mode":
+{ Args: { "p_actor_id": string,"p_assignment_id": string,"p_mode": string,"p_school_id": string }; Returns: Json
+                           },
 "fn_student_login_begin":
 { Args: { "p_account_id": string,"p_limit": number }; Returns: {
               "allowed": boolean,"locked_until": string
@@ -857,7 +1103,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "account_batch_status": "previewed"|"running"|"completed"|"expired","audit_action": "student.provisioned"|"student.batch_started"|"student.batch_completed"|"classroom.created"|"classroom.updated"|"classroom.archived"|"classroom.unarchived"|"classroom.co_teacher_added"|"classroom.co_teacher_removed"|"enrollment.added"|"enrollment.removed"|"enrollment.reactivated"|"enrollment.transferred"|"student.password_reissued"|"content_set.created"|"content_set.updated"|"content_set.archived"|"content_set.unarchived"|"content_set.import_completed"|"content_set.import_rejected"|"content_set.exported"|"content_entry.updated"|"content_entry.archived"|"crossword.created"|"crossword.updated"|"crossword.copied"|"crossword.published"|"crossword.assigned"|"crossword.assignment_closed"|"crossword.archived"|"crossword.unarchived","audit_resource": "profile"|"student"|"account"|"batch"|"classroom"|"classroom_teacher"|"enrollment"|"content_set"|"crossword","content_import_mode": "create"|"append"|"replace","content_import_status": "previewed"|"completed"|"expired","content_script": "hangul"|"latin"|"digit"|"mixed","crossword_assignment_status": "open"|"closed","crossword_attempt_event_kind": "entry"|"check"|"chosung"|"reveal"|"submit_wrong"|"completed","crossword_attempt_event_source": "manual_entry"|"hint"|"reveal"|"autosave"|"submit","crossword_attempt_status": "in_progress"|"completed","crossword_direction": "across"|"down","crossword_level": "easy"|"normal"|"hard","crossword_status": "draft"|"published"|"archived","enrollment_status": "active"|"removed","profile_status": "active"|"suspended","user_role": "teacher"|"student"|"admin"
+            "account_batch_status": "previewed"|"running"|"completed"|"expired","audit_action": "student.provisioned"|"student.batch_started"|"student.batch_completed"|"classroom.created"|"classroom.updated"|"classroom.archived"|"classroom.unarchived"|"classroom.co_teacher_added"|"classroom.co_teacher_removed"|"enrollment.added"|"enrollment.removed"|"enrollment.reactivated"|"enrollment.transferred"|"student.password_reissued"|"content_set.created"|"content_set.updated"|"content_set.archived"|"content_set.unarchived"|"content_set.import_completed"|"content_set.import_rejected"|"content_set.exported"|"content_entry.updated"|"content_entry.archived"|"crossword.created"|"crossword.updated"|"crossword.copied"|"crossword.published"|"crossword.assigned"|"crossword.assignment_closed"|"crossword.archived"|"crossword.unarchived","audit_resource": "profile"|"student"|"account"|"batch"|"classroom"|"classroom_teacher"|"enrollment"|"content_set"|"crossword","content_import_mode": "create"|"append"|"replace","content_import_status": "previewed"|"completed"|"expired","content_script": "hangul"|"latin"|"digit"|"mixed","crossword_assignment_status": "open"|"closed","crossword_attempt_event_kind": "entry"|"check"|"chosung"|"reveal"|"submit_wrong"|"completed","crossword_attempt_event_source": "manual_entry"|"hint"|"reveal"|"autosave"|"submit","crossword_attempt_status": "in_progress"|"completed","crossword_direction": "across"|"down","crossword_level": "easy"|"normal"|"hard","crossword_play_mode": "individual"|"team","crossword_status": "draft"|"published"|"archived","enrollment_status": "active"|"removed","profile_status": "active"|"suspended","user_role": "teacher"|"student"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -973,7 +1219,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_batch_status": ["previewed", "running", "completed", "expired"],"audit_action": ["student.provisioned", "student.batch_started", "student.batch_completed", "classroom.created", "classroom.updated", "classroom.archived", "classroom.unarchived", "classroom.co_teacher_added", "classroom.co_teacher_removed", "enrollment.added", "enrollment.removed", "enrollment.reactivated", "enrollment.transferred", "student.password_reissued", "content_set.created", "content_set.updated", "content_set.archived", "content_set.unarchived", "content_set.import_completed", "content_set.import_rejected", "content_set.exported", "content_entry.updated", "content_entry.archived", "crossword.created", "crossword.updated", "crossword.copied", "crossword.published", "crossword.assigned", "crossword.assignment_closed", "crossword.archived", "crossword.unarchived"],"audit_resource": ["profile", "student", "account", "batch", "classroom", "classroom_teacher", "enrollment", "content_set", "crossword"],"content_import_mode": ["create", "append", "replace"],"content_import_status": ["previewed", "completed", "expired"],"content_script": ["hangul", "latin", "digit", "mixed"],"crossword_assignment_status": ["open", "closed"],"crossword_attempt_event_kind": ["entry", "check", "chosung", "reveal", "submit_wrong", "completed"],"crossword_attempt_event_source": ["manual_entry", "hint", "reveal", "autosave", "submit"],"crossword_attempt_status": ["in_progress", "completed"],"crossword_direction": ["across", "down"],"crossword_level": ["easy", "normal", "hard"],"crossword_status": ["draft", "published", "archived"],"enrollment_status": ["active", "removed"],"profile_status": ["active", "suspended"],"user_role": ["teacher", "student", "admin"]
+            "account_batch_status": ["previewed", "running", "completed", "expired"],"audit_action": ["student.provisioned", "student.batch_started", "student.batch_completed", "classroom.created", "classroom.updated", "classroom.archived", "classroom.unarchived", "classroom.co_teacher_added", "classroom.co_teacher_removed", "enrollment.added", "enrollment.removed", "enrollment.reactivated", "enrollment.transferred", "student.password_reissued", "content_set.created", "content_set.updated", "content_set.archived", "content_set.unarchived", "content_set.import_completed", "content_set.import_rejected", "content_set.exported", "content_entry.updated", "content_entry.archived", "crossword.created", "crossword.updated", "crossword.copied", "crossword.published", "crossword.assigned", "crossword.assignment_closed", "crossword.archived", "crossword.unarchived"],"audit_resource": ["profile", "student", "account", "batch", "classroom", "classroom_teacher", "enrollment", "content_set", "crossword"],"content_import_mode": ["create", "append", "replace"],"content_import_status": ["previewed", "completed", "expired"],"content_script": ["hangul", "latin", "digit", "mixed"],"crossword_assignment_status": ["open", "closed"],"crossword_attempt_event_kind": ["entry", "check", "chosung", "reveal", "submit_wrong", "completed"],"crossword_attempt_event_source": ["manual_entry", "hint", "reveal", "autosave", "submit"],"crossword_attempt_status": ["in_progress", "completed"],"crossword_direction": ["across", "down"],"crossword_level": ["easy", "normal", "hard"],"crossword_play_mode": ["individual", "team"],"crossword_status": ["draft", "published", "archived"],"enrollment_status": ["active", "removed"],"profile_status": ["active", "suspended"],"user_role": ["teacher", "student", "admin"]
           }
         }
 } as const

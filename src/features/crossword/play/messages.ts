@@ -26,6 +26,8 @@ const MESSAGES: Record<PlayErrorCode, string> = {
   CHOSUNG_NOT_ALLOWED: "이 퍼즐에서는 초성을 보여 주지 않아요.",
   CHOSUNG_UNAVAILABLE: "이 낱말은 초성을 보여 줄 수 없어요.",
   SUBMIT_COOLDOWN: "조금만 더 살펴볼까요?",
+  NO_TEAM: "아직 팀이 정해지지 않았어요. 선생님을 기다려 주세요.",
+  HELP_COOLDOWN: "잠시 후 다시 선생님을 부를 수 있어요.",
 };
 
 const FALLBACK = "잠시 문제가 생겼어요. 다시 시도해 주세요.";
@@ -42,6 +44,9 @@ export function playMessage(code: PlayErrorCode | null, seconds?: number): strin
   if (!code) return FALLBACK;
   if (code === "SUBMIT_COOLDOWN" && seconds !== undefined && Number.isFinite(seconds) && seconds > 0) {
     return `${MESSAGES.SUBMIT_COOLDOWN} ${Math.ceil(seconds)}초 뒤에 다시 제출할 수 있어요.`;
+  }
+  if (code === "HELP_COOLDOWN" && seconds !== undefined && Number.isFinite(seconds) && seconds > 0) {
+    return `잠시 후 다시 선생님을 부를 수 있어요 (${Math.ceil(seconds)}초).`;
   }
   return MESSAGES[code];
 }
@@ -76,6 +81,20 @@ export const PLAY_TEXT = {
   saveOffline: "오프라인 · 아직 저장되지 않았어요",
   saveOfflineHelp: "연결되면 자동으로 저장돼요. 이 화면을 닫지 마세요.",
   composing: "조합 중",
+  // Team play (P3). Neutral and positive only: never a name, a count of another student or a ranking (E-3, P3-D4).
+  teamHeading: (label: string, members: number) => `${label} · ${members}명`,
+  teamListTag: "팀 활동",
+  teamWaiting: "팀 배정 대기",
+  teamWaitingHelp: "선생님이 팀을 정해 주면 시작할 수 있어요.",
+  teammateChanged: "다른 팀원이 수정했어요",
+  checkBusy: "팀원이 입력 중이에요. 잠시 후 다시 확인해 보세요.",
+  teamCompleted: "우리 팀이 퍼즐을 완성했어요!",
+  callTeacher: "선생님 부르기",
+  callTeacherOpen: "도움 요청 중",
+  callTeacherSent: "선생님께 알렸어요. 선생님이 곧 오실 거예요.",
+  callTeacherWait: (seconds: number) => `다시 부르기 (${seconds}초 뒤)`,
+  participationAll: "모두 참여 달성",
+  participationMe: "단서 해결에 참여했어요",
   nextPuzzle: (title: string) => `다음 퍼즐 풀기: ${title}`,
   otherPuzzles: "다른 퍼즐 보기",
   home: "학생 홈",

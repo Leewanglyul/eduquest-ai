@@ -3,7 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { requireActiveProfile } from "@/features/identity/service";
-import { isCrosswordPlayEnabled } from "@/lib/flags";
+import { isCollabPlayEnabled, isCrosswordPlayEnabled } from "@/lib/flags";
 import { IdentityError } from "@/features/identity/errors";
 import { studentMustChangePassword } from "@/lib/rbac/student-guard";
 import { getStudentIdForProfile } from "./access";
@@ -41,6 +41,8 @@ const STATUS: Record<PlayErrorCode, number> = {
   CHOSUNG_NOT_ALLOWED: 403,
   CHOSUNG_UNAVAILABLE: 409,
   SUBMIT_COOLDOWN: 429,
+  NO_TEAM: 409,
+  HELP_COOLDOWN: 429,
 };
 
 /**
@@ -65,19 +67,21 @@ export function isSameOrigin(request: Request): boolean {
 type RouteContext = { params: Promise<{ assignmentId: string }> };
 
 /**
- * One wrapper for all six handlers: the feature flag (404 when off), same-origin and JSON checks, session-derived identity (a signed-in, active student
+ * One wrapper for all play handlers: the feature flag (404 when off), same-origin and JSON checks, session-derived identity (a signed-in, active student
  * who finished the forced password change), strict body validation, the service call, and errors turned into short JSON
- * that never carries an expected value or a database message.
+ * that never carries an expected value or a database message. The team handlers (team-state, help) pass `team: true`:
+ * they are also behind the team-play switch, checked just as early.
  */
 export async function playRoute<B>(
   request: Request,
   context: RouteContext,
-  options: { method: "GET" | "POST"; body?: ZodType<B> },
-  run: (ctx: { studentId: string; assignmentId: string; body: B }) => Promise<unknown>,
+  options: { method: "GET" | "POST"; body?: ZodType<B>; team?: boolean },
+  run: (ctx: { studentId: string; assignmentId: string; body: B; url: URL }) => Promise<unknown>,
 ): Promise<Response> {
   // Release gate (m2/12 F-1): with Student Play off, every play endpoint behaves as if it did not exist, like the pages.
   // First on purpose: no body, cookie, session or database is touched, and the answer says nothing about the feature.
   if (!isCrosswordPlayEnabled()) return jsonError("NOT_FOUND", 404);
+  if (options.team === true && !isCollabPlayEnabled()) return jsonError("NOT_FOUND", 404);
 
   if (request.method !== options.method) return jsonError("METHOD_NOT_ALLOWED", 405);
   if (!isSameOrigin(request)) return jsonError("FORBIDDEN", 403);
@@ -104,7 +108,7 @@ export async function playRoute<B>(
     if (await studentMustChangePassword(profile.id)) return jsonError("FORBIDDEN", 403);
     const studentId = await getStudentIdForProfile(profile.id);
     const { assignmentId } = await context.params;
-    return jsonOk(await run({ studentId, assignmentId, body }));
+    return jsonOk(await run({ studentId, assignmentId, body, url: new URL(request.url) }));
   } catch (err) {
     if (err instanceof PlayError) {
       return jsonError(err.code, STATUS[err.code], {

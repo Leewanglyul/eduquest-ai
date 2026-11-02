@@ -29,7 +29,19 @@ export type ResultView = {
   next: NextPuzzle | null;
   /** Any other puzzle in the student's list (so "other puzzles" has somewhere to go). */
   hasOtherPuzzles: boolean;
+  /**
+   * Team mode only (absent for individual puzzles). participation is null until the team has completed (D-8); the
+   * screen words it positively only and says nothing when `me` is false (P3-D4).
+   */
+  team?: { label: string; participation: { me: boolean; all: boolean } | null };
 };
+
+/** The participation line of a completed team puzzle, or null when nothing should be said (P3-D4: never negative). */
+export function participationLine(p: { me: boolean; all: boolean } | null): "all" | "me" | null {
+  if (!p) return null;
+  if (p.all) return "all";
+  return p.me ? "me" : null;
+}
 
 /** Where the result page sends the student after finishing: the next puzzle, the list, or home (in that order). */
 export function nextStep(next: NextPuzzle | null, hasOtherPuzzles: boolean): { href: string; label: "next" | "list" | "home" } {

@@ -50,7 +50,34 @@ export type PlayPayload = {
   limits: PlayLimits;
   readonly: boolean;
   closesAt: string | null;
+  /**
+   * Team mode only (absent in individual mode): the team's label and how many classmates are in it. Never a name, an
+   * id or anything about one member (P3-D1).
+   */
+  team?: TeamInfo;
 };
+
+export type TeamInfo = { label: string; memberCount: number };
+
+/**
+ * One poll of the shared team attempt (P3 readiness section 3). Built field by field from fn_crossword_team_state:
+ * cells, given and otherKeys only when the revision changed; participation only once the team has completed.
+ * otherKeys are cell keys whose last writer is someone else: never who.
+ */
+export type TeamState = {
+  revision: number;
+  status: AttemptStatus;
+  changed: boolean;
+  helpOpen: boolean;
+  used: { checks: number; reveals: number; chosung: number; wrongSubmits: number };
+  cells?: Record<CellKey, string>;
+  given?: Record<CellKey, string>;
+  otherKeys?: CellKey[];
+  participation?: { me: boolean; all: boolean };
+};
+
+/** Asking the teacher for help: one open call per team, so a second tap returns the open one (created = false). */
+export type HelpCall = { open: true; created: boolean; createdAt: string };
 
 export type CheckStatus = "ok" | "wrong" | "empty";
 export type CheckScope = "cell" | "word" | "puzzle";
@@ -84,5 +111,7 @@ export const PLAY_ERROR_CODES = [
   "CHOSUNG_NOT_ALLOWED",
   "CHOSUNG_UNAVAILABLE",
   "SUBMIT_COOLDOWN",
+  "NO_TEAM",
+  "HELP_COOLDOWN",
 ] as const;
 export type PlayErrorCode = (typeof PLAY_ERROR_CODES)[number];

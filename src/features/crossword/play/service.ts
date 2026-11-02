@@ -1,15 +1,15 @@
 import "server-only";
 
-import { isCrosswordPlayEnabled } from "@/lib/flags";
+import { isCollabPlayEnabled, isCrosswordPlayEnabled } from "@/lib/flags";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 import { requireAttemptId, requirePlayAccess } from "./access";
 import { PlayError, unwrapPlay } from "./errors";
 import { pickNextPlayable, sortPlayable, stateOf, type PlayableRow } from "./list";
 import type { ResultView } from "./result";
-import { loadPlayPayload } from "./payload";
+import { loadPlayPayload, loadTeamInfo } from "./payload";
 import { chooseFrozenPrefill, type PuzzleStructure } from "./prefill";
-import type { CheckResult, CheckScope, Direction, PlayPayload, SubmitResult } from "./types";
+import type { CheckResult, CheckScope, Direction, HelpCall, PlayPayload, SubmitResult, TeamState } from "./types";
 
 /**
  * Thin wrappers over the fn_crossword_play_* functions. The student id always comes from the caller's session
@@ -29,9 +29,13 @@ export async function listPlayable(studentId: string): Promise<PlayableRow[]> {
       assignment_id: string; puzzle_id: string; title: string; classroom_id: string; classroom_name: string;
       level: "easy" | "normal" | "hard"; word_count: number; total_cells: number; closes_at: string | null;
       attempt_id: string | null; attempt_status: "in_progress" | "completed" | null; filled_count: number; readonly: boolean;
+      play_mode: "individual" | "team"; team_waiting: boolean;
     }[]
   >(await createSupabaseAdminClient().rpc("fn_crossword_play_list", { p_student_id: studentId }));
-  const mapped = rows.map((r) => ({
+  // With team play off a team-mode puzzle is not listed at all (Gate 2 E-5).
+  const collab = isCollabPlayEnabled();
+  const visible = rows.filter((r) => r.play_mode !== "team" || collab);
+  const mapped = visible.map((r) => ({
     assignmentId: r.assignment_id,
     puzzleId: r.puzzle_id,
     title: r.title,
@@ -45,6 +49,8 @@ export async function listPlayable(studentId: string): Promise<PlayableRow[]> {
     attemptStatus: r.attempt_status,
     filledCount: r.filled_count,
     readonly: r.readonly,
+    // Individual rows keep exactly their earlier shape; only team rows carry the team marker.
+    ...(r.play_mode === "team" ? { team: { waiting: r.team_waiting } } : {}),
   }));
   return sortPlayable(mapped.map((r) => ({ ...r, state: stateOf(r) }) satisfies PlayableRow));
 }
@@ -198,6 +204,18 @@ export async function loadResult(studentId: string, assignmentId: string): Promi
   const list = await listPlayable(studentId);
   const next = pickNextPlayable(list, assignmentId);
 
+  // Team mode: the team's label and, once completed, participation (D-8: only after completion; P3-D4: positive only).
+  let team: ResultView["team"];
+  if (access.team) {
+    const info = await loadTeamInfo(attemptId);
+    let participation: { me: boolean; all: boolean } | null = null;
+    if (attempt.status === "completed") {
+      const state = await readTeamState(studentId, attemptId, null);
+      participation = state.participation ?? null;
+    }
+    team = { label: info.label, participation };
+  }
+
   return {
     assignmentId,
     title: puzzleRes.data.title,
@@ -213,5 +231,80 @@ export async function loadResult(studentId: string, assignmentId: string): Promi
     growth: null,
     next: next ? { assignmentId: next.assignmentId, title: next.title, state: next.state } : null,
     hasOtherPuzzles: list.some((r) => r.assignmentId !== assignmentId),
+    ...(team ? { team } : {}),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Team play (M2-3.4 P3). The attempt is the team's shared one; the student is still found from the session and the
+// attempt from the assignment. Responses are allow-lists built field by field: no student id, no name, no writer.
+// ---------------------------------------------------------------------------------------------------------------
+
+type RawTeamState = {
+  revision: number | string;
+  status: "in_progress" | "completed";
+  changed: boolean;
+  helpOpen: boolean;
+  used: { checks: number; reveals: number; chosung: number; wrongSubmits: number };
+  cells?: Record<string, string>;
+  given?: Record<string, string>;
+  otherKeys?: string[];
+  participation?: { me: boolean; all: boolean };
+};
+
+/** Field-by-field mapping of fn_crossword_team_state: anything the function might add later is dropped here. */
+function mapTeamState(raw: RawTeamState): TeamState {
+  const out: TeamState = {
+    revision: Number(raw.revision),
+    status: raw.status === "completed" ? "completed" : "in_progress",
+    changed: raw.changed === true,
+    helpOpen: raw.helpOpen === true,
+    used: {
+      checks: Number(raw.used?.checks ?? 0),
+      reveals: Number(raw.used?.reveals ?? 0),
+      chosung: Number(raw.used?.chosung ?? 0),
+      wrongSubmits: Number(raw.used?.wrongSubmits ?? 0),
+    },
+  };
+  if (out.changed) {
+    out.cells = Object.fromEntries(Object.entries(raw.cells ?? {}).map(([k, v]) => [String(k), String(v)]));
+    out.given = Object.fromEntries(Object.entries(raw.given ?? {}).map(([k, v]) => [String(k), String(v)]));
+    out.otherKeys = (raw.otherKeys ?? []).map(String);
+  }
+  if (out.status === "completed" && raw.participation) {
+    out.participation = { me: raw.participation.me === true, all: raw.participation.all === true };
+  }
+  return out;
+}
+
+async function readTeamState(studentId: string, attemptId: string, known: number | null): Promise<TeamState> {
+  const raw = unwrapPlay<RawTeamState>(
+    await createSupabaseAdminClient().rpc("fn_crossword_team_state", {
+      p_student_id: studentId,
+      p_attempt_id: attemptId,
+      p_known_revision: known as number,
+    }),
+  );
+  return mapTeamState(raw);
+}
+
+/** One poll of the team attempt. `known` is the revision the browser has; cells come back only when it differs. */
+export async function getTeamState(studentId: string, assignmentId: string, known: number | null): Promise<TeamState> {
+  if (!isCollabPlayEnabled()) throw new PlayError("NOT_FOUND");
+  const access = await requirePlayAccess(studentId, assignmentId);
+  if (!access.team) throw new PlayError("NOT_FOUND");
+  const attemptId = await requireAttemptId(studentId, assignmentId);
+  return readTeamState(studentId, attemptId, known);
+}
+
+/** "선생님 부르기": the team's one open call to the teacher (G2, D-9). Who tapped is not stored and not returned. */
+export async function callTeacher(studentId: string, assignmentId: string): Promise<HelpCall> {
+  if (!isCollabPlayEnabled()) throw new PlayError("NOT_FOUND");
+  const access = await requirePlayAccess(studentId, assignmentId);
+  if (!access.team) throw new PlayError("NOT_FOUND");
+  const attemptId = await requireAttemptId(studentId, assignmentId);
+  const raw = unwrapPlay<{ open: boolean; created: boolean; createdAt: string }>(
+    await createSupabaseAdminClient().rpc("fn_crossword_team_help_request", { p_student_id: studentId, p_attempt_id: attemptId }),
+  );
+  return { open: true, created: raw.created === true, createdAt: String(raw.createdAt) };
 }
