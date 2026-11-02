@@ -310,6 +310,7 @@ skip clue, accept answer, random or heterogeneous grouping, QR join, audit event
 | AP-8 | OFF Return env change and redeploy (O-1, O-2) | approvals |
 | AP-9 | Test-data cleanup after Gate 3 | approval |
 | Open | Audit policy before real-student use (OD-9); data governance amendments before real students (OD-12) | governance |
+| OD-TP17 | Assignment close authority alignment (TPS 10.1): `/live` reuses the existing close unchanged for Gate 3; blocking before a real-student pilot | governance |
 
 ---
 

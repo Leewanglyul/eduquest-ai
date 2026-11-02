@@ -299,6 +299,7 @@ Decisions the PM must take before the related workflow is built.
 | OD-14 | School admin rights: write in Course Room management (today) but read-only in team and play operation; keep the split or align | section 1 | P2 D-1; PKG C-8 |
 | OD-15 | Skip a flawed clue and accept an answer: effect on completion, solves, credits and a competition score | section 5 | OX-7; D-7, D-10 |
 | OD-16 | Student verification code: what it is, how it combines with QR join and the existing accounts | section 2.1 | OX-7, OX-8; OD-2 |
+| OD-TP17 | **Assignment Close Authority Alignment.** Gate 3 compatibility decision (PM, 2026-11-02): `/live` reuses the existing `fn_close_crossword_assignment` behaviour unchanged (puzzle-scoped; the school admin may close). Open: assignment-scoped vs puzzle-scoped close authority; school-admin close authority; cross-Course-Room teacher authority; alignment of the puzzle page and `/live`; audit of teacher session actions. **Status:** local Gate 3 non-blocking; hosted Gate 3 with SMOKE accounts non-blocking; **real-student pilot blocking** unless resolved or explicitly re-approved | sections 5, 7 | OD-9, OD-14 |
 
 ### 10.2 Technical Risks
 
