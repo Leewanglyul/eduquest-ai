@@ -62,6 +62,8 @@ describe("compatibility with a shared team attempt (M2-2.4 guidance)", () => {
 
   const teacherSide = [
     ...files("src/features/crossword/review", /\.tsx?$/),
+    // M2-3.4 TP-0: the teacher team screens' actions, view model and types follow the same rule
+    ...files("src/features/crossword/teams", /\.tsx?$/),
     ...files("src/app/teacher/crosswords", /\.tsx?$/),
     ...files("src/components/teacher", /^crossword-.*\.tsx$/),
     "src/features/crossword/access.ts",

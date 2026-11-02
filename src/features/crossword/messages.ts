@@ -34,7 +34,17 @@ export type CrosswordErrorCode =
   | "ASSIGNMENT_NOT_OPEN"
   | "WINDOW_INVALID"
   | "INVALID_GRID"
-  | "PERSIST_FAILED";
+  | "PERSIST_FAILED"
+  // team play, teacher side (M2-3.4 TP-0; raised by the P2 team functions)
+  | "BAD_MODE"
+  | "MODE_LOCKED"
+  | "TEAMS_EXIST"
+  | "NOT_TEAM_MODE"
+  | "BAD_LABEL"
+  | "TEAM_LABEL_TAKEN"
+  | "TEAM_STARTED"
+  | "TEAM_FULL"
+  | "HELP_STATE_INVALID";
 
 export type ErrorContext = {
   /** NOT_ENOUGH_WORDS: how many words the best attempt placed. */
@@ -104,6 +114,24 @@ export function crosswordErrorMessage(code: CrosswordErrorCode, ctx: ErrorContex
       return "퍼즐 구조가 올바르지 않아 저장할 수 없습니다. 다시 생성해 주세요.";
     case "PERSIST_FAILED":
       return "퍼즐을 저장하지 못했습니다.";
+    case "BAD_MODE":
+      return "활동 방식이 올바르지 않습니다.";
+    case "MODE_LOCKED":
+      return "학생이 활동을 시작해서 활동 방식을 바꿀 수 없습니다.";
+    case "TEAMS_EXIST":
+      return "팀이 있는 동안에는 개인 활동으로 바꿀 수 없습니다. 팀을 먼저 지워 주세요.";
+    case "NOT_TEAM_MODE":
+      return "팀 활동으로 바꾼 뒤에 팀을 만들 수 있습니다.";
+    case "BAD_LABEL":
+      return "팀 이름은 1~20자로 입력해 주세요.";
+    case "TEAM_LABEL_TAKEN":
+      return "같은 이름의 팀이 이미 있습니다.";
+    case "TEAM_STARTED":
+      return "이미 활동을 시작한 팀입니다. 학생을 빼거나 옮기거나 팀을 지울 수 없습니다.";
+    case "TEAM_FULL":
+      return "한 팀에는 4명까지 들어갈 수 있습니다.";
+    case "HELP_STATE_INVALID":
+      return "도움 요청 상태를 확인하지 못했습니다. 새로 고친 뒤 다시 시도해 주세요.";
   }
 }
 
@@ -157,6 +185,13 @@ const DIRECT_CODES = new Set<string>([
   "ALREADY_ASSIGNED",
   "ASSIGNMENT_NOT_OPEN",
   "WINDOW_INVALID",
+  "BAD_MODE",
+  "TEAMS_EXIST",
+  "NOT_TEAM_MODE",
+  "BAD_LABEL",
+  "TEAM_LABEL_TAKEN",
+  "TEAM_STARTED",
+  "TEAM_FULL",
 ]);
 
 /** Maps a database exception message ("CROSSWORD_NOT_DRAFT") to a code; null when it is not one of ours. */
@@ -168,6 +203,8 @@ export function mapDatabaseErrorCode(
   const code = match[1];
   // The save compares the preview's placement hash with the words the server regenerated: a difference means the set changed.
   if (code === "HASH_MISMATCH") return "SET_CHANGED";
+  // The P1 trigger that freezes the play mode once an attempt exists raises CROSSWORD_PLAY_MODE_LOCKED.
+  if (code === "PLAY_MODE_LOCKED") return "MODE_LOCKED";
   if (GRID_CODES.has(code)) return "INVALID_GRID";
   return DIRECT_CODES.has(code) ? (code as CrosswordErrorCode) : null;
 }

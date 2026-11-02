@@ -5,7 +5,7 @@ import { CrosswordError } from "@/features/crossword/messages";
 import { getAssignmentProgress } from "@/features/crossword/results/service";
 import { PROGRESS_TEXT, whenText } from "@/features/crossword/results/view-model";
 import { getPuzzleDetail } from "@/features/crossword/review/service";
-import { isCrosswordPlayEnabled } from "@/lib/flags";
+import { isCollabPlayEnabled, isCrosswordPlayEnabled } from "@/lib/flags";
 import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +51,17 @@ export default async function CrosswordProgressPage({ params }: PageProps) {
           {assignment.closesAt ? ` · 마감 ${whenText(assignment.closesAt)}` : ""}
         </p>
       </div>
+
+      {isCollabPlayEnabled() ? (
+        <nav aria-label="팀 활동" className="flex flex-wrap gap-3 text-sm">
+          <Link href={`/teacher/crosswords/${puzzleId}/assignments/${assignmentId}/teams`} className="inline-flex min-h-11 items-center rounded border border-slate-500 px-3">
+            팀 구성
+          </Link>
+          <Link href={`/teacher/crosswords/${puzzleId}/assignments/${assignmentId}/live`} className="inline-flex min-h-11 items-center rounded border border-slate-500 px-3">
+            수업 중 보기
+          </Link>
+        </nav>
+      ) : null}
 
       <p className="text-sm text-slate-700">{PROGRESS_TEXT.note}</p>
       <p className="flex flex-wrap items-center gap-3 text-sm" role="status">

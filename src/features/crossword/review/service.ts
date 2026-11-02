@@ -542,6 +542,8 @@ export type CrosswordDetail = {
     status: "open" | "closed";
     opensAt: string | null;
     closesAt: string | null;
+    /** How the assignment is played (M2-3.4): one attempt per student, or one shared attempt per team. */
+    playMode: "individual" | "team";
   }[];
   /** Every version of the lineage, oldest first. */
   versions: {
@@ -571,7 +573,7 @@ export async function getPuzzleDetail(
       .order("direction"),
     admin
       .from("crossword_assignments")
-      .select("id, classroom_id, status, opens_at, closes_at")
+      .select("id, classroom_id, status, opens_at, closes_at, play_mode")
       .eq("puzzle_id", puzzle.id),
     admin
       .from("crossword_puzzles")
@@ -622,6 +624,7 @@ export async function getPuzzleDetail(
       status: a.status,
       opensAt: a.opens_at,
       closesAt: a.closes_at,
+      playMode: a.play_mode,
     })),
     versions: (versions ?? []).map((v) => ({
       id: v.id,
