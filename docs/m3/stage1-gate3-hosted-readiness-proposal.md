@@ -1,7 +1,18 @@
 # Stage 1 Gate 3: Hosted Readiness Proposal (2026-11-03)
 
-Status: **PROPOSAL for PM review.** Documentation only. Nothing in this document has been executed: no flag change, no
-redeploy, no Acceptance access, no cleanup. Each step needs its own approval (section E); no action implies the next.
+Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3, E-4, E-5 and E-6
+NOT approved.** Hosted Gate 3 execution is **not** approved. Documentation only: no flag change, no redeploy, no account
+or data creation and no cleanup has been done. Each step needs its own approval (section E); no action implies the next.
+
+| Approval | State |
+|---|---|
+| Readiness planning (this document as the plan) | **approved** |
+| E-1 Readiness document, including the Governance #6 cleanup plan | **approved** |
+| E-2 Acceptance read-only parity | **PASS WITH ADVISORY** (0, C.1) |
+| E-3 Flag change | **not approved** |
+| E-4 Preview redeploy | **not approved** |
+| E-5 Hosted Gate 3 execution | **not approved** |
+| E-6 Cleanup | **not approved** |
 
 Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrated-implementation-package.md)
 (sections 6 to 10, 13), Teacher Package Specification 7.1 (G3-D1 to G3-D7), Operational UX OX-1, OX-12.
@@ -20,9 +31,9 @@ Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrate
 
 | # | Condition | How it is checked |
 |---|---|---|
-| TD-1 | **SMOKE accounts only:** one teacher and five students created for testing; no other account signs in during the window | owner SQL before the run: account list of the Gate 3 Course Room (ids and SMOKE usernames only) |
+| TD-1 | **Gate-3-only test accounts** (PM decision, 2026-11-03): one neutral test teacher and five neutral test students, created only for Gate 3 (at E-5, not before); no other account signs in during the window. Their activity is **never converted into, merged into or retained as a real student's growth record** (Growth Model 5.1) | owner SQL before the run: account list of the Gate 3 Course Room (ids and test usernames only) |
 | TD-2 | **No real student data:** the Gate 3 Course Room enrols only the SMOKE students | owner SQL: enrolment count equals the SMOKE list |
-| TD-3 | **No real names:** display names are neutral test names (for example "G3 학생1" to "G3 학생5", "G3 교사") | owner SQL: display names of the room |
+| TD-3 | **No real names:** display names are neutral test names (for example "G3 학생1" to "G3 학생5", "G3 교사"); teams of 3 and 2 | owner SQL: display names of the room |
 | TD-4 | **Neutral team labels only:** "1팀", "2팀" (HP-1) | screen of `/teams` |
 | TD-5 | **Pre-reviewed test puzzle only:** a published puzzle already reviewed by the teacher before the window (OX-6, HP-6); nothing is generated during the run | puzzle id and status `published` recorded before the run |
 | TD-6 | **Credential-safe evidence:** no password, temporary password, token, cookie, connection string or bypass secret in any screenshot, log or report; SQL outputs show ids and counts, not answers | owner review of each artefact before it is shared |
@@ -52,12 +63,13 @@ queries and reports, the owner runs any hosted SQL.
 | **Audit records** (assignment created / closed, enrolment changes) | **retain as baseline** (audit trail is not deleted) | per the existing audit policy | count of Gate 3 audit rows recorded before and after; unchanged after cleanup |
 | **Screenshots** | **retain temporarily** on the owner's device | until the PM closes the review, then delete | owner's written confirmation of deletion |
 | **Local evidence files** (SQL output, probe output, timing log) | **retain temporarily**; the summarised results go into the Gate 3 report in the repository | same, then delete the raw files | owner's written confirmation; the repo report holds no raw data |
-| **Test accounts** (SMOKE teacher and students) | **retain as baseline** if they are the existing SMOKE accounts; **delete** if created only for Gate 3 | baseline: until the pilot sign-off decides; Gate-3-only: with the room | account count for the Gate-3-only usernames 0 |
+| **Test accounts** (the Gate-3-only teacher and five students, TD-1) | **delete** with the room | until the deletion deadline below | account count for the Gate-3-only usernames 0 |
 | The **W1 baseline** (existing individual assignment, attempt, member) | **retain as baseline**, untouched | until the pilot sign-off | `p1-w1-data-check.sql` identical before and after |
 | The **test puzzle** | **retain as baseline** (published content, no student data) | owner's content library | not deleted |
 
-Open for the PM: whether the SMOKE accounts used are the existing ones or Gate-3-only (TD-1), and the latest date by
-which the Gate 3 data must be deleted.
+**Deletion deadline (PM decision, 2026-11-03):** all Gate 3 data above marked for deletion is deleted by the
+**earlier** of (a) **72 hours after the PM closes the Hosted Gate 3 review**, or (b) **2026-11-10 18:00 KST**. No automatic
+extension. Cleanup happens only after the PM has reviewed the results (E-6).
 
 ---
 
@@ -125,7 +137,7 @@ Vercel CLI checks, and the approved env and redeploy commands; nothing else.
 | 2 | **Both Preview flags ON**, branch-scoped to `m2/m2-1-content-pipeline` only: `CROSSWORD_PLAY_ENABLED=true` (replace the existing row), `COLLAB_PLAY_ENABLED=true` (new row) | Claude | E-3 | `vercel env ls` after |
 | 3 | **Preview redeploy** of the branch deployment (one redeploy, no code change) | Claude | E-4 | new deployment id, Ready, built from `f9f5bb3` |
 | 4 | **Setup:** owner creates the Gate 3 room content if not prepared (assignment of the pre-reviewed puzzle, team mode, two teams of 3 and 2); **setup time logged separately** (HP-4) | owner | E-5 | timing log, `/teams` screen |
-| 5 | **C-1 to C-13** of the package section 6, in order; C-1 probe through the owner's signed-in Vercel browser (no protection-bypass secret is created) | owner, Claude records | E-5 | per-check evidence of section 6 |
+| 5 | **C-1 to C-13** of the package section 6, in order; C-1 probe through the owner's signed-in Vercel browser (no protection-bypass secret is created) | owner, Claude records | E-5 | per-check evidence of package section 6 |
 | 6 | **Throttled-network check** inside C-4 (one browser profile throttled to a slow connection) (HP-7) | owner | E-5 | screen notes |
 | 7 | **C-10 timing:** assignment open → every team started; ≥ 90 % of present test students made a first input; device faults logged separately | owner | E-5 | timing log |
 | 8 | **Stop conditions** (package section 9): any classmate name or student id on a student screen or response; per-student counts or balance on `/live`; a help request identifying a student; lost saved cell or input in another team; individual-mode regression or W1 difference; flag guard failure; any change outside the window. On a stop: go to step 9 at once, no retry, no hot-fix | owner, Claude | (part of E-5) | stop note |
@@ -155,6 +167,6 @@ Each approval covers only its own row. **No action implies the next approval.**
 | E-5 | **Hosted Gate 3 execution** | setup with SMOKE accounts, C-1 to C-13, timing, OFF Return checks | cleanup, real accounts, real data |
 | E-6 | **Cleanup** | section B deletes, after the PM closes the review | the W1 baseline, audit records, the test puzzle |
 
-Open decisions for the PM before E-5: SMOKE accounts existing or Gate-3-only (TD-1); the deletion deadline (section B);
-whether the C-1 probe uses the owner's browser only (recommended) or a protection-bypass secret (a deployment-setting
-change, not proposed).
+Decided by the PM (2026-11-03): Gate-3-only test accounts (TD-1); the deletion deadline (section B); the C-1 probe and
+all browser checks use the PM's Vercel-signed-in browser: no protection-bypass secret is created and Preview protection
+is not changed.
