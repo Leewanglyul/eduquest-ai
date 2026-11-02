@@ -1,7 +1,7 @@
 # Stage 1 Gate 3: Hosted Readiness Proposal (2026-11-03)
 
-Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3, E-4, E-5 and E-6
-NOT approved.** Hosted Gate 3 execution is **not** approved. Documentation only: no flag change, no redeploy, no account
+Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3 approved (flag change
+only); E-4, E-5 and E-6 NOT approved.** Hosted Gate 3 execution is **not** approved. Documentation only: no flag change, no redeploy, no account
 or data creation and no cleanup has been done. Each step needs its own approval (section E); no action implies the next.
 
 | Approval | State |
@@ -9,7 +9,7 @@ or data creation and no cleanup has been done. Each step needs its own approval 
 | Readiness planning (this document as the plan) | **approved** |
 | E-1 Readiness document, including the Governance #6 cleanup plan | **approved** |
 | E-2 Acceptance read-only parity | **PASS WITH ADVISORY** (0, C.1) |
-| E-3 Flag change | **not approved** |
+| E-3 Flag change (branch-scoped Preview only) | **approved** (PM, 2026-11-03); execution recorded separately |
 | E-4 Preview redeploy | **not approved** |
 | E-5 Hosted Gate 3 execution | **not approved** |
 | E-6 Cleanup | **not approved** |
@@ -24,6 +24,7 @@ Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrate
 | Local implementation | PASS | targeted 463/463, full Vitest 894/894, pgTAP 780/780 (clean reset), typecheck clean |
 | **Push + Flags-OFF Preview Gate** | **PASS / CLOSED** (PM, 2026-11-03) | push `8df78b8..f9f5bb3`; Preview `dpl_7hFUqMV1xWoXusZeA4C6WBUxK4Qm` Ready, built from `f9f5bb3`; owner browser check: `/student/crosswords` 404, `…/api/team-state` `{"error":"NOT_FOUND"}`, `/teacher/…/live` 404, `/student/sign-in` and `/teacher/sign-in` load |
 | **E-2 Acceptance Contract Parity** | **PASS WITH ADVISORY** (PM, 2026-11-03) | HC-1 to HC-11 PASS; HC-12 migration count 33 before, 33 after; W1 baseline 1 attempt, 1 member, 0 events, unchanged; advisory HC-12b (C.1). E-3, E-4, E-5 and E-6 are **not** approved by this result |
+| **Flags-OFF Preview Verification** (after the push of `34047c7`, `7e6bced`, `25cbd71`) | **PASS / CLOSED** (PM, 2026-11-03) | Preview `dpl_CywQTDn3v8AXW2cBL2jAeV4b5yWh` built from `25cbd71`, Ready; PM browser: `/student/crosswords` 404, `/student/sign-in` and `/teacher/sign-in` load, invalid team-state `{"error":"NOT_FOUND"}`, invalid `/live` 404; flag rows unchanged; Production untouched |
 
 ---
 
@@ -153,6 +154,66 @@ any stop note · flag rows OFF · OFF redeploy id · OFF Return probes · W1 aft
 that no artefact holds a credential or a real name (TD-6).
 
 ---
+
+## D.1 E-3 / E-4 execution plan (prepared 2026-11-03, **NOT EXECUTED**)
+
+Scope: Vercel project `eduquest-ai-pilot`, team `sonline-2`, **Preview only, git branch `m2/m2-1-content-pipeline` only**.
+Production, Development and other Preview branches are not touched. All commands run by Claude after the matching
+approval; every value is the literal `true` or `false` (no secret).
+
+**Pre-state (read-only, recorded 2026-11-03):** `CROSSWORD_PLAY_ENABLED` exists once, Preview, branch
+`m2/m2-1-content-pipeline` only (value encrypted in the listing; OFF by the Flags-OFF check). `COLLAB_PLAY_ENABLED` does
+not exist. Production has no flag row (only its own `NEXT_PUBLIC_SUPABASE_URL`). Branch deployment
+`dpl_CywQTDn3v8AXW2cBL2jAeV4b5yWh` (`25cbd71`); Production deployment `eduquest-ai-pilot-7jbihexvp`.
+
+**E-3 flag change (order chosen so that any partial state stays OFF):**
+
+| # | Command | Effect |
+|---|---|---|
+| 3.1 | `vercel env add COLLAB_PLAY_ENABLED preview --git-branch m2/m2-1-content-pipeline --value true --scope sonline-2` | creates the missing row; alone it changes nothing (team play also needs the play flag) |
+| 3.2 | `vercel env rm CROSSWORD_PLAY_ENABLED preview m2/m2-1-content-pipeline --yes --scope sonline-2` | removes the branch row; while absent, the hosted default is OFF |
+| 3.3 | `vercel env add CROSSWORD_PLAY_ENABLED preview --git-branch m2/m2-1-content-pipeline --value true --scope sonline-2` | recreates the branch row with `true` |
+| 3.4 | `vercel env ls --scope sonline-2` (flag rows only) | exactly one row each, both "Preview (m2/m2-1-content-pipeline)"; no Production or other-branch row |
+
+`vercel env update` is not used: it has no git-branch option. An env change affects only deployments built after it,
+so nothing is live until E-4.
+
+**E-3 partial failure:** if any of 3.1 to 3.3 fails, do **not** redeploy; restore OFF with the OFF commands below
+(both rows `false`), check 3.4, and stop for PM review.
+
+**E-4 redeploy (only after 3.4 is correct):**
+
+| # | Command or check | Expected |
+|---|---|---|
+| 4.1 | `vercel redeploy https://eduquest-ai-pilot-8lgm77gqn-sonline-2.vercel.app --target preview --scope sonline-2` | a new Preview deployment of the same source with the new env |
+| 4.2 | `vercel inspect <new url> --scope sonline-2` (+ `--logs`) | Ready; target preview; source commit `25cbd71`; alias `eduquest-ai-pilot-git-m2-m2-1-content-pipeline-sonline-2.vercel.app` on the new deployment |
+| 4.3 | `git ls-remote origin m2/m2-1-content-pipeline` | `25cbd71` (no code change) |
+| 4.4 | `vercel ls --environment production --scope sonline-2` | still `eduquest-ai-pilot-7jbihexvp`, unchanged age |
+
+**Minimum Flags-ON safety probes** (PM's Vercel-signed-in browser, signed out of EduQuest; before any account or data):
+
+| # | Path (branch alias) | Expected |
+|---|---|---|
+| P-1 | `/student/sign-in` | loads normally |
+| P-2 | `/teacher/sign-in` | loads normally |
+| P-3 | `/student/crosswords/00000000-0000-4000-8000-000000000000/api/team-state` | `401 {"error":"UNAUTHENTICATED"}`: both flags pass, then the session is required before the assignment is looked at; nothing about an assignment or identity (a `NOT_FOUND` here would need a signed-in student, which does not exist before E-5) |
+| P-4 | `/teacher/crosswords/<zero-uuid>/assignments/<zero-uuid>/teams` | redirect to `/teacher/sign-in` (no longer a flag-off 404) |
+| P-5 | `/teacher/crosswords/<zero-uuid>/assignments/<zero-uuid>/live` | redirect to `/teacher/sign-in` |
+| P-6 | `/student/crosswords` | redirect to `/student/sign-in` (the authentication boundary, not a flag-off 404): proves the play flag is ON |
+| P-7 | Production deployment `eduquest-ai-pilot-7jbihexvp…` `/student/crosswords` | 404, as before: Production unaffected |
+
+Any other result: OFF Return at once, stop for PM review.
+
+**OFF Return (rollback; also the end of every window):**
+
+| # | Command or check |
+|---|---|
+| O-1 | `vercel env rm CROSSWORD_PLAY_ENABLED preview m2/m2-1-content-pipeline --yes --scope sonline-2`, then `vercel env add CROSSWORD_PLAY_ENABLED preview --git-branch m2/m2-1-content-pipeline --value false --scope sonline-2` |
+| O-2 | `vercel env rm COLLAB_PLAY_ENABLED preview m2/m2-1-content-pipeline --yes --scope sonline-2`, then `vercel env add COLLAB_PLAY_ENABLED preview --git-branch m2/m2-1-content-pipeline --value false --scope sonline-2` |
+| O-3 | `vercel env ls` (flag rows): both "Preview (m2/m2-1-content-pipeline)" only |
+| O-4 | `vercel redeploy <current branch deployment url> --target preview --scope sonline-2`; inspect: Ready, `25cbd71`, alias moved |
+| O-5 | PM browser: the five Flags-OFF checks (`/student/crosswords` 404, both sign-ins load, invalid team-state `NOT_FOUND`, invalid `/live` 404) |
+| O-6 | Production still `eduquest-ai-pilot-7jbihexvp`; deployment ids before and after recorded |
 
 ## E. Approval boundaries
 
