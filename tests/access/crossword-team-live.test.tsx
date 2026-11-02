@@ -191,3 +191,25 @@ describe("teacher screens", () => {
     expect(viewer).not.toMatch(/점수|순위|능력|수준|잘하는|못하는/);
   });
 });
+
+describe("R2 H: help lifecycle on the in-class view", () => {
+  const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  it("a completed team shows no active call and so no resolve control", () => {
+    const done = buildLiveView({ assignment: open, setup, progress: [P(2, { state: "completed" }), P(3, { state: "completed" })], now });
+    expect(done.teams[0]).toMatchObject({ state: "completed", helpOpen: false });
+    expect(text(renderToStaticMarkup(<CrosswordLiveView puzzleId="p" assignmentId="a" initial={done} canWrite />))).not.toContain(LIVE_TEXT.resolve);
+  });
+
+  it("a closed assignment shows no active call and no resolve control", () => {
+    const closed = buildLiveView({ assignment: { ...open, status: "closed" }, setup, progress, now });
+    expect(closed.teams.every((t) => t.helpOpen === false)).toBe(true);
+    const t = text(renderToStaticMarkup(<CrosswordLiveView puzzleId="p" assignmentId="a" initial={closed} canWrite />));
+    expect(t).not.toContain(LIVE_TEXT.helpOpen);
+    expect(t).not.toContain(LIVE_TEXT.resolve);
+  });
+
+  it("an open call of a team still playing is shown", () => {
+    expect(buildLiveView({ assignment: open, setup, progress, now }).teams[0].helpOpen).toBe(true);
+  });
+});

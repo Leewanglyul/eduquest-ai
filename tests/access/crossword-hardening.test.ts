@@ -83,6 +83,17 @@ describe("compatibility with a shared team attempt (M2-2.4 guidance)", () => {
     }
   });
 
+  it("help calls are read directly in exactly one place: the approved server-only resolution helper (R2 B1-1)", () => {
+    // Gate 3 contract-gap workaround (PM, 2026-11-02): only results/team-help-resolution.ts may read
+    // crossword_team_help_requests with .from(...); everything else goes through the database functions.
+    const all = files("src", /\.tsx?$/).map((f) => f.split(path.sep).join("/"));
+    const readers = all.filter((f) => /\.from\(\s*["'`]crossword_team_help_requests["'`]/.test(fs.readFileSync(path.join(root, f), "utf8")));
+    expect(readers).toEqual(["src/features/crossword/results/team-help-resolution.ts"]);
+    const helper = fs.readFileSync(path.join(root, readers[0]), "utf8");
+    expect(helper).toMatch(/^import "server-only";/);
+    expect(helper).toMatch(/\.from\("crossword_team_help_requests"\)\s*\.select\("id"\)/); // the id only
+  });
+
   it("the schema keeps assignments free of any student column, so an attempt can later belong to a student or a team", () => {
     const migrations = fs
       .readdirSync(path.join(root, "supabase/migrations"))

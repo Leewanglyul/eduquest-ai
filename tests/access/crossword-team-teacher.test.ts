@@ -22,6 +22,9 @@ vi.mock("@/features/identity/service", async () => {
   };
 });
 
+import { renderToStaticMarkup } from "react-dom/server";
+import CrosswordProgressPage from "@/app/teacher/crosswords/[puzzleId]/assignments/[assignmentId]/page";
+import { TEAM_PROGRESS_TEXT, progressViewKind } from "@/features/crossword/results/view-model";
 import CrosswordLivePage from "@/app/teacher/crosswords/[puzzleId]/assignments/[assignmentId]/live/page";
 import CrosswordTeamsPage from "@/app/teacher/crosswords/[puzzleId]/assignments/[assignmentId]/teams/page";
 import { POST as savePOST } from "@/app/student/crosswords/[assignmentId]/api/save/route";
@@ -68,6 +71,7 @@ const studentRow: Record<string, string> = {};
 let puzzleId: string;
 let teamAssignment: string;
 let soloAssignment: string;
+let soloPuzzleId: string;
 
 async function ensureUser(p: SessionProfile) {
   const existing = await admin.auth.admin.getUserById(p.id);
@@ -120,7 +124,9 @@ beforeAll(async () => {
   const t = await publish("team");
   puzzleId = t.puzzleId;
   teamAssignment = t.assignmentId;
-  soloAssignment = (await publish("solo")).assignmentId;
+  const solo = await publish("solo");
+  soloAssignment = solo.assignmentId;
+  soloPuzzleId = solo.puzzleId;
 }, 120_000);
 
 afterEach(() => {
@@ -322,6 +328,60 @@ describe("help resolution (limited direct read of the open call id)", () => {
     as(owner);
     await expect(resolveTeamHelp(owner, soloAssignment, two)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await admin.from("crossword_team_help_requests").delete().eq("team_id", two);
+  });
+});
+
+describe("R2 B1-1: a teacher of another school", () => {
+  const otherSchool = { id: "00000000-0000-4000-8000-00000000006d", school_id: "00000000-0000-4000-8000-0000000000a2", role: "teacher" as const, display_name: "TT other school", status: "active" as const };
+
+  it("is refused on help resolution, team reads, team writes and the live view; the open call is untouched", async () => {
+    await ensureUser(otherSchool);
+    const two = await teamIdOf("2팀");
+    await admin.from("crossword_team_help_requests").insert({ team_id: two });
+    as(otherSchool);
+    expect(await resolveTeamHelpAction(undefined, form({ assignmentId: teamAssignment, teamId: two }))).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    await expect(getTeamSetup(otherSchool, teamAssignment)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await createTeamAction(undefined, form({ assignmentId: teamAssignment, label: "외부" }))).toMatchObject({ ok: false });
+    expect(await loadLiveViewAction({ puzzleId, assignmentId: teamAssignment })).toMatchObject({ ok: false });
+    await expect(CrosswordLivePage(params(teamAssignment))).rejects.toMatchObject(notFoundPage);
+    const { data: openCalls } = await admin.from("crossword_team_help_requests").select("id").eq("team_id", two).is("resolved_at", null);
+    expect(openCalls).toHaveLength(1);
+    await admin.from("crossword_team_help_requests").delete().eq("team_id", two);
+    await admin.from("profiles").delete().eq("id", otherSchool.id);
+  });
+});
+
+describe("R2 E: the TV-1 progress page for team assignments", () => {
+  const html = async (assignmentId: string, pid = puzzleId) =>
+    renderToStaticMarkup(await CrosswordProgressPage({ params: Promise.resolve({ puzzleId: pid, assignmentId }) }));
+
+  it("team mode with team play on: a notice, no per-student filled/total table", async () => {
+    as(owner);
+    const page = await html(teamAssignment);
+    expect(page).toContain('data-progress-view="team"');
+    expect(page).toContain(TEAM_PROGRESS_TEXT.team.split("'")[0]);
+    expect(page).not.toContain("<table");
+  });
+
+  it("team mode with team play off: an unavailable notice, no table, no team links", async () => {
+    process.env.COLLAB_PLAY_ENABLED = "false";
+    as(owner);
+    const page = await html(teamAssignment);
+    expect(page).toContain('data-progress-view="team_disabled"');
+    expect(page).toContain(TEAM_PROGRESS_TEXT.disabled);
+    expect(page).not.toContain("<table");
+    expect(page).not.toContain("/live");
+  });
+
+  it("individual mode: the existing progress table, unchanged", async () => {
+    as(owner);
+    const page = await html(soloAssignment, soloPuzzleId);
+    expect(page).toContain("<table");
+    expect(page).not.toContain("data-progress-view");
+    expect(progressViewKind("individual", true)).toBe("individual");
+    expect(progressViewKind("individual", false)).toBe("individual");
+    expect(progressViewKind("team", true)).toBe("team");
+    expect(progressViewKind("team", false)).toBe("team_disabled");
   });
 });
 

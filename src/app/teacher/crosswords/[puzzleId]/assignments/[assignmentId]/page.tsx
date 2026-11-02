@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CrosswordProgressTable } from "@/components/teacher/crossword-progress-table";
 import { CrosswordError } from "@/features/crossword/messages";
 import { getAssignmentProgress } from "@/features/crossword/results/service";
-import { PROGRESS_TEXT, whenText } from "@/features/crossword/results/view-model";
+import { PROGRESS_TEXT, TEAM_PROGRESS_TEXT, progressViewKind, whenText } from "@/features/crossword/results/view-model";
 import { getPuzzleDetail } from "@/features/crossword/review/service";
 import { isCollabPlayEnabled, isCrosswordPlayEnabled } from "@/lib/flags";
 import { requireTeacherAreaPage } from "@/lib/rbac/page-guard";
@@ -38,6 +38,8 @@ export default async function CrosswordProgressPage({ params }: PageProps) {
   const roomName = assignment.classroomName ?? "(학급)";
   const caption = `${found.puzzle.title} · ${roomName} ${PROGRESS_TEXT.title}`;
   const asOf = new Date().toISOString();
+  // Team mode: no per-student figures for a shared grid; with team play off, an "unavailable" notice (R2 E)
+  const kind = progressViewKind(assignment.playMode, isCollabPlayEnabled());
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-8">
@@ -77,7 +79,13 @@ export default async function CrosswordProgressPage({ params }: PageProps) {
         </Link>
       </p>
 
-      <CrosswordProgressTable rows={rows} caption={caption} />
+      {kind === "individual" ? (
+        <CrosswordProgressTable rows={rows} caption={caption} />
+      ) : (
+        <p role="status" data-progress-view={kind} className="rounded border border-slate-400 bg-slate-50 p-3 text-sm">
+          {kind === "team" ? TEAM_PROGRESS_TEXT.team : TEAM_PROGRESS_TEXT.disabled}
+        </p>
+      )}
     </main>
   );
 }

@@ -11,6 +11,24 @@ export const PROGRESS_STATE_LABEL: Record<ProgressState, { icon: string; text: s
   completed: { icon: "●", text: "완료" },
 };
 
+/**
+ * Which progress view the TV-1 page shows (R2 E). Individual: the per-student table as before. Team mode: the attempt is
+ * shared, so a per-student "filled / total" would show the team's grid as each student's own work; the page shows no
+ * per-student figures and sends the teacher to the in-class view (status only). Team mode with team play switched off:
+ * an "unavailable" notice, never a misleading table.
+ */
+export type ProgressViewKind = "individual" | "team" | "team_disabled";
+
+export function progressViewKind(playMode: "individual" | "team", collabEnabled: boolean): ProgressViewKind {
+  if (playMode === "individual") return "individual";
+  return collabEnabled ? "team" : "team_disabled";
+}
+
+export const TEAM_PROGRESS_TEXT = {
+  team: "팀 활동입니다. 팀이 함께 한 판을 풀기 때문에 학생별 진행 칸 수는 보여 주지 않아요. 학생별 상태는 '수업 중 보기'에서 볼 수 있어요.",
+  disabled: "팀 활동이 꺼져 있어 이 활동의 진행 상황을 보여 줄 수 없어요.",
+} as const;
+
 export const PROGRESS_TEXT = {
   title: "진행 상황",
   note: "학생이 입력한 글자와 정답은 이 화면에 표시되지 않습니다. 이 표는 자동으로 갱신되지 않으니 필요하면 새로고침하세요.",

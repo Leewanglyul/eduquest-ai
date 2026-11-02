@@ -60,7 +60,8 @@ export function buildLiveView(input: {
           teamId: t.teamId,
           label: t.label,
           state,
-          helpOpen: t.helpOpen,
+          // A completed team or a closed session has no active call: nothing to answer, no resolve control (R2 H)
+          helpOpen: t.helpOpen && state !== "completed" && session !== "closed",
           blocked: t.memberCount === 0 ? "no_members" : null,
           lastProgressAt: saved.length > 0 ? saved[saved.length - 1] : null,
           members,
