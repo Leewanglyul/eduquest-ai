@@ -1,7 +1,7 @@
 # Stage 1 Gate 3: Hosted Readiness Proposal (2026-11-03)
 
-Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3 approved (flag change
-only); E-4, E-5 and E-6 NOT approved.** Hosted Gate 3 execution is **not** approved. Documentation only: no flag change, no redeploy, no account
+Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3 approved and executed
+(flag rows only); E-4 approved as a fresh Git-triggered Preview; E-5 and E-6 NOT approved.** Hosted Gate 3 execution is **not** approved. Documentation only: no flag change, no redeploy, no account
 or data creation and no cleanup has been done. Each step needs its own approval (section E); no action implies the next.
 
 | Approval | State |
@@ -10,7 +10,7 @@ or data creation and no cleanup has been done. Each step needs its own approval 
 | E-1 Readiness document, including the Governance #6 cleanup plan | **approved** |
 | E-2 Acceptance read-only parity | **PASS WITH ADVISORY** (0, C.1) |
 | E-3 Flag change (branch-scoped Preview only) | **approved** (PM, 2026-11-03); execution recorded separately |
-| E-4 Preview redeploy | **not approved** |
+| E-4 Flags-ON deployment (revised: fresh Git-triggered branch Preview, D.1) | **approved** (PM, 2026-11-03); result recorded separately |
 | E-5 Hosted Gate 3 execution | **not approved** |
 | E-6 Cleanup | **not approved** |
 
@@ -181,14 +181,37 @@ so nothing is live until E-4.
 **E-3 partial failure:** if any of 3.1 to 3.3 fails, do **not** redeploy; restore OFF with the OFF commands below
 (both rows `false`), check 3.4, and stop for PM review.
 
-**E-4 redeploy (only after 3.4 is correct):**
+**E-3 executed (2026-11-03):** 3.1 to 3.4 done exactly as listed; both rows `true`, Preview, branch
+`m2/m2-1-content-pipeline` only (type Sensitive).
+
+**E-4 correction (PM, 2026-11-03).** The `vercel redeploy` procedure in 4.1 below is **SUPERSEDED** and was **never
+executed**. The first Flags-ON browser probes therefore ran against the old OFF deployment
+`dpl_CywQTDn3v8AXW2cBL2jAeV4b5yWh` (built before E-3); their 404 results are an **OFF-state confirmation, not a product
+failure**. Vercel applies environment-variable changes only to **new** deployments, and redeploying an existing
+deployment by id **may inherit the original deployment's captured environment** (REST reference, `deploymentId`:
+"All project settings and environment variables are inherited from the original unless explicitly overridden"). The
+approved replacement is a **fresh Git-triggered branch Preview**: push the unpushed documentation commits of this branch;
+the automatic Preview builds with the current branch-scoped rows. Its source SHA is the new documentation HEAD; the
+application code stays identical to `25cbd71` (the commits after it change this document only). E-5 and E-6 remain
+not approved.
+
+**E-4 redeploy (superseded, kept for the record; do not run):**
 
 | # | Command or check | Expected |
 |---|---|---|
-| 4.1 | `vercel redeploy https://eduquest-ai-pilot-8lgm77gqn-sonline-2.vercel.app --target preview --scope sonline-2` | a new Preview deployment of the same source with the new env |
+| ~~4.1~~ | ~~`vercel redeploy https://eduquest-ai-pilot-8lgm77gqn-sonline-2.vercel.app --target preview --scope sonline-2`~~ | **superseded:** may inherit the old OFF environment |
 | 4.2 | `vercel inspect <new url> --scope sonline-2` (+ `--logs`) | Ready; target preview; source commit `25cbd71`; alias `eduquest-ai-pilot-git-m2-m2-1-content-pipeline-sonline-2.vercel.app` on the new deployment |
 | 4.3 | `git ls-remote origin m2/m2-1-content-pipeline` | `25cbd71` (no code change) |
 | 4.4 | `vercel ls --environment production --scope sonline-2` | still `eduquest-ai-pilot-7jbihexvp`, unchanged age |
+
+**E-4 revised (approved):**
+
+| # | Step | Expected |
+|---|---|---|
+| 4R.1 | `git push origin m2/m2-1-content-pipeline` (the unpushed documentation commits only; no force, no tags) | remote head = the new documentation HEAD |
+| 4R.2 | `vercel ls` / `vercel inspect <new url> --logs` | a **new** deployment id; Ready; target Preview; branch `m2/m2-1-content-pipeline`; commit = the new HEAD; branch alias on it |
+| 4R.3 | `vercel env ls` (flag rows) | unchanged: one row each, Preview, this branch |
+| 4R.4 | `vercel ls --environment production` | still `eduquest-ai-pilot-7jbihexvp` |
 
 **Minimum Flags-ON safety probes** (PM's Vercel-signed-in browser, signed out of EduQuest; before any account or data):
 
@@ -211,7 +234,7 @@ Any other result: OFF Return at once, stop for PM review.
 | O-1 | `vercel env rm CROSSWORD_PLAY_ENABLED preview m2/m2-1-content-pipeline --yes --scope sonline-2`, then `vercel env add CROSSWORD_PLAY_ENABLED preview --git-branch m2/m2-1-content-pipeline --value false --scope sonline-2` |
 | O-2 | `vercel env rm COLLAB_PLAY_ENABLED preview m2/m2-1-content-pipeline --yes --scope sonline-2`, then `vercel env add COLLAB_PLAY_ENABLED preview --git-branch m2/m2-1-content-pipeline --value false --scope sonline-2` |
 | O-3 | `vercel env ls` (flag rows): both "Preview (m2/m2-1-content-pipeline)" only |
-| O-4 | `vercel redeploy <current branch deployment url> --target preview --scope sonline-2`; inspect: Ready, `25cbd71`, alias moved |
+| O-4 | **Corrected (2026-11-03):** a fresh Git-triggered branch Preview (push of a documentation commit recording the OFF state), **not** `vercel redeploy` (which may inherit the ON environment); inspect: new id, Ready, alias moved |
 | O-5 | PM browser: the five Flags-OFF checks (`/student/crosswords` 404, both sign-ins load, invalid team-state `NOT_FOUND`, invalid `/live` 404) |
 | O-6 | Production still `eduquest-ai-pilot-7jbihexvp`; deployment ids before and after recorded |
 
