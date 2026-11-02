@@ -321,6 +321,24 @@ skip clue, accept answer, random or heterogeneous grouping, QR join, audit event
 
 ---
 
+## 12. Decisions and approvals still required
+
+| # | Item | Type |
+|---|---|---|
+| AP-1 | ~~Implementation approval for this package (local only)~~ **Approved and complete** | done |
+| AP-2 | ~~Route placement and blocked-state rule~~ **Decided** (PD-1, PD-2, PD-3) | decided |
+| AP-3 | ~~Hardening-test amendment~~ **Decided** (PD-4) | decided |
+| AP-4 | ~~Live view refresh~~ **Decided** (PD-5) | decided |
+| AP-5 | Commit: **approved and created**. Push (automatic Preview deployment with flags OFF): **not approved** | push open |
+| AP-6 | G3-D5 precondition approval incl. Governance #6 (G3-P4) | approval |
+| AP-7 | Flag window and redeploy (F-1, F-2) | approvals |
+| AP-8 | OFF Return env change and redeploy (O-1, O-2) | approvals |
+| AP-9 | Test-data cleanup after Gate 3 | approval |
+| Open | Audit policy before real-student use (OD-9); data governance amendments before real students (OD-12) | governance |
+| OD-TP17 | Assignment close authority alignment (TPS 10.1): `/live` reuses the existing close unchanged for Gate 3; blocking before a real-student pilot | governance |
+
+---
+
 ## 13. Hosted Gate 3 protocol notes (R2 Part I, documentation only)
 
 | # | Note |
@@ -350,24 +368,6 @@ skip clue, accept answer, random or heterogeneous grouping, QR join, audit event
 | Individual STALE regression with team play on | closed | `crossword-team-board.test.ts` (R2 G) |
 | Help lifecycle (no active call when completed or closed; cooldown from server seconds) | closed | `teams/live.ts`, `team-board.ts` `teacherCallDeadline`; live and board tests |
 | Preview hostname cannot enable team play | closed | HP-10; `crossword-team-flags.test.ts` |
-
-## 12. Decisions and approvals still required
-
-| # | Item | Type |
-|---|---|---|
-| AP-1 | ~~Implementation approval for this package (local only)~~ **Approved and complete** | done |
-| AP-2 | ~~Route placement and blocked-state rule~~ **Decided** (PD-1, PD-2, PD-3) | decided |
-| AP-3 | ~~Hardening-test amendment~~ **Decided** (PD-4) | decided |
-| AP-4 | ~~Live view refresh~~ **Decided** (PD-5) | decided |
-| AP-5 | Commit: **approved and created**. Push (automatic Preview deployment with flags OFF): **not approved** | push open |
-| AP-6 | G3-D5 precondition approval incl. Governance #6 (G3-P4) | approval |
-| AP-7 | Flag window and redeploy (F-1, F-2) | approvals |
-| AP-8 | OFF Return env change and redeploy (O-1, O-2) | approvals |
-| AP-9 | Test-data cleanup after Gate 3 | approval |
-| Open | Audit policy before real-student use (OD-9); data governance amendments before real students (OD-12) | governance |
-| OD-TP17 | Assignment close authority alignment (TPS 10.1): `/live` reuses the existing close unchanged for Gate 3; blocking before a real-student pilot | governance |
-
----
 
 ## Appendix A. Board integration points (from the P3 implementation package, 2026-11-01)
 
@@ -409,7 +409,7 @@ Team mode only (`payload.team !== null`); individual mode is unchanged.
 
 ---
 
-## Change History
+## 15. Change History
 
 | Version | Date | Change |
 |---|---|---|
