@@ -1,8 +1,16 @@
 # Stage 1 Gate 3 Integrated Implementation Package (2026-11-02)
 
-Status: **PLANNING PACKAGE, registered 2026-11-02.** Planning direction approved by the PM (2026-11-02);
-**implementation is not approved yet** (AP-1). No application code, schema change, migration, route, flag change or
-deployment comes with this document.
+Status (updated 2026-11-03, R2 B0-1): **local implementation approved and complete; local code commits approved and
+created; push NOT approved; Hosted Gate 3 NOT approved.** This document itself changes no code, schema, migration,
+route, flag or deployment.
+
+| Step | State | Evidence |
+|---|---|---|
+| Planning direction | approved (PM, 2026-11-02) | commit `76481a4` |
+| Local implementation (AP-1) | **approved and complete** | L1 to L3 and TP-0; targeted 445/445, full Vitest 876/876, pgTAP 780/780 |
+| Local code commits (AP-5, commit part) | **approved and created** | `db9e058`, `d60055a`, `b9c7f95`; `7130ecd` recorded OD-TP17 in the Teacher Package Specification and in this package |
+| Push (AP-5, push part) | **not approved** | a push triggers an automatic Preview deployment, flags OFF |
+| Hosted Gate 3 (AP-6 to AP-9) | **not approved** | section 7, 8, 10 and 13 |
 
 Classification: **feature / implementation package** (level 3 of the [governance hierarchy](../governance/README.md)),
 not a governance document. Where it disagrees with a governance document, the governance document wins and the
@@ -110,7 +118,7 @@ migration.
 | teacher `assignStudentAction` / `unassignStudentAction` | `fn_crossword_team_assign` / `fn_crossword_team_unassign` | `TEAM_FULL`, `TEAM_STARTED`; late add to a started team allowed |
 | teacher teams page, live view | `fn_crossword_team_list` | team_id, label, started, member_count, under_min, help_open, students incl. unassigned |
 | teacher live view (student state, team last progress) | `fn_crossword_assignment_progress` (TV-1) | per-student state via attempt members; the team attempt's `last_saved_at` as the team-level last-progress time; **counts not shown in the live view** |
-| teacher `resolveHelpAction` | `fn_crossword_team_help_resolve` | idempotent |
+| teacher `resolveTeamHelpAction` | authorised `fn_crossword_team_list` → server-only open request-id lookup → `fn_crossword_team_help_resolve` | see 2.1 (R2 B0-2) |
 | teacher close | `closeAssignment` (built) | unchanged |
 
 **Blocked state (Gate 3 rule, computed in the teacher view model; PD-2):** operational conditions only: the
@@ -121,6 +129,23 @@ in team mode. No automatic learning-stuck inference.
 teacher. No threshold, no "inactive" label, no per-student timing, no judgement about a student (PKG I-2, OX-4 V4-3).
 
 ---
+
+### 2.1 Help-resolution contract (R2 B0-2)
+
+`resolveTeamHelpAction` → `resolveTeamHelp` in `src/features/crossword/results/team-help-resolution.ts` (server-only;
+Gate 3 contract-gap workaround approved by the PM on 2026-11-02, not a precedent):
+
+1. **Authorisation first:** the assignment-scoped `fn_crossword_team_list` runs with the session actor; the team must be
+   in its result. Assignment and team therefore come from authorised data; the browser sends only the assignment and
+   team ids it was shown, and never a request id.
+2. **Server-only lookup:** the admin client selects **only `id`** from `crossword_team_help_requests` for that team where
+   `resolved_at is null`, at most two rows. No student, no requester, no other column.
+3. **Result handling:** zero rows → `{ resolved: false }` (no-op, e.g. a colleague resolved it); one row → step 4; more
+   than one → controlled error `HELP_STATE_INVALID`, nothing changed.
+4. **Final authorisation:** `fn_crossword_team_help_resolve` checks the actor again (owner or co-teacher of the
+   assignment's classroom; school admin and other teachers refused).
+5. **Response:** `{ resolved: boolean }` only; the request id never reaches the browser.
+6. **Guard:** a hardening test allows a direct `.from("crossword_team_help_requests")` in this one file only.
 
 ## 3. Implementation steps
 
@@ -134,7 +159,7 @@ teacher. No threshold, no "inactive" label, no per-student timing, no judgement 
 | 6 | A + B | local team flow with two and three students against local Supabase | flow test green |
 | 7 | B | degradation cases (offline, 5xx, flag off mid-session, completion while typing) | degradation tests green |
 | 8 | all | full regression: vitest, tests/access, pgTAP (780), lint, typecheck, build | all green, no existing test modified except as listed in 4.2 |
-| 9 | - | report; commit only after approval; push only after approval (a push triggers an automatic Preview deployment, flags remain OFF) | PM decision |
+| 9 | - | report; local commits approved and created (`db9e058`, `d60055a`, `b9c7f95`, `7130ecd`); push only after a separate approval (a push triggers an automatic Preview deployment, flags remain OFF) | PM decision |
 
 ---
 
@@ -296,15 +321,45 @@ skip clue, accept answer, random or heterogeneous grouping, QR join, audit event
 
 ---
 
+## 13. Hosted Gate 3 protocol notes (R2 Part I, documentation only)
+
+| # | Note |
+|---|---|
+| HP-1 | Use **neutral team labels only** (1팀, 2팀 ...) during Hosted Gate 3 |
+| HP-2 | `/live` is teacher-only and **must not be projected** (OX-12) |
+| HP-3 | **Small-team anonymity is contextually limited:** in a team of 2 or 3, "다른 팀원이 수정했어요" or a help call can be attributed by the students in the room; the screens add nothing identifying, but the context can |
+| HP-4 | **Setup duration** (teacher creating teams, assigning students) is logged separately from C-10, which starts at assignment open |
+| HP-5 | Evidence order for regression: **clean local reset → pgTAP → Vitest** (pgTAP 00004 counts audit rows that Vitest persists) |
+| HP-6 | A **pre-reviewed puzzle** is required (OX-6); no puzzle is generated or reviewed during the run |
+| HP-7 | C-4 adds a **throttled-network observation** (slow connection on one profile) |
+| HP-8 | **Premature submit** (a member submits while teammates still type) is an observation item, not a failure |
+| HP-9 | **Real-student pilot blockers** (not Gate 3 blockers): a projection-safe live view, and Android Korean IME validation in team mode |
+| HP-10 | The team-play switch cannot be enabled on a Preview hostname by the local-host rule: the rule reads only the Supabase URL, which is hosted on Preview; only explicit `COLLAB_PLAY_ENABLED=true` with `CROSSWORD_PLAY_ENABLED=true` turns it on (test in `crossword-team-flags.test.ts`) |
+
+## 14. R2 review findings: closure status (Same-Session Red Team Review, R2; closure accepted by the PM 2026-11-03)
+
+| Finding | Closure | Where |
+|---|---|---|
+| B0-1 approval trail | closed | Status table at the top of this package |
+| B0-2 help-resolution contract | closed | 2.1 |
+| B1-1 help-resolution security (authorisation first, id-only read, cross-school and school-admin refusal, id never returned, final RPC check) | closed | 2.1; `crossword-team-teacher.test.ts`; help-table read guard in `crossword-hardening.test.ts` |
+| Poll / save ordering (stale poll below the acknowledged save revision ignored, no false notice) | closed | `team-board.ts` `decidePoll`; `crossword-team-board.test.ts` |
+| LOCKED_CELL recovery (state refreshed first, one attempt per refused batch, no silent discard) | closed | `team-board.ts` `makeLockedRecovery`, `save-queue.ts`; `crossword-team-save-queue.test.ts` |
+| TV-1 team-mode semantics (team: no per-student figures; collab off: unavailable; individual unchanged) | closed | `results/view-model.ts` `progressViewKind`, TV-1 page; `crossword-team-teacher.test.ts` |
+| Participation contract (`{ me, all }` only, absent before completion) | closed | `crossword-team-contract.test.ts` |
+| Individual STALE regression with team play on | closed | `crossword-team-board.test.ts` (R2 G) |
+| Help lifecycle (no active call when completed or closed; cooldown from server seconds) | closed | `teams/live.ts`, `team-board.ts` `teacherCallDeadline`; live and board tests |
+| Preview hostname cannot enable team play | closed | HP-10; `crossword-team-flags.test.ts` |
+
 ## 12. Decisions and approvals still required
 
 | # | Item | Type |
 |---|---|---|
-| AP-1 | Implementation approval for this package (local only) | approval |
+| AP-1 | ~~Implementation approval for this package (local only)~~ **Approved and complete** | done |
 | AP-2 | ~~Route placement and blocked-state rule~~ **Decided** (PD-1, PD-2, PD-3) | decided |
 | AP-3 | ~~Hardening-test amendment~~ **Decided** (PD-4) | decided |
 | AP-4 | ~~Live view refresh~~ **Decided** (PD-5) | decided |
-| AP-5 | Commit, then push (automatic Preview deployment with flags OFF) | approvals |
+| AP-5 | Commit: **approved and created**. Push (automatic Preview deployment with flags OFF): **not approved** | push open |
 | AP-6 | G3-D5 precondition approval incl. Governance #6 (G3-P4) | approval |
 | AP-7 | Flag window and redeploy (F-1, F-2) | approvals |
 | AP-8 | OFF Return env change and redeploy (O-1, O-2) | approvals |
@@ -359,3 +414,5 @@ Team mode only (`payload.team !== null`); individual mode is unchanged.
 | Version | Date | Change |
 |---|---|---|
 | 1 | 2026-11-02 | Registered from the planning package; PD-1 to PD-7 applied; appendices A and B reproduced from the P3 packages |
+| 2 | 2026-11-02 | OD-TP17 recorded (commit `7130ecd`) |
+| 3 | 2026-11-03 | R2 reconciliation: approval trail (B0-1), help-resolution contract 2.1 (B0-2), Hosted Gate 3 protocol notes section 13 |
