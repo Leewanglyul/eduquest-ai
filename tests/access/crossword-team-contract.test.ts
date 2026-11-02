@@ -237,8 +237,10 @@ describe("student routes: allow-listed shapes", () => {
   it("team-state: conditional fields, no uuid and no student data anywhere; a teammate's cell shows in otherKeys", async () => {
     as(s2);
     const p = (await call(stateGET as Handler, "state", teamAssignment)).json as unknown as PlayPayload;
-    const word = p.puzzle.words[0];
-    const key = `${word.row},${word.col}`;
+    // a cell that is not given (prefill is seed-based, so the first cell of a word may be prefilled)
+    const key = p.puzzle.words
+      .flatMap((w) => Array.from({ length: w.length }, (_, k) => `${w.row + (w.direction === "down" ? k : 0)},${w.col + (w.direction === "across" ? k : 0)}`))
+      .find((k) => p.given[k] === undefined)!;
     const saved = await call(savePOST as Handler, "save", teamAssignment, { patch: { [key]: "가" }, activeMs: 0 });
     expect(saved.status).toBe(200);
 
@@ -253,6 +255,10 @@ describe("student routes: allow-listed shapes", () => {
     const same = await call(teamStateGET as Handler, `team-state?known=${full.json.revision}`, teamAssignment);
     expect(Object.keys(same.json).sort()).toEqual(["changed", "helpOpen", "revision", "status", "used"]);
     expect(same.json.changed).toBe(false);
+    // R2 F: before completion there is no participation at all, in either answer shape
+    expect(full.json.status).toBe("in_progress");
+    expect(full.json).not.toHaveProperty("participation");
+    expect(same.json).not.toHaveProperty("participation");
 
     const bad = await call(teamStateGET as Handler, "team-state?known=abc", teamAssignment);
     expect(bad.status).toBe(400);
@@ -313,6 +319,24 @@ describe("completion while a teammate is typing (K-9)", () => {
     const ts = await call(teamStateGET as Handler, "team-state", teamAssignment);
     expect(ts.json.status).toBe("completed");
     expect(Object.keys(ts.json.participation as object).sort()).toEqual(["all", "me"]);
+  });
+});
+
+describe("R2 F: participation contract", () => {
+  it("a completed answer has exactly participation { me, all } as booleans: no array, count, id, name or writer", async () => {
+    as(s1);
+    const full = await call(teamStateGET as Handler, "team-state", teamAssignment);
+    const same = await call(teamStateGET as Handler, `team-state?known=${full.json.revision}`, teamAssignment);
+    expect(Object.keys(same.json).sort()).toEqual(["changed", "helpOpen", "participation", "revision", "status", "used"]);
+    const part = same.json.participation as Record<string, unknown>;
+    expect(Object.keys(part).sort()).toEqual(["all", "me"]);
+    expect(typeof part.me).toBe("boolean");
+    expect(typeof part.all).toBe("boolean");
+    expect(Array.isArray(part)).toBe(false);
+    for (const text of [full.text, same.text]) {
+      expect(text).not.toMatch(UUID);
+      expect(text).not.toMatch(/student|name|display|writer|credit|members|count/i);
+    }
   });
 });
 

@@ -49,7 +49,7 @@ import { PlayGrid } from "./play-grid";
 import { PlayTools } from "./play-tools";
 import { SaveIndicator, blockedText } from "./save-indicator";
 import { SaveQueue, type QueueSnapshot } from "./save-queue";
-import { checkWithOneRetry, decidePoll } from "./team-board";
+import { checkWithOneRetry, decidePoll, makeLockedRecovery, teacherCallDeadline } from "./team-board";
 import { TeamNotice } from "./team-notice";
 import { TeamPoller } from "./team-poller";
 import { useGridInput } from "./use-grid-input";
@@ -112,10 +112,12 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
         // K-5, team mode only: a refused save because a teammate revealed a cell drops that cell and sends the rest
         ...(payload.team
           ? {
-              recoverLocked: async () => {
-                await pollerRef.current?.pollNow();
-                return new Set(Object.keys(givenRef.current));
-              },
+              recoverLocked: makeLockedRecovery(
+                async () => {
+                  await pollerRef.current?.pollNow();
+                },
+                () => givenRef.current,
+              ),
             }
           : {}),
       }),
@@ -303,7 +305,13 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       composing: grid.isComposing() ? activeKeys.current : [], // K-2
       current: cellsRef.current,
       previous: snapshot.current,
+      acknowledged: queue.snapshot.revision,
     });
+    if (d.ignored) {
+      // read before this student's own save landed: apply nothing (no rollback, no notice); a completion still counts
+      if (d.completed) finishTeam(true);
+      return;
+    }
     teamRevision.current = Math.max(teamRevision.current, d.revision);
     setTeacherCallOpen(d.helpOpen);
     setLimits((l) => teamLimits(l, d.used));
@@ -385,8 +393,10 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       setMessage(PLAY_TEXT.callTeacherSent);
       return;
     }
-    if (r.kind === "rejected" && r.code === "HELP_COOLDOWN" && r.seconds !== undefined && r.seconds > 0) {
-      setCallWaitUntil(Date.now() + r.seconds * 1000);
+    if (r.kind === "rejected" && r.code === "HELP_COOLDOWN") {
+      // from the server's seconds only; a later refusal replaces the earlier deadline (R2 H)
+      const until = teacherCallDeadline(Date.now(), r.seconds);
+      if (until !== null) setCallWaitUntil(until);
     }
     fail(r);
   };

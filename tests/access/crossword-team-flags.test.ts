@@ -37,3 +37,13 @@ describe("isCollabPlayEnabled", () => {
     expect(isCrosswordPlayEnabled({ NEXT_PUBLIC_SUPABASE_URL: "not a url" })).toBe(false);
   });
 });
+
+describe("R2 I: a Preview deployment can never turn team play on by the local-host rule", () => {
+  it("the rule looks only at the Supabase URL, never at the app's hostname (VERCEL_URL, VERCEL_ENV)", () => {
+    const preview = { NEXT_PUBLIC_SUPABASE_URL: HOSTED, VERCEL_ENV: "preview", VERCEL_URL: "eduquest-ai-pilot-git-branch.vercel.app" };
+    expect(isCollabPlayEnabled(preview)).toBe(false);
+    expect(isCollabPlayEnabled({ ...preview, CROSSWORD_PLAY_ENABLED: "true" })).toBe(false); // collab still needs its own "true"
+    expect(isCollabPlayEnabled({ ...preview, VERCEL_URL: "localhost:3000" })).toBe(false); // a local-looking app host does not count
+    expect(isCollabPlayEnabled({ ...preview, CROSSWORD_PLAY_ENABLED: "true", COLLAB_PLAY_ENABLED: "true" })).toBe(true); // only the explicit window
+  });
+});

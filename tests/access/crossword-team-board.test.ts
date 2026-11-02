@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiResult } from "@/components/student/play-api";
-import { checkWithOneRetry, decidePoll } from "@/components/student/team-board";
+import { checkWithOneRetry, decidePoll, makeLockedRecovery, teacherCallDeadline } from "@/components/student/team-board";
 import type { TeamState } from "@/features/crossword/play/types";
 
 // M2-3.4 P3 L3: the board's team-mode decisions (the board calls exactly these functions).
@@ -12,12 +12,12 @@ const none = new Map<string, string | null>();
 
 describe("decidePoll: applying one team-state answer", () => {
   it("an unchanged answer moves only revision, help state and shared counters", () => {
-    const d = decidePoll({ state: st({ helpOpen: true }), unconfirmed: none, composing: [], current: { "0,0": "사" }, previous: null });
-    expect(d).toEqual({ revision: 4, helpOpen: true, used, completed: false });
+    const d = decidePoll({ acknowledged: 0, state: st({ helpOpen: true }), unconfirmed: none, composing: [], current: { "0,0": "사" }, previous: null });
+    expect(d).toEqual({ revision: 4, helpOpen: true, used, completed: false, ignored: false });
   });
 
   it("merge: server cells, then this student's unconfirmed cells, then the composing word kept as shown", () => {
-    const d = decidePoll({
+    const d = decidePoll({ acknowledged: 0,
       state: st({ changed: true, cells: { "0,0": "사", "0,1": "과", "1,1": "일" }, given: {}, otherKeys: ["1,1"] }),
       unconfirmed: new Map<string, string | null>([["0,1", "고"]]),
       composing: ["1,1", "1,2"],
@@ -29,14 +29,14 @@ describe("decidePoll: applying one team-state answer", () => {
 
   it("IME protection: a teammate's letter in the cell being composed waits until composition ends", () => {
     const state = st({ changed: true, cells: { "1,1": "일" }, given: {}, otherKeys: ["1,1"] });
-    const composing = decidePoll({ state, unconfirmed: none, composing: ["1,1"], current: {}, previous: null });
+    const composing = decidePoll({ acknowledged: 0, state, unconfirmed: none, composing: ["1,1"], current: {}, previous: null });
     expect(composing.grid?.cells).toEqual({});
-    const after = decidePoll({ state, unconfirmed: none, composing: [], current: {}, previous: null });
+    const after = decidePoll({ acknowledged: 0, state, unconfirmed: none, composing: [], current: {}, previous: null });
     expect(after.grid?.cells).toEqual({ "1,1": "일" });
   });
 
   it("revealed cells: unconfirmed cells that became given are discarded and never shown as typed", () => {
-    const d = decidePoll({
+    const d = decidePoll({ acknowledged: 0,
       state: st({ changed: true, cells: {}, given: { "0,1": "과" }, otherKeys: [] }),
       unconfirmed: new Map<string, string | null>([["0,1", "고"], ["0,0", "사"]]),
       composing: [],
@@ -50,17 +50,17 @@ describe("decidePoll: applying one team-state answer", () => {
 
   it("teammate notice: only for a real remote change to a cell this student wrote", () => {
     const previous = { cells: { "0,0": "사" }, otherKeys: [] };
-    const remote = decidePoll({
+    const remote = decidePoll({ acknowledged: 0,
       state: st({ changed: true, cells: { "0,0": "새" }, given: {}, otherKeys: ["0,0"] }),
       unconfirmed: none, composing: [], current: { "0,0": "사" }, previous,
     });
     expect(remote.grid?.teammateChanged).toBe(true);
-    const ownSave = decidePoll({
+    const ownSave = decidePoll({ acknowledged: 0,
       state: st({ changed: true, cells: { "0,0": "새" }, given: {}, otherKeys: [] }),
       unconfirmed: none, composing: [], current: { "0,0": "새" }, previous,
     });
     expect(ownSave.grid?.teammateChanged).toBe(false);
-    const first = decidePoll({
+    const first = decidePoll({ acknowledged: 0,
       state: st({ changed: true, cells: { "0,0": "새" }, given: {}, otherKeys: ["0,0"] }),
       unconfirmed: none, composing: [], current: {}, previous: null,
     });
@@ -68,7 +68,7 @@ describe("decidePoll: applying one team-state answer", () => {
   });
 
   it("completed is reported so the board freezes", () => {
-    expect(decidePoll({ state: st({ status: "completed" }), unconfirmed: none, composing: [], current: {}, previous: null }).completed).toBe(true);
+    expect(decidePoll({ acknowledged: 0, state: st({ status: "completed" }), unconfirmed: none, composing: [], current: {}, previous: null }).completed).toBe(true);
   });
 });
 
@@ -114,5 +114,76 @@ describe("checkWithOneRetry (K-6, P3-D6)", () => {
     const limit: R = { ok: false, kind: "rejected", code: "CHECK_LIMIT", status: 403 };
     expect(await run([limit]).result).toEqual(limit);
     expect(await run([{ ok: false, kind: "offline" }]).result).toEqual({ ok: false, kind: "offline" });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// R2 findings (2026-11-03)
+// ---------------------------------------------------------------------------------------------------------------
+
+describe("R2 C: a poll answer older than this student's acknowledged save is ignored", () => {
+  it("poll for revision 10 in flight, save acknowledged 11, poll 10 arrives: ignored, no rollback, no notice", () => {
+    // before: the student typed 0,0 = 새, the save was acknowledged at revision 11 (queue empty again)
+    const previous = { cells: { "0,0": "사" }, otherKeys: [] };
+    const late = decidePoll({
+      acknowledged: 11,
+      state: st({ revision: 10, changed: true, cells: { "0,0": "사" }, given: {}, otherKeys: ["0,0"] }),
+      unconfirmed: none,
+      composing: [],
+      current: { "0,0": "새" },
+      previous,
+    });
+    expect(late.ignored).toBe(true);
+    expect(late.grid).toBeUndefined(); // nothing to apply: the screen keeps 새
+    // the next answer at 11 or above is applied normally
+    const fresh = decidePoll({
+      acknowledged: 11,
+      state: st({ revision: 11, changed: true, cells: { "0,0": "새" }, given: {}, otherKeys: [] }),
+      unconfirmed: none,
+      composing: [],
+      current: { "0,0": "새" },
+      previous,
+    });
+    expect(fresh.ignored).toBe(false);
+    expect(fresh.grid?.cells).toEqual({ "0,0": "새" });
+    expect(fresh.grid?.teammateChanged).toBe(false);
+  });
+
+  it("an ignored answer still reports a completion", () => {
+    expect(decidePoll({ acknowledged: 9, state: st({ revision: 8, status: "completed" }), unconfirmed: none, composing: [], current: {}, previous: null })).toMatchObject({ ignored: true, completed: true });
+  });
+});
+
+describe("R2 D: LOCKED_CELL recovery reads the current team state first", () => {
+  it("polls before reading given, so a stale given copy is never used", async () => {
+    let given: Record<string, string> = {}; // stale: the teammate's reveal is not known yet
+    const order: string[] = [];
+    const recover = makeLockedRecovery(
+      async () => { order.push("poll"); given = { "0,1": "과" }; },
+      () => { order.push("read"); return given; },
+    );
+    expect([...(await recover())]).toEqual(["0,1"]);
+    expect(order).toEqual(["poll", "read"]);
+  });
+});
+
+describe("R2 H: the teacher-call wait comes from the server's seconds", () => {
+  it("starts from retryAfterSeconds, and a later refusal replaces it with the server's new value", () => {
+    expect(teacherCallDeadline(1_000, 42)).toBe(43_000);
+    expect(teacherCallDeadline(50_000, 7)).toBe(57_000); // resynchronised, not added to the old one
+    expect(teacherCallDeadline(1_000, undefined)).toBeNull(); // no server value: no invented countdown
+    expect(teacherCallDeadline(1_000, 0)).toBeNull();
+  });
+});
+
+describe("R2 G: individual assignment with team play ON keeps the individual STALE path", () => {
+  it("team = false (an individual payload never has `team`, even with the switch on): no poll, no retry, the STALE goes to the reload path", async () => {
+    const STALE: ApiResult<{ ok: true }> = { ok: false, kind: "rejected", code: "STALE", status: 409 };
+    const check = vi.fn(async () => STALE);
+    const pollNow = vi.fn(async () => {});
+    const r = await checkWithOneRetry({ team: false, check, firstRevision: 1, pollNow, nextRevision: async () => 2, stillOpen: () => true });
+    expect(r).toBe(STALE);
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(pollNow).not.toHaveBeenCalled();
   });
 });

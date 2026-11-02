@@ -219,3 +219,48 @@ describe("individual mode (no recoverLocked) is unchanged", () => {
     expect(t.queue.unconfirmed().size).toBe(0);
   });
 });
+
+describe("R2 D: LOCKED_CELL recovery is bounded to one attempt per refused batch", () => {
+  it("a second LOCKED_CELL on the resend does not loop: the queue blocks and keeps the unknown cells", async () => {
+    const recoverLocked = vi.fn(async () => new Set(["0,1"]));
+    const t = setup({ recoverLocked });
+    t.script({ kind: "rejected", code: "LOCKED_CELL" }, { kind: "rejected", code: "LOCKED_CELL" });
+    t.queue.setCell("0,0", "사");
+    t.queue.setCell("0,1", "과");
+    t.queue.flushNow();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(recoverLocked).toHaveBeenCalledTimes(1);
+    expect(t.sent).toHaveLength(2);
+    expect(t.sent[1].patch).toEqual({ "0,0": "사" });
+    expect(t.last().blocked).toBe("LOCKED_CELL");
+    expect(t.queue.unconfirmed().get("0,0")).toBe("사"); // not silently discarded
+  });
+
+  it("a key the recovery does not report as given is never dropped", async () => {
+    const t = setup({ recoverLocked: async () => new Set(["0,1"]) });
+    t.script({ kind: "rejected", code: "LOCKED_CELL" });
+    t.queue.setCell("0,0", "사");
+    t.queue.setCell("0,1", "과");
+    t.queue.flushNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.sent[1].patch).toEqual({ "0,0": "사" });
+  });
+
+  it("after a successful save the next refused batch may recover once again", async () => {
+    const recoverLocked = vi.fn(async () => new Set(["0,1", "1,1"]));
+    const t = setup({ recoverLocked });
+    t.script({ kind: "rejected", code: "LOCKED_CELL" }); // batch 1: recovered, resend succeeds
+    t.queue.setCell("0,0", "사");
+    t.queue.setCell("0,1", "과");
+    t.queue.flushNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.last().blocked).toBeNull();
+    t.script({ kind: "rejected", code: "LOCKED_CELL" }); // batch 2: a new refusal, recovered again
+    t.queue.setCell("1,1", "일");
+    t.queue.setCell("1,2", "기");
+    t.queue.flushNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(recoverLocked).toHaveBeenCalledTimes(2);
+    expect(t.last().blocked).toBeNull();
+  });
+});

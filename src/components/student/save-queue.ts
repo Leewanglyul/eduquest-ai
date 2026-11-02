@@ -69,6 +69,8 @@ export class SaveQueue {
   private dirty = new Map<string, string | null>();
   private sending: Record<string, string | null> = {};
   private frozen = false;
+  /** One automatic LOCKED_CELL recovery per refused batch: a second refusal of the resend blocks (R2 D). */
+  private recovered = false;
   private activeMs = 0;
   private revision: number;
   private inFlight = false;
@@ -205,6 +207,7 @@ export class SaveQueue {
     }
 
     if (outcome.kind === "ok") {
+      this.recovered = false;
       this.activeMs = Math.max(0, this.activeMs - activeMs);
       this.revision = Math.max(this.revision, outcome.revision);
       this.failures = 0;
@@ -219,7 +222,7 @@ export class SaveQueue {
     for (const [k, v] of Object.entries(patch)) if (!this.dirty.has(k)) this.dirty.set(k, v);
 
     if (outcome.kind === "rejected") {
-      if (outcome.code === "LOCKED_CELL" && this.recoverLocked && (await this.dropLocked(Object.keys(patch)))) return;
+      if (outcome.code === "LOCKED_CELL" && this.recoverLocked && !this.recovered && (await this.dropLocked(Object.keys(patch)))) return;
       this.blocked = outcome.code ?? "UNKNOWN";
       this.changed();
       this.settle(false);
@@ -247,6 +250,7 @@ export class SaveQueue {
     this.inFlight = false;
     const dropped = keys.filter((k) => locked.has(k));
     if (dropped.length === 0) return false;
+    this.recovered = true;
     for (const k of dropped) this.dirty.delete(k);
     this.changed();
     if (this.dirty.size > 0) this.schedule(0);
