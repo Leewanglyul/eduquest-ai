@@ -2,7 +2,7 @@
  * Pure cell helpers for the play board: keys, the cells of a word, character rules, progress and navigation.
  * No DOM, no database, no answers.
  */
-import type { CellKey, Direction, PlayWord } from "./types";
+import type { CellKey, CrosswordInputMode, Direction, PlayWord } from "./types";
 
 export const cellKey = (row: number, col: number): CellKey => `${row},${col}`;
 
@@ -38,7 +38,7 @@ export function wordsAt(words: readonly PlayWord[], key: CellKey): PlayWord[] {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-// Characters (the same rule as the SQL save function: one NFC [가-힣A-Z0-9])
+// Characters (the same rule as the SQL save function: one NFC [가-힣] in a "hangul" puzzle, [가-힣A-Z0-9] in a "mixed" one)
 // ---------------------------------------------------------------------------------------------------------
 
 const ZERO_WIDTH_SPACE = /​/g;
@@ -48,8 +48,9 @@ export function normalizeTyped(raw: string): string {
   return raw.replace(ZERO_WIDTH_SPACE, "").normalize("NFC").replace(/[a-z]/g, (c) => c.toUpperCase());
 }
 
-/** True for exactly one finished syllable, one upper-case Latin letter or one digit. */
-export const isValidCellChar = (ch: string): boolean => /^[가-힣A-Z0-9]$/.test(ch);
+/** True for exactly one finished syllable; in a "mixed" puzzle also one upper-case Latin letter or one digit. */
+export const isValidCellChar = (ch: string, mode: CrosswordInputMode = "mixed"): boolean =>
+  (mode === "hangul" ? /^[가-힣]$/ : /^[가-힣A-Z0-9]$/).test(ch);
 
 /** A lone jamo (a syllable that was not finished). */
 export const isLoneJamo = (ch: string): boolean => /^[ᄀ-ᇿ㄰-㆏ꥠ-꥿ힰ-퟿]$/.test(ch);

@@ -10,6 +10,13 @@ export type Direction = "across" | "down";
 /** "row,col", zero-based, the key used in cells, prefill_keys and revealed_keys. */
 export type CellKey = string;
 
+/**
+ * Which characters a cell takes, for the whole puzzle (PLAY-E5-1): "hangul" when every cell of the puzzle is a complete
+ * Hangul syllable, otherwise "mixed". Derived on the server (fn_crossword_play_input_mode); one word per puzzle, never
+ * per cell, so it says nothing about any one cell.
+ */
+export type CrosswordInputMode = "hangul" | "mixed";
+
 export type PlayWord = {
   number: number;
   direction: Direction;
@@ -42,7 +49,7 @@ export type PlayPayload = {
   v: 1;
   assignmentId: string;
   attempt: { status: AttemptStatus; revision: number };
-  puzzle: { title: string; rows: number; cols: number; words: PlayWord[] };
+  puzzle: { title: string; rows: number; cols: number; words: PlayWord[]; inputMode: CrosswordInputMode };
   /** Letters the student was given: prefilled and revealed cells. */
   given: Record<CellKey, string>;
   /** The student's own typed letters. */

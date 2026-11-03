@@ -23,7 +23,7 @@ const WORDS: PlayWord[] = [W(1, "across", 0, 0, 2), W(2, "down", 0, 1, 2)];
 const LIMITS: PlayLimits = { checkMode: "anytime", checksAllowed: 5, checksRemaining: 3, revealsAllowed: 2, revealsRemaining: 1, chosungAllowed: true };
 const payload = (over: Partial<PlayPayload> = {}): PlayPayload => ({
   v: 1, assignmentId: "a1", attempt: { status: "in_progress", revision: 3 },
-  puzzle: { title: "광합성 퍼즐", rows: 2, cols: 2, words: WORDS }, given: {}, cells: {}, limits: LIMITS, readonly: false, closesAt: null, ...over,
+  puzzle: { title: "광합성 퍼즐", rows: 2, cols: 2, words: WORDS, inputMode: "hangul" }, given: {}, cells: {}, limits: LIMITS, readonly: false, closesAt: null, ...over,
 });
 const row = (over: Partial<PlayableRow>): PlayableRow => ({
   assignmentId: "a1", puzzleId: "p1", title: "광합성 퍼즐", classroomId: "c1", classroomName: "1반", level: "normal", wordCount: 12, totalCells: 40,

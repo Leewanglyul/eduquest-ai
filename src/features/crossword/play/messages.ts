@@ -3,7 +3,7 @@
  * extended. Rules (pinned by tests): nothing here sounds like a score, a penalty or a comparison, and no message
  * can carry an answer or a letter of the key.
  */
-import { PLAY_ERROR_CODES, type PlayErrorCode } from "./types";
+import { PLAY_ERROR_CODES, type CrosswordInputMode, type PlayErrorCode } from "./types";
 
 export const PLAY_ERROR_PREFIX = "CROSSWORD_PLAY_";
 
@@ -81,6 +81,8 @@ export const PLAY_TEXT = {
   saveOffline: "오프라인 · 아직 저장되지 않았어요",
   saveOfflineHelp: "연결되면 자동으로 저장돼요. 이 화면을 닫지 마세요.",
   composing: "조합 중",
+  /** A character the puzzle does not take (PLAY-E5-1): a lone jamo keeps BAD_CHAR's "글자를 완성해 주세요.". */
+  invalidChar: (mode: CrosswordInputMode) => (mode === "hangul" ? "한글 한 글자를 입력해 주세요." : "그 글자는 쓸 수 없어요."),
   // Team play (P3). Neutral and positive only: never a name, a count of another student or a ranking (E-3, P3-D4).
   teamHeading: (label: string, members: number) => `${label} · ${members}명`,
   teamListTag: "팀 활동",
@@ -88,6 +90,8 @@ export const PLAY_TEXT = {
   teamWaitingHelp: "선생님이 팀을 정해 주면 시작할 수 있어요.",
   teammateChanged: "다른 팀원이 수정했어요",
   checkBusy: "팀원이 입력 중이에요. 잠시 후 다시 확인해 보세요.",
+  /** Team polling failed three times in a row (network, server or applying an answer); cleared by the next success. */
+  teamSyncDegraded: "팀 화면을 맞추는 중이에요",
   teamCompleted: "우리 팀이 퍼즐을 완성했어요!",
   callTeacher: "선생님 부르기",
   callTeacherOpen: "도움 요청 중",

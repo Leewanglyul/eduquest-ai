@@ -199,7 +199,10 @@ describe("list, open, resume", () => {
     as(stu1);
     const p = await startOrResume(studentRow[stu1.id], normal.assignmentId);
     expect(Object.keys(p).sort()).toEqual(["assignmentId", "attempt", "cells", "closesAt", "given", "limits", "puzzle", "readonly", "v"]);
-    expect(Object.keys(p.puzzle).sort()).toEqual(["cols", "rows", "title", "words"]);
+    expect(Object.keys(p.puzzle).sort()).toEqual(["cols", "inputMode", "rows", "title", "words"]);
+    // PLAY-E5-1: one word for the whole puzzle, never a letter, a cell key or a per-cell mode
+    expect(["hangul", "mixed"]).toContain(p.puzzle.inputMode);
+    expect(normal.answers.every((a) => /^[가-힣]+$/.test(a)) ? "hangul" : "mixed").toBe(p.puzzle.inputMode);
     for (const w of p.puzzle.words) expect(Object.keys(w).sort()).toEqual(["clue", "col", "direction", "length", "number", "row", "single"]);
     const text = JSON.stringify(p);
     const keys = keysDeep(p).join(" ");
@@ -247,12 +250,20 @@ describe("save, resume, merge", () => {
       [{ [open[0]]: "ㅅ" }, "BAD_CHAR"],
       [{ [open[0]]: "a" }, "BAD_CHAR"],
       [{ [open[0]]: "사과" }, "BAD_CHAR"],
+      // PLAY-E5-1: this puzzle is all Hangul, so latin letters and digits are refused by the server too
+      [{ [open[0]]: "H" }, "BAD_CHAR"],
+      [{ [open[0]]: "R" }, "BAD_CHAR"],
+      [{ [open[0]]: "7" }, "BAD_CHAR"],
+      [{ [open[0]]: normal.key[open[0]], [open[1]]: "H" }, "BAD_CHAR"],
       [{ [Object.keys(before.given)[0] ?? "x"]: "가" }, Object.keys(before.given).length ? "LOCKED_CELL" : "BAD_REQUEST"],
     ] as [Record<string, string>, string][]) {
       const r = await call("save", normal.assignmentId, { patch, activeMs: 0 });
       expect(r.json.error, JSON.stringify(patch)).toBe(error);
     }
-    expect((await stateOf(normal.assignmentId)).cells).toEqual(before.cells);
+    const after = await stateOf(normal.assignmentId);
+    expect(after.cells).toEqual(before.cells);
+    expect(after.attempt.revision).toBe(before.attempt.revision);
+    expect(before.puzzle.inputMode).toBe("hangul");
   });
 
   it("a second student's save only ever touches that student's own attempt", async () => {

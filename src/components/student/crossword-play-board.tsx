@@ -16,6 +16,7 @@ import { selectionAnnouncement } from "@/features/crossword/play/a11y";
 import {
   allFilled,
   firstOpenCell,
+  isLoneJamo,
   isValidCellChar,
   moveSelection,
   normalizeTyped,
@@ -49,9 +50,9 @@ import { PlayGrid } from "./play-grid";
 import { PlayTools } from "./play-tools";
 import { SaveIndicator, blockedText } from "./save-indicator";
 import { SaveQueue, type QueueSnapshot } from "./save-queue";
-import { checkWithOneRetry, decidePoll, makeLockedRecovery, teacherCallDeadline } from "./team-board";
-import { TeamNotice } from "./team-notice";
-import { TeamPoller } from "./team-poller";
+import { applyResultOf, checkWithOneRetry, decidePoll, makeLockedRecovery, teacherCallDeadline } from "./team-board";
+import { TeamNotice, TeamSyncNotice } from "./team-notice";
+import { TeamPoller, type ApplyResult } from "./team-poller";
 import { useGridInput } from "./use-grid-input";
 
 export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
@@ -90,6 +91,8 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   const [callWaitUntil, setCallWaitUntil] = useState<number | null>(null);
   const [callWaitLeft, setCallWaitLeft] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ text: string | null; stamp: number }>({ text: null, stamp: 0 });
+  /** Three team polls in a row failed (network, server or applying): the neutral "팀 화면을 맞추는 중이에요". */
+  const [syncDegraded, setSyncDegraded] = useState(false);
   const pollerRef = useRef<TeamPoller | null>(null);
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
@@ -100,6 +103,8 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   /** Revision of the last team-state answer (the poller's known revision). Only team-state moves it. */
   const teamRevision = useRef(payload.attempt.revision);
   const snapshot = useRef<TeamSnapshot | null>(null);
+  /** Gate 3 C-4: a poll answer was only partly applied (cells held for a composition); resync once it ends. */
+  const resyncNeeded = useRef(false);
   const finished = useRef(false);
   const momentShown = useRef(false);
 
@@ -161,11 +166,11 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
         } else if (it.kind === "select") {
           setSel({ key: keys[it.index], direction: dirRef.current });
         } else if (it.kind === "reject") {
-          setMessage(it.reason === "jamo" ? PLAY_ERROR_MESSAGES.BAD_CHAR : "그 글자는 쓸 수 없어요.");
+          setMessage(it.reason === "jamo" ? PLAY_ERROR_MESSAGES.BAD_CHAR : PLAY_TEXT.invalidChar(puzzle.inputMode));
         }
       }
     },
-    [queue],
+    [queue, puzzle.inputMode],
   );
 
   // Device validation aid: open the board with ?imetrace=1 to record the IME events and download them (doc 09).
@@ -183,6 +188,15 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
           setTraceCount(trace.size);
         }
       : undefined,
+    {
+      inputMode: puzzle.inputMode,
+      // Gate 3 C-4: the composition that held cells has ended; fetch the whole grid so no stale cell stays on screen
+      onSettled: () => {
+        if (!resyncNeeded.current || !pollerRef.current) return;
+        resyncNeeded.current = false;
+        void pollerRef.current.resync();
+      },
+    },
   );
 
   // ---- keep the controller pointed at the selected word ---------------------------------------------------------
@@ -297,8 +311,8 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     });
   };
 
-  const applyTeamState = (s: TeamState) => {
-    if (finished.current) return;
+  const applyTeamState = (s: TeamState): ApplyResult => {
+    if (finished.current) return "applied";
     const d = decidePoll({
       state: s,
       unconfirmed: queue.unconfirmed(),
@@ -308,9 +322,10 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       acknowledged: queue.snapshot.revision,
     });
     if (d.ignored) {
-      // read before this student's own save landed: apply nothing (no rollback, no notice); a completion still counts
+      // read before this student's own save landed: apply nothing (no rollback, no notice); a completion still counts.
+      // "skipped": the poller asks for the whole grid at once.
       if (d.completed) finishTeam(true);
-      return;
+      return applyResultOf(d);
     }
     teamRevision.current = Math.max(teamRevision.current, d.revision);
     setTeacherCallOpen(d.helpOpen);
@@ -330,8 +345,11 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       });
       if (g.teammateChanged) setNotice((n) => ({ text: PLAY_TEXT.teammateChanged, stamp: n.stamp + 1 })); // K-4, D9
       mirrorWord(g.cells, g.given);
+      // "partial": cells were held for the open composition; resync when it ends (onSettled)
+      if (g.held.length > 0) resyncNeeded.current = true;
     }
     if (d.completed) finishTeam(true);
+    return applyResultOf(d);
   };
   const applyRef = useRef(applyTeamState);
   applyRef.current = applyTeamState;
@@ -342,6 +360,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       fetchState: makeTeamStateFetcher(assignmentId),
       onState: (s) => applyRef.current(s),
       onStop: (code) => setMessage(playMessage(code)),
+      onHealth: setSyncDegraded,
       // null: the first poll returns the whole grid, so later teammate changes can be told apart (K-4)
       initialKnown: null,
     });
@@ -521,7 +540,8 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
     if (!word || readOnly) return;
     const keys = wordCells(word);
     const chars = Array.from(normalizeTyped(wordText));
-    if (chars.some((c) => !isValidCellChar(c))) return setMessage(PLAY_ERROR_MESSAGES.BAD_CHAR);
+    const bad = chars.find((c) => !isValidCellChar(c, puzzle.inputMode));
+    if (bad !== undefined) return setMessage(isLoneJamo(bad) ? PLAY_ERROR_MESSAGES.BAD_CHAR : PLAY_TEXT.invalidChar(puzzle.inputMode));
     const open = keys.filter((k) => !given[k]);
     const writes = chars.slice(0, open.length).map((c, i) => [open[i], c] as const);
     setCells((prev) => ({ ...prev, ...Object.fromEntries(writes) }));
@@ -658,6 +678,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
             {message}
           </p>
           {team ? <TeamNotice text={notice.text} stamp={notice.stamp} /> : null}
+          {team ? <TeamSyncNotice degraded={syncDegraded} text={PLAY_TEXT.teamSyncDegraded} /> : null}
           <p className="sr-only" role="status" aria-live="polite">
             {announcement}
           </p>

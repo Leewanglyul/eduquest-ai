@@ -12,24 +12,43 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { ClipboardEvent, CompositionEvent, FormEvent, KeyboardEvent } from "react";
 import { ImeController, type ImeEvent, type ImeWord, type Intent } from "@/features/crossword/play/ime/controller";
+import type { CrosswordInputMode } from "@/features/crossword/play/types";
 import type { TraceEvent } from "./ime-trace";
 
-export function useGridInput(onIntents: (intents: Intent[]) => void, onTrace?: (event: TraceEvent) => void) {
-  const controller = useMemo(() => new ImeController(), []);
+export type GridInputOptions = {
+  /** The puzzle's input mode (PLAY-E5-1); fixed for the life of the board. */
+  inputMode?: CrosswordInputMode;
+  /** Called after every event and flush, once the controller has handled it, while no composition is open. */
+  onSettled?: () => void;
+};
+
+export function useGridInput(
+  onIntents: (intents: Intent[]) => void,
+  onTrace?: (event: TraceEvent) => void,
+  options: GridInputOptions = {},
+) {
+  const inputMode = options.inputMode;
+  const controller = useMemo(() => new ImeController(undefined, { inputMode }), [inputMode]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const emitRef = useRef(onIntents);
   emitRef.current = onIntents;
   const traceRef = useRef(onTrace);
   traceRef.current = onTrace;
+  const settledRef = useRef(options.onSettled);
+  settledRef.current = options.onSettled;
+  const settle = useCallback(() => {
+    if (!controller.state.composing) settledRef.current?.();
+  }, [controller]);
 
   const run = useCallback(
     (event: ImeEvent): Intent[] => {
       traceRef.current?.(event);
       const intents = controller.handle(event);
       if (intents.length > 0) emitRef.current(intents);
+      settle();
       return intents;
     },
-    [controller],
+    [controller, settle],
   );
 
   /** R2: reset the input value later, but only if no composition is open when the reset runs. */
@@ -99,6 +118,7 @@ export function useGridInput(onIntents: (intents: Intent[]) => void, onTrace?: (
       traceRef.current?.({ type: "flush" });
       const intents = controller.flush();
       if (intents.length > 0) emitRef.current(intents);
+      settle();
       return intents;
     },
     isComposing: () => controller.state.composing,

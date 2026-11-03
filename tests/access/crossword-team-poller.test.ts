@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TeamPoller, type PollOutcome } from "@/components/student/team-poller";
+import { TeamPoller, type ApplyResult, type PollOutcome } from "@/components/student/team-poller";
 import type { TeamState } from "@/features/crossword/play/types";
 
 // M2-3.4 P3 checkpoint: TeamPoller cadence and rules (P3-D3, readiness section 2), with a fake fetch and fake timers.
@@ -23,7 +23,7 @@ function setup(initialKnown: number | null = 0) {
     if (hold) await new Promise<void>((resolve) => { gate = resolve; });
     return outcomes.shift() ?? { kind: "ok", state: state(revision) };
   });
-  const poller = new TeamPoller({ fetchState, onState: (s) => seen.push(s), onStop: (c) => stops.push(c), initialKnown });
+  const poller = new TeamPoller({ fetchState, onState: (s) => { seen.push(s); return "applied"; }, onStop: (c) => stops.push(c), initialKnown });
   return {
     poller, calls, seen, stops,
     script: (...o: PollOutcome[]) => { outcomes = o; },
@@ -158,6 +158,170 @@ describe("known revision", () => {
     t.script({ kind: "offline" });
     await t.poller.pollNow();
     expect(t.poller.known).toBe(7); // a failed poll does not move it
+    t.poller.dispose();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Gate 3 C-4 (2026-11-03): the known revision means "the board fully applied it", not "the answer arrived"
+// ---------------------------------------------------------------------------------------------------------------
+
+function applySetup(results: (ApplyResult | "throw")[], opts: { revision?: number; degradedAfter?: number } = {}) {
+  const calls: (number | null)[] = [];
+  const health: boolean[] = [];
+  let outcomes: PollOutcome[] = [];
+  let revision = opts.revision ?? 5;
+  const fetchState = vi.fn(async (known: number | null): Promise<PollOutcome> => {
+    calls.push(known);
+    return outcomes.shift() ?? { kind: "ok", state: state(revision, { changed: known !== revision }) };
+  });
+  const onState = vi.fn((): ApplyResult => {
+    const r = results.shift() ?? "applied";
+    if (r === "throw") throw new Error("apply failed");
+    return r;
+  });
+  const poller = new TeamPoller({
+    fetchState, onState, onStop: () => {}, onHealth: (d) => health.push(d), initialKnown: null, degradedAfter: opts.degradedAfter,
+  });
+  return { poller, calls, health, onState, script: (...o: PollOutcome[]) => { outcomes = o; }, bump: (to: number) => { revision = to; } };
+}
+
+describe("C-4: apply results move the known revision", () => {
+  it("applied: known becomes the answer's revision and the next request sends it", async () => {
+    const t = applySetup(["applied"]);
+    await t.poller.pollNow();
+    expect(t.poller.known).toBe(5);
+    await t.poller.pollNow();
+    expect(t.calls).toEqual([null, 5]);
+    t.poller.dispose();
+  });
+
+  it("partial: known becomes null, so the next request asks for the whole grid (T2)", async () => {
+    const t = applySetup(["applied", "partial"]);
+    await t.poller.pollNow();
+    t.bump(6);
+    await t.poller.pollNow(); // revision 6 arrives, but cells were held
+    expect(t.poller.known).toBeNull();
+    await t.poller.pollNow();
+    expect(t.calls).toEqual([null, 5, null]);
+    t.poller.dispose();
+  });
+
+  it("partial is never re-sent as known: the old bug's changed=false answer cannot happen", async () => {
+    const t = applySetup(["partial", "applied"]);
+    await t.poller.pollNow();
+    await t.poller.pollNow();
+    // both requests got the whole grid (changed=true); the second one, fully applied, finally moves known
+    expect(t.calls).toEqual([null, null]);
+    expect(t.poller.known).toBe(5);
+    t.poller.dispose();
+  });
+
+  it("skipped: known becomes null and the whole grid is asked for at once, without waiting four seconds (T6)", async () => {
+    const t = applySetup(["skipped", "applied"]);
+    await t.poller.pollNow();
+    expect(t.calls).toEqual([null, null]); // the immediate second request
+    expect(t.poller.known).toBe(5);
+    t.poller.dispose();
+  });
+
+  it("skipped answers in a row re-poll at once at most twice, then wait for the normal interval", async () => {
+    const t = applySetup(["skipped", "skipped", "skipped", "applied"]);
+    await t.poller.pollNow();
+    expect(t.calls).toHaveLength(3);
+    t.poller.start();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(t.calls).toHaveLength(4);
+    expect(t.poller.known).toBe(5);
+    t.poller.dispose();
+  });
+
+  it("resync while a poll is in flight: the next request still asks for the whole grid", async () => {
+    let release: (() => void) | null = null;
+    const calls: (number | null)[] = [];
+    const poller = new TeamPoller({
+      fetchState: async (known) => {
+        calls.push(known);
+        if (calls.length === 2) await new Promise<void>((r) => { release = r; });
+        return { kind: "ok", state: state(9, { changed: known !== 9 }) };
+      },
+      onState: () => "applied", onStop: () => {}, initialKnown: null,
+    });
+    await poller.pollNow(); // known = 9
+    const inFlight = poller.pollNow(); // sends 9 and waits
+    const resync = poller.resync();
+    release!();
+    await inFlight;
+    await resync;
+    expect(calls).toEqual([null, 9, null]);
+    poller.dispose();
+  });
+});
+
+describe("C-4: polling survives an error while applying an answer (T5)", () => {
+  it("the error is caught, known becomes null and the next poll runs on schedule", async () => {
+    const t = applySetup(["applied", "throw", "applied"]);
+    t.poller.start();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(t.poller.known).toBe(5);
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(t.onState).toHaveBeenCalledTimes(2);
+    expect(t.poller.known).toBeNull();
+    expect(t.poller.active).toBe(true);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(t.calls.length).toBeGreaterThanOrEqual(3);
+    expect(t.calls[2]).toBeNull(); // the whole grid after the failure
+    expect(t.poller.known).toBe(5);
+    t.poller.dispose();
+  });
+});
+
+describe("C-4: degraded sync after three failures in a row", () => {
+  it("network, server and apply failures count together; the third reports degraded once", async () => {
+    const t = applySetup(["throw"]);
+    t.script({ kind: "offline" }, { kind: "offline" });
+    await t.poller.pollNow(); // network
+    await t.poller.pollNow(); // server (5xx is "offline" too)
+    expect(t.health).toEqual([]);
+    await t.poller.pollNow(); // apply error
+    expect(t.health).toEqual([true]);
+    expect(t.poller.isDegraded).toBe(true);
+    t.script({ kind: "offline" });
+    await t.poller.pollNow();
+    expect(t.health).toEqual([true]); // reported once, not on every failure
+    t.poller.dispose();
+  });
+
+  it("the first good answer clears it", async () => {
+    const t = applySetup([]);
+    t.script({ kind: "offline" }, { kind: "offline" }, { kind: "offline" });
+    for (let i = 0; i < 3; i += 1) await t.poller.pollNow();
+    expect(t.health).toEqual([true]);
+    await t.poller.pollNow();
+    expect(t.health).toEqual([true, false]);
+    expect(t.poller.isDegraded).toBe(false);
+    t.poller.dispose();
+  });
+
+  it("an unchanged answer (changed = false) is a good answer, never a failure", async () => {
+    const t = applySetup([]);
+    await t.poller.pollNow(); // whole grid, applied
+    t.script({ kind: "offline" }, { kind: "offline" });
+    await t.poller.pollNow();
+    await t.poller.pollNow();
+    for (let i = 0; i < 5; i += 1) await t.poller.pollNow(); // changed = false each time
+    expect(t.calls.slice(3)).toEqual([5, 5, 5, 5, 5]);
+    expect(t.health).toEqual([]);
+    t.poller.dispose();
+  });
+
+  it("partial and skipped answers are good answers too", async () => {
+    const t = applySetup(["partial", "skipped", "partial"]);
+    t.script({ kind: "offline" }, { kind: "offline" });
+    await t.poller.pollNow();
+    await t.poller.pollNow();
+    await t.poller.pollNow();
+    expect(t.health).toEqual([]);
     t.poller.dispose();
   });
 });

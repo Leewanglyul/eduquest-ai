@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiResult } from "@/components/student/play-api";
-import { checkWithOneRetry, decidePoll, makeLockedRecovery, teacherCallDeadline } from "@/components/student/team-board";
+import { applyResultOf, checkWithOneRetry, decidePoll, makeLockedRecovery, teacherCallDeadline } from "@/components/student/team-board";
 import type { TeamState } from "@/features/crossword/play/types";
 
 // M2-3.4 P3 L3: the board's team-mode decisions (the board calls exactly these functions).
@@ -31,8 +31,14 @@ describe("decidePoll: applying one team-state answer", () => {
     const state = st({ changed: true, cells: { "1,1": "일" }, given: {}, otherKeys: ["1,1"] });
     const composing = decidePoll({ acknowledged: 0, state, unconfirmed: none, composing: ["1,1"], current: {}, previous: null });
     expect(composing.grid?.cells).toEqual({});
+    // Gate 3 C-4: the held cell makes this answer partial, so the poller does not count revision 4 as known
+    expect(composing.grid?.held).toEqual(["1,1"]);
+    expect(applyResultOf(composing)).toBe("partial");
+    // the board's resync after the composition asks for the whole grid again and applies it in full
     const after = decidePoll({ acknowledged: 0, state, unconfirmed: none, composing: [], current: {}, previous: null });
     expect(after.grid?.cells).toEqual({ "1,1": "일" });
+    expect(after.grid?.held).toEqual([]);
+    expect(applyResultOf(after)).toBe("applied");
   });
 
   it("revealed cells: unconfirmed cells that became given are discarded and never shown as typed", () => {
@@ -185,5 +191,38 @@ describe("R2 G: individual assignment with team play ON keeps the individual STA
     expect(r).toBe(STALE);
     expect(check).toHaveBeenCalledTimes(1);
     expect(pollNow).not.toHaveBeenCalled();
+  });
+});
+
+describe("Gate 3 C-4: applyResultOf", () => {
+  const base = { unconfirmed: none, previous: null };
+  it("an unchanged answer is applied", () => {
+    expect(applyResultOf(decidePoll({ ...base, acknowledged: 0, state: st({}), composing: ["0,0"], current: {} }))).toBe("applied");
+  });
+  it("an answer older than the acknowledged save is skipped", () => {
+    expect(applyResultOf(decidePoll({ ...base, acknowledged: 9, state: st({ revision: 8, changed: true, cells: {}, given: {} }), composing: [], current: {} }))).toBe("skipped");
+  });
+  it("a composed cell that matches the server is not held", () => {
+    const d = decidePoll({ ...base, acknowledged: 0, state: st({ changed: true, cells: { "0,0": "사" }, given: {} }), composing: ["0,0", "0,1"], current: { "0,0": "사" } });
+    expect(d.grid?.held).toEqual([]);
+    expect(applyResultOf(d)).toBe("applied");
+  });
+  it("this student's own unsaved cell is kept on screen and not held, but the answer is still partial", () => {
+    const unconfirmed = new Map<string, string | null>([["0,0", "새"]]);
+    const d = decidePoll({ acknowledged: 0, unconfirmed, previous: null, state: st({ changed: true, cells: { "0,0": "사" }, given: {} }), composing: ["0,0"], current: { "0,0": "새" } });
+    expect(d.grid?.cells["0,0"]).toBe("새"); // real input, kept (K-1)
+    expect(d.grid?.held).toEqual([]); // no composition resync needed for it
+    expect(d.grid?.overlaid).toEqual(["0,0"]);
+    expect(applyResultOf(d)).toBe("partial"); // T4 seed 70: the server may hold a later letter once this save lands
+  });
+  it("unsaved input equal to the server's letter is not a difference", () => {
+    const unconfirmed = new Map<string, string | null>([["0,0", "사"]]);
+    const d = decidePoll({ acknowledged: 0, unconfirmed, previous: null, state: st({ changed: true, cells: { "0,0": "사" }, given: {} }), composing: [], current: { "0,0": "사" } });
+    expect(d.grid?.overlaid).toEqual([]);
+    expect(applyResultOf(d)).toBe("applied");
+  });
+  it("a given cell is never held", () => {
+    const d = decidePoll({ ...base, acknowledged: 0, state: st({ changed: true, cells: {}, given: { "0,0": "사" } }), composing: ["0,0"], current: { "0,0": "가" } });
+    expect(d.grid?.held).toEqual([]);
   });
 });

@@ -23,3 +23,15 @@ export function TeamNotice({ text, stamp }: { text: string | null; stamp: number
     </p>
   );
 }
+
+/**
+ * Gate 3 C-4: team polling failed three times in a row. One neutral line in the status area ("팀 화면을 맞추는 중이에요"),
+ * never on a cell, never about a teammate; it goes away with the next good poll.
+ */
+export function TeamSyncNotice({ degraded, text }: { degraded: boolean; text: string }) {
+  return degraded ? (
+    <p role="status" aria-live="polite" data-team-sync="degraded" className="mt-1 text-sm text-slate-800">
+      {text}
+    </p>
+  ) : null;
+}

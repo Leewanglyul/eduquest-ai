@@ -5,6 +5,7 @@
 import { lockedPendingKeys, mergeTeamCells, teammateChanges, type TeamSnapshot } from "@/features/crossword/play/team";
 import type { CellKey, TeamState } from "@/features/crossword/play/types";
 import type { ApiResult } from "./play-api";
+import type { ApplyResult } from "./team-poller";
 
 export type PollInput = {
   state: TeamState;
@@ -37,6 +38,18 @@ export type PollDecision = {
     changedKeys: CellKey[];
     /** Show the neutral "다른 팀원이 수정했어요" (K-4): never who, never how many. */
     teammateChanged: boolean;
+    /**
+     * Gate 3 C-4: cells of the word being composed that the board kept although the server holds something else (K-2)
+     * and that are not this student's unsaved input. The answer is then only partly applied: the poller must not treat
+     * this revision as known, and the board resyncs the whole grid as soon as the composition ends.
+     */
+    held: CellKey[];
+    /**
+     * Cells shown with this student's unsaved input although the server holds something else. The input is kept on
+     * screen (K-1), but the answer is still only partly applied: once that save is acknowledged the server may already
+     * hold a teammate's later letter there, so the next poll must bring the whole grid again (Gate 3 C-4).
+     */
+    overlaid: CellKey[];
   };
   completed: boolean;
   /** The answer is older than this browser's acknowledged saves: nothing of it is applied (no rollback, no notice). */
@@ -49,12 +62,17 @@ export function decidePoll(input: PollInput): PollDecision {
   if (s.revision < input.acknowledged) return { ...out, ignored: true };
   if (!s.changed || !s.cells || !s.given) return out;
   const given = s.given;
+  const server = s.cells;
   const discard = lockedPendingKeys(input.unconfirmed, given);
   const unconfirmed = new Map([...input.unconfirmed].filter(([k]) => !discard.includes(k)));
   const cells = mergeTeamCells({ server: s.cells, given, unconfirmed, composing: input.composing, current: input.current });
   const snapshot: TeamSnapshot = { cells: s.cells, otherKeys: s.otherKeys ?? [] };
   const keys = new Set([...Object.keys(cells), ...Object.keys(input.current)]);
   const changedKeys = [...keys].filter((k) => cells[k] !== input.current[k] || given[k] !== undefined);
+  // the screen differs from the server's grid exactly in these cells (given cells are never typed cells)
+  const differs = [...new Set([...Object.keys(cells), ...Object.keys(server)])].filter((k) => given[k] === undefined && cells[k] !== server[k]);
+  const held = differs.filter((k) => !unconfirmed.has(k) && input.composing.includes(k));
+  const overlaid = differs.filter((k) => unconfirmed.has(k));
   return {
     ...out,
     grid: {
@@ -64,8 +82,20 @@ export function decidePoll(input: PollInput): PollDecision {
       snapshot,
       changedKeys,
       teammateChanged: teammateChanges(input.previous, snapshot, unconfirmed).length > 0,
+      held,
+      overlaid,
     },
   };
+}
+
+/**
+ * What the poller is told about one answer (Gate 3 C-4). The known revision may only move when the screen shows exactly
+ * the server's grid of that revision: "skipped" when nothing was applied, "partial" when any cell is shown differently
+ * (held for an open composition, or overlaid by unsaved input), otherwise "applied" (an unchanged answer included).
+ */
+export function applyResultOf(d: PollDecision): ApplyResult {
+  if (d.ignored) return "skipped";
+  return d.grid && (d.grid.held.length > 0 || d.grid.overlaid.length > 0) ? "partial" : "applied";
 }
 
 /**

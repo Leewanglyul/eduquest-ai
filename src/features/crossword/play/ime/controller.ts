@@ -19,9 +19,11 @@
  *  R6 Event order is not trusted. A pending composition is committed, once, by compositionend, blur, a cell
  *     selection, a paste or flush(), whichever comes first; the others then find nothing to commit.
  *  R7 While composing (isComposing, keyCode 229, key "Process") keys do nothing: no Backspace handling, no arrows.
- *  R8 A cell takes one NFC [가-힣A-Z0-9]. A lone jamo is rejected, lower-case is upper-cased, anything else rejected.
+ *  R8 A cell takes one NFC [가-힣A-Z0-9] (only [가-힣] when the puzzle's input mode is "hangul", PLAY-E5-1). A lone jamo
+ *     is rejected, lower-case is upper-cased, anything else rejected.
  */
 import { isLoneJamo, isValidCellChar, normalizeTyped } from "../cells";
+import type { CrosswordInputMode } from "../types";
 
 export type ImeEvent =
   | { type: "compositionstart" }
@@ -73,7 +75,10 @@ export class ImeController {
   /** Text of the last composition commit; absorbs the compositionend that follows a blur/select flush (R6). */
   private recent: string | null = null;
 
-  constructor(word?: ImeWord) {
+  private readonly mode: CrosswordInputMode;
+
+  constructor(word?: ImeWord, options: { inputMode?: CrosswordInputMode } = {}) {
+    this.mode = options.inputMode ?? "mixed";
     if (word) this.setWord(word);
   }
 
@@ -252,7 +257,7 @@ export class ImeController {
     let i = start;
     let overflow = false;
     for (const ch of Array.from(normalizeTyped(raw))) {
-      if (!isValidCellChar(ch)) {
+      if (!isValidCellChar(ch, this.mode)) {
         intents.push({ kind: "reject", char: ch, reason: isLoneJamo(ch) ? "jamo" : "invalid" });
         continue;
       }
