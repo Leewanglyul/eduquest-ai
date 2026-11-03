@@ -964,6 +964,9 @@ isOneToOne: false
 "fn_crossword_play_given":
 { Args: { "p_attempt_id": string,"p_student_id": string }; Returns: Json
                            },
+"fn_crossword_play_input_mode":
+{ Args: { "p_puzzle_id": string }; Returns: string
+                           },
 "fn_crossword_play_is_team":
 { Args: { "p_attempt_id": string }; Returns: boolean
                            },
