@@ -1,9 +1,10 @@
 # Stage 1 Gate 3: Hosted Readiness Proposal (2026-11-03)
 
 Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3 approved and executed
-(flag rows only); E-4 Fresh Git Flags-ON Preview PASS WITH ADVISORY / CLOSED; E-5 plan CONDITIONALLY APPROVED (section F); E-5 execution
-NOT approved (pending the PM's run-slot approval); E-6 NOT approved.** The Flags-ON Preview is **held** as it is (no flag change, no deployment) until the E-5 decision. Hosted Gate 3 execution is **not** approved. No Gate 3 account
-or data creation, no Acceptance change and no cleanup has been done. Each step needs its own approval (section E); no action implies the next.
+(flag rows only); E-4 Fresh Git Flags-ON Preview PASS WITH ADVISORY / CLOSED; E-5 approved and executed: **STOPPED / NO-GO**
+at C-4 (C-4 FAIL / BLOCKER, PLAY-E5-1 FAIL / BLOCKER; F.13); OFF Return approved (PM, 2026-11-03); E-6 NOT approved.**
+Gate 3 data on Acceptance is **retained temporarily** for defect investigation; no cleanup has been done. Each step needs
+its own approval (section E); no action implies the next.
 
 | Approval | State |
 |---|---|
@@ -12,8 +13,9 @@ or data creation, no Acceptance change and no cleanup has been done. Each step n
 | E-2 Acceptance read-only parity | **PASS WITH ADVISORY** (0, C.1) |
 | E-3 Flag change (branch-scoped Preview only) | **approved** (PM, 2026-11-03); execution recorded separately |
 | E-4 Flags-ON deployment (revised: fresh Git-triggered branch Preview, D.1) | **PASS WITH ADVISORY / CLOSED** (PM, 2026-11-03; 0, D.1 E-4 result) |
-| E-5 Hosted Gate 3 execution | plan **conditionally approved** (PM, 2026-11-03; decisions F.0); **execution not approved**: pending the PM's explicit confirmation of a continuous 90-minute run slot |
-| E-6 Cleanup | **not approved** |
+| E-5 Hosted Gate 3 execution | approved (PM, 2026-11-03; D-E5-6 satisfied) and executed: **STOPPED / NO-GO** at C-4 (F.13) |
+| OFF Return (both flags false, fresh Git-triggered OFF Preview, OFF probes) | **approved** (PM, 2026-11-03); result recorded separately |
+| E-6 Cleanup | **not approved**; Gate 3 data retained temporarily for defect investigation |
 
 Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrated-implementation-package.md)
 (sections 6 to 10, 13), Teacher Package Specification 7.1 (G3-D1 to G3-D7), Operational UX OX-1, OX-12.
@@ -27,6 +29,7 @@ Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrate
 | **E-2 Acceptance Contract Parity** | **PASS WITH ADVISORY** (PM, 2026-11-03) | HC-1 to HC-11 PASS; HC-12 migration count 33 before, 33 after; W1 baseline 1 attempt, 1 member, 0 events, unchanged; advisory HC-12b (C.1). E-3, E-4, E-5 and E-6 are **not** approved by this result |
 | **Flags-OFF Preview Verification** (after the push of `34047c7`, `7e6bced`, `25cbd71`) | **PASS / CLOSED** (PM, 2026-11-03) | Preview `dpl_CywQTDn3v8AXW2cBL2jAeV4b5yWh` built from `25cbd71`, Ready; PM browser: `/student/crosswords` 404, `/student/sign-in` and `/teacher/sign-in` load, invalid team-state `{"error":"NOT_FOUND"}`, invalid `/live` 404; flag rows unchanged; Production untouched |
 | **E-4 Fresh Git Flags-ON Preview** | **PASS WITH ADVISORY / CLOSED** (PM, 2026-11-03) | push `25cbd71..9545ba1`; Preview `dpl_FF8s9iHjsdEPW69gmFeDx7kUTr6z` Ready, target Preview, branch `m2/m2-1-content-pipeline`, built from `9545ba1` after E-3; branch alias on it; PM browser P-1, P-2, P-4 to P-7 PASS, P-3 authentication boundary PASS with response-format advisory (D.1); Production isolation PASS; protected-information exposure none. E-5 and E-6 are **not** approved by this result |
+| **E-5 Hosted Gate 3 execution** | **STOPPED / NO-GO** (PM, 2026-11-03) | C-4 shared-board synchronization **FAIL / BLOCKER**; PLAY-E5-1 Hangul-cell validation **FAIL / BLOCKER**; C-5 to C-13 not executed; C-10 not completed; S5 not deleted (F.13) |
 
 ---
 
@@ -291,7 +294,7 @@ is not changed.
 
 ---
 
-## F. E-5 execution plan (2026-11-03; plan **CONDITIONALLY APPROVED**; execution **NOT APPROVED, NOT EXECUTED**)
+## F. E-5 execution plan (2026-11-03; plan **CONDITIONALLY APPROVED**; executed: **STOPPED / NO-GO** at C-4, see F.13)
 
 Window: the held Flags-ON Preview `dpl_FF8s9iHjsdEPW69gmFeDx7kUTr6z`, branch alias
 `eduquest-ai-pilot-git-m2-m2-1-content-pipeline-sonline-2.vercel.app`, against Acceptance. Roles: **owner** (PM) does
@@ -518,3 +521,60 @@ solves, credits and a help request, one already-deleted student), Claude runs th
 **Outside the database:**
 - the owner deletes the password-manager entries, screenshots and raw evidence files;
 - the owner confirms this in writing (section B).
+
+### F.13 E-5 result (2026-11-03): STOPPED / NO-GO
+
+**Final findings (PM, 2026-11-03):**
+
+| Check | Result |
+|---|---|
+| C-4 shared-board synchronization | **FAIL / BLOCKER** |
+| PLAY-E5-1 Hangul-cell validation | **FAIL / BLOCKER** |
+| E-5 | **STOPPED / NO-GO** |
+
+**Observation (about 14:33 KST):**
+- Puzzle G3 퍼즐 T, team 1팀, two student screens side by side.
+- Both screens showed 1팀 · 3명 and 저장됨, with no input for more than 10 seconds.
+- The two grids did not converge within at least two expected 4-second poll intervals.
+- Three cells differed:
+  - the left screen showed 복, H, R;
+  - the right screen showed 과, 수, 원.
+- The latin letters H and R were accepted into cells of a Hangul-only puzzle, and the screen reached 저장됨.
+
+**Acceptance evidence (owner, read-only query approved by the PM; counts and cell letters only, no ids):**
+
+| Item | Value |
+|---|---|
+| E-1 assignment match count | 1 |
+| E-2 team match count | 1 |
+| E-3 attempt revision | 11 |
+| E-4 attempt status | in_progress |
+| E-5 last saved at (KST) | 2026-11-03 14:31:36 |
+| E-6 team members | 3 |
+| E-7 team members actively enrolled | 3 |
+| E-8 attempt members (joined the shared attempt) | 2 |
+| E-9 saved cells | 5 |
+| E-10 saved cells | 0,3=우 · 1,2=복 · 1,3=주 · 2,2=H · 3,2=R |
+| E-11 given cells | 3,3=분 · 3,4=열 |
+| E-12 saved cells that are not Hangul | 2,2=H · 3,2=R |
+
+**Reading of the evidence:**
+- The server state matched the **left** screen (복, H, R).
+- The **right** screen was stale: it kept 과, 수, 원, which were no longer on the server.
+- The last save was at 14:31:36 KST, before the observation. So the right screen stayed stale for well over two poll
+  intervals, with no save pending on either screen.
+- PLAY-E5-1: H and R are **persisted on the server**, so the latin letters were not an unsaved composition state.
+
+**Not executed or not completed:**
+- C-10 was not completed.
+- C-5 to C-13 were not executed.
+- Puzzle I was not deployed.
+- S5 was not deleted.
+- The assignment was not closed.
+
+**After the stop:**
+- The two divergent student pages were not refreshed or changed before the OFF deployment.
+- OFF Return is approved (PM, 2026-11-03); its result is recorded separately.
+- Gate 3 data on Acceptance is **retained temporarily** for defect investigation.
+- E-6 cleanup remains **separately unapproved**.
+- A fix, its tests and any further hosted attempt each need their own approval.
