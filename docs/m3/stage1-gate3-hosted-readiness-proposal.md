@@ -2,7 +2,7 @@
 
 Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3 approved and executed
 (flag rows only); E-4 Fresh Git Flags-ON Preview PASS WITH ADVISORY / CLOSED; E-5 approved and executed: **STOPPED / NO-GO**
-at C-4 (C-4 FAIL / BLOCKER, PLAY-E5-1 FAIL / BLOCKER; F.13); OFF Return approved (PM, 2026-11-03); E-6 NOT approved.**
+at C-4 (C-4 FAIL / BLOCKER, PLAY-E5-1 FAIL / BLOCKER; F.13); OFF Return **PASS / CLOSED** (PM, 2026-11-03; F.14); E-6 NOT approved.**
 Gate 3 data on Acceptance is **retained temporarily** for defect investigation; no cleanup has been done. Each step needs
 its own approval (section E); no action implies the next.
 
@@ -14,7 +14,7 @@ its own approval (section E); no action implies the next.
 | E-3 Flag change (branch-scoped Preview only) | **approved** (PM, 2026-11-03); execution recorded separately |
 | E-4 Flags-ON deployment (revised: fresh Git-triggered branch Preview, D.1) | **PASS WITH ADVISORY / CLOSED** (PM, 2026-11-03; 0, D.1 E-4 result) |
 | E-5 Hosted Gate 3 execution | approved (PM, 2026-11-03; D-E5-6 satisfied) and executed: **STOPPED / NO-GO** at C-4 (F.13) |
-| OFF Return (both flags false, fresh Git-triggered OFF Preview, OFF probes) | **approved** (PM, 2026-11-03); result recorded separately |
+| OFF Return (both flags false, fresh Git-triggered OFF Preview, OFF probes) | approved and executed: **PASS / CLOSED** (PM, 2026-11-03; F.14) |
 | E-6 Cleanup | **not approved**; Gate 3 data retained temporarily for defect investigation |
 
 Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrated-implementation-package.md)
@@ -30,6 +30,7 @@ Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrate
 | **Flags-OFF Preview Verification** (after the push of `34047c7`, `7e6bced`, `25cbd71`) | **PASS / CLOSED** (PM, 2026-11-03) | Preview `dpl_CywQTDn3v8AXW2cBL2jAeV4b5yWh` built from `25cbd71`, Ready; PM browser: `/student/crosswords` 404, `/student/sign-in` and `/teacher/sign-in` load, invalid team-state `{"error":"NOT_FOUND"}`, invalid `/live` 404; flag rows unchanged; Production untouched |
 | **E-4 Fresh Git Flags-ON Preview** | **PASS WITH ADVISORY / CLOSED** (PM, 2026-11-03) | push `25cbd71..9545ba1`; Preview `dpl_FF8s9iHjsdEPW69gmFeDx7kUTr6z` Ready, target Preview, branch `m2/m2-1-content-pipeline`, built from `9545ba1` after E-3; branch alias on it; PM browser P-1, P-2, P-4 to P-7 PASS, P-3 authentication boundary PASS with response-format advisory (D.1); Production isolation PASS; protected-information exposure none. E-5 and E-6 are **not** approved by this result |
 | **E-5 Hosted Gate 3 execution** | **STOPPED / NO-GO** (PM, 2026-11-03) | C-4 shared-board synchronization **FAIL / BLOCKER**; PLAY-E5-1 Hangul-cell validation **FAIL / BLOCKER**; C-5 to C-13 not executed; C-10 not completed; S5 not deleted (F.13) |
+| **OFF Return** | **PASS / CLOSED** (PM, 2026-11-03) | both Preview flag rows `false` (branch-scoped, remove-then-add); push `9545ba1..cd34af5`; fresh Git Preview `dpl_2mnZCKWoHePSx8YEWtLKsHcT5gai` Ready, target Preview, branch `m2/m2-1-content-pipeline`, built from `cd34af5`, branch alias on it; owner browser: `/student/crosswords` 404, invalid team-state 404 `{"error":"NOT_FOUND"}`, invalid `/live` 404, `/student/sign-in` and `/teacher/sign-in` load; Production unchanged and OFF (F.14) |
 
 ---
 
@@ -574,7 +575,128 @@ solves, credits and a help request, one already-deleted student), Claude runs th
 
 **After the stop:**
 - The two divergent student pages were not refreshed or changed before the OFF deployment.
-- OFF Return is approved (PM, 2026-11-03); its result is recorded separately.
+- OFF Return is approved (PM, 2026-11-03); its result is in F.14.
 - Gate 3 data on Acceptance is **retained temporarily** for defect investigation.
 - E-6 cleanup remains **separately unapproved**.
 - A fix, its tests and any further hosted attempt each need their own approval.
+
+### F.14 OFF Return result (2026-11-03): PASS / CLOSED
+
+**Flags (Claude, Vercel CLI):**
+- `CROSSWORD_PLAY_ENABLED` and `COLLAB_PLAY_ENABLED` were each replaced remove-then-add with `false`; `vercel env update`
+  was not used.
+- After the change there is exactly one row of each, both "Preview (m2/m2-1-content-pipeline)", and no Production or
+  Development flag row.
+
+**Deployment (Claude, Vercel CLI):**
+- The push `9545ba1..cd34af5` triggered a fresh Git Preview, `dpl_2mnZCKWoHePSx8YEWtLKsHcT5gai`; `vercel redeploy` was
+  not used.
+- It is Ready, target Preview, cloned from branch `m2/m2-1-content-pipeline` at commit `cd34af5`, and the branch alias
+  points to it.
+- Production is the same deployment as before, and Vercel protection is unchanged.
+
+**Probes (owner browser, PM-recorded):**
+
+| # | Probe | Result |
+|---|---|---|
+| 1 | Preview `/student/crosswords` | 404 |
+| 2 | Preview invalid team-state | 404 `{"error":"NOT_FOUND"}` |
+| 3 | Preview invalid teacher `/live` | 404 |
+| 4 | Preview `/student/sign-in` | loads normally |
+| 5 | Preview `/teacher/sign-in` | loads normally |
+| 6 | Production `/student/crosswords` | 404 (Claude, CLI) |
+
+**Result:**
+- The Preview collaboration routes are OFF and not discoverable.
+- Production is unchanged and OFF.
+- E-5 stays **NO-GO**; C-4 and PLAY-E5-1 stay **FAIL / BLOCKER**; E-6 is not approved.
+- Gate 3 data on Acceptance stays retained for defect investigation, including the revision-11 team attempt with the H
+  and R cells. The assignment is not closed and S5 is not deleted.
+
+### F.15 Local fixes for the C-4 and PLAY-E5-1 blockers (2026-11-03): LOCAL PASS, committed locally, NOT pushed
+
+The PM approved local implementation of Fix 1 and Fix 2, with Migration 34 local only. The PM then accepted:
+- both local implementations;
+- the function-only Migration 34;
+- the expanded unsaved-input rule;
+- the copy "팀 화면을 맞추는 중이에요" and "한글 한 글자를 입력해 주세요.";
+- the local validation evidence.
+
+Nothing below is on Acceptance or the Preview.
+
+| Item | State |
+|---|---|
+| E-5 Hosted Gate 3 | **NO-GO** (F.13) |
+| C-4 shared-board synchronization | FAIL / BLOCKER on hosted; **Fix 1 LOCAL PASS** |
+| PLAY-E5-1 Hangul-cell validation | FAIL / BLOCKER on hosted; **Fix 2 LOCAL PASS** |
+| Migration 34 | **LOCAL ONLY**: local migration count 34; Acceptance migration count **remains 33** |
+| OFF Return | **PASS / CLOSED** (F.14) |
+| Local commits | `ecd6588` feat(db), `75e6a5c` fix(play), plus this documentation commit; not pushed |
+
+**Fix 1: team-board convergence (C-4). LOCAL PASS.**
+- The poller's known revision now means "the board fully applied this revision". The board reports how it applied each
+  answer:
+  - `applied`: known becomes that revision;
+  - `partial`: known becomes null and the next request asks for the whole grid;
+  - `skipped`: known becomes null and the whole grid is requested at once.
+- An answer is `partial` when any typed cell on screen differs from the server's cell at that revision:
+  - a cell held for an open IME composition (the hosted case). The board then resyncs as soon as no composition is open;
+  - a cell overlaid by this student's unsaved input. The input stays on screen, and the next poll brings the whole grid.
+- The second case was found by the two-board random test. This student's save reached the server, a teammate then
+  overwrote that cell, and the poll answer arrived before this student's own save acknowledgement.
+- An error while applying an answer is caught: known becomes null and polling continues.
+- After 3 failures in a row (network, server or applying), the board shows "팀 화면을 맞추는 중이에요". The first good
+  poll clears it, and an unchanged answer counts as a good poll.
+- No server change was needed: the team-state function already returns the whole grid when known is null.
+
+**Fix 2: puzzle input mode (PLAY-E5-1). LOCAL PASS.**
+- `CrosswordInputMode = "hangul" | "mixed"`. A puzzle is `hangul` when every cell is a complete Hangul syllable,
+  otherwise `mixed`.
+  - Hangul mode allows `^[가-힣]$`; mixed mode keeps `^[가-힣A-Z0-9]$`.
+  - The same rule applies to individual and team play.
+- The play payload carries only `puzzle.inputMode`: no letters, no per-cell mode, no coordinates.
+- The client refuses invalid input with "한글 한 글자를 입력해 주세요." in Hangul mode, or "그 글자는 쓸 수 없어요." in
+  mixed mode. A lone jamo keeps "글자를 완성해 주세요.".
+- No puzzle column was added.
+
+**Migration 34 (`20261103000001_crossword_play_input_mode.sql`). Local only.**
+- It is function-only:
+  - a new STABLE, SECURITY INVOKER `fn_crossword_play_input_mode(uuid)` with a pinned search_path, for the service role
+    only;
+  - `fn_crossword_play_save` replaced with only its character rule changed.
+- No table, column, constraint or row is touched.
+- In Hangul mode, `CROSSWORD_PLAY_BAD_CHAR` is raised before anything is written: no cell, revision, saved time or cell
+  writer changes.
+- The local migration count is 34. **Applying it to Acceptance is NOT approved.** It would move the Acceptance baseline
+  from 33 to 34 (E-2 HC-12, Step 0 P0-6).
+
+**Validation (local, clean order, 2026-11-03):**
+
+| Step | Result |
+|---|---|
+| 1 Clean local reset | PASS, 34 migrations |
+| 2 pgTAP | 813 / 813 (19 files; new 00019: 33) |
+| 3 Targeted Gate 3 Vitest (crossword-team-*, crossword-play-*) | 407 / 407 (23 files) |
+| 4 Full Vitest | 937 / 937 (52 files) |
+| 5 Typecheck | clean |
+| 6 Lint | clean apart from 2 existing warnings in an untouched file (`src/features/classrooms/domain.ts`) |
+| 7 `git diff --check` | clean |
+
+- Vitest ran with the local Supabase profile in the process environment. `.env.local` was not changed.
+- Mutation checks:
+  - with the old "known on receipt" poller, the hosted replay and every C-4 test fail;
+  - without the unsaved-overlay rule, the overtaken-save test fails.
+
+**Still required before any hosted rerun:** a real-device local check with the Windows Korean IME. Use two browsers,
+leave the last syllable of a word open while a teammate saves the same word, then confirm the screens converge. The
+automated tests only simulate composition events.
+
+**Still not approved:**
+- push;
+- applying Migration 34 to Acceptance (separate review; it moves the Acceptance baseline from 33 to 34 for E-2 HC-12
+  and Step 0 P0-6);
+- Preview deployment and flag changes;
+- a hosted Gate 3 rerun;
+- E-6 cleanup.
+
+Gate 3 data on Acceptance stays retained and untouched.
