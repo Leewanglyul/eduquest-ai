@@ -4,6 +4,8 @@ Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS W
 (flag rows only); E-4 Fresh Git Flags-ON Preview PASS WITH ADVISORY / CLOSED; E-5 approved and executed: **STOPPED / NO-GO**
 at C-4 (C-4 FAIL / BLOCKER, PLAY-E5-1 FAIL / BLOCKER; F.13); OFF Return **PASS / CLOSED** (PM, 2026-11-03; F.14); E-6 NOT approved.**
 Local Windows Korean IME checks: **IME-1 PASS; IME-2 PASS WITH OBSERVATION; IME-3 PASS AFTER FIX** (PM, 2026-11-07; F.16).
+Migration 34 on Acceptance: **APPLIED; APPLY PASS, POST-A PASS, POST-B PASS** (PM, 2026-11-08; F.17). Acceptance
+migration count is now 34.
 Gate 3 data on Acceptance is **retained temporarily** for defect investigation; no cleanup has been done. Each step needs
 its own approval (section E); no action implies the next.
 
@@ -16,6 +18,7 @@ its own approval (section E); no action implies the next.
 | E-4 Flags-ON deployment (revised: fresh Git-triggered branch Preview, D.1) | **PASS WITH ADVISORY / CLOSED** (PM, 2026-11-03; 0, D.1 E-4 result) |
 | E-5 Hosted Gate 3 execution | approved (PM, 2026-11-03; D-E5-6 satisfied) and executed: **STOPPED / NO-GO** at C-4 (F.13) |
 | OFF Return (both flags false, fresh Git-triggered OFF Preview, OFF probes) | approved and executed: **PASS / CLOSED** (PM, 2026-11-03; F.14) |
+| Migration 34 Acceptance apply (owner-run SQL Editor package) | executed: **PASS** (PM, 2026-11-08; F.17); rollback not run |
 | E-6 Cleanup | **not approved**; Gate 3 data retained temporarily for defect investigation |
 
 Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrated-implementation-package.md)
@@ -33,6 +36,7 @@ Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrate
 | **E-5 Hosted Gate 3 execution** | **STOPPED / NO-GO** (PM, 2026-11-03) | C-4 shared-board synchronization **FAIL / BLOCKER**; PLAY-E5-1 Hangul-cell validation **FAIL / BLOCKER**; C-5 to C-13 not executed; C-10 not completed; S5 not deleted (F.13) |
 | **OFF Return** | **PASS / CLOSED** (PM, 2026-11-03) | both Preview flag rows `false` (branch-scoped, remove-then-add); push `9545ba1..cd34af5`; fresh Git Preview `dpl_2mnZCKWoHePSx8YEWtLKsHcT5gai` Ready, target Preview, branch `m2/m2-1-content-pipeline`, built from `cd34af5`, branch alias on it; owner browser: `/student/crosswords` 404, invalid team-state 404 `{"error":"NOT_FOUND"}`, invalid `/live` 404, `/student/sign-in` and `/teacher/sign-in` load; Production unchanged and OFF (F.14) |
 | **Local Windows Korean IME checks** | **IME-1 PASS; IME-2 PASS WITH OBSERVATION; IME-3 PASS AFTER FIX** (PM, 2026-11-07) | Scope: local only, Windows 11 Chrome, Microsoft Korean IME, two student browsers, local Supabase. Initial IME-3 FAIL / BLOCKER, now CLOSED after the R9 tail-guard fix. A hosted rerun is **not** approved by this result (F.16) |
+| **Migration 34 Acceptance apply** | **PASS** (PM, 2026-11-08) | PRE-1 v2 20 of 20 checked rows ok, row 36 PASS; APPLY `M34 APPLY COMMITTED`; history 34, latest `20261103000001`; `fn_crossword_play_input_mode` fingerprint `e1576f18…`, `fn_crossword_play_save` fingerprint `b2eccd4a…`; POST-A rows 0–31 true, row 99 PASS; POST-B rows 0–31 true, row 99 PASS. The first APPLY failed its POST guard and rolled back with no DB change. Preview OFF was not re-verified after the successful APPLY (F.17). Preview ON, a hosted Gate 3 rerun and E-6 are **not** approved by this result |
 
 ---
 
@@ -631,9 +635,9 @@ Nothing below is on Acceptance or the Preview.
 | E-5 Hosted Gate 3 | **NO-GO** (F.13) |
 | C-4 shared-board synchronization | FAIL / BLOCKER on hosted; **Fix 1 LOCAL PASS** |
 | PLAY-E5-1 Hangul-cell validation | FAIL / BLOCKER on hosted; **Fix 2 LOCAL PASS** |
-| Migration 34 | **LOCAL ONLY**: local migration count 34; Acceptance migration count **remains 33** |
+| Migration 34 | Historical (2026-11-03): **LOCAL ONLY**; local migration count 34, Acceptance migration count 33. Subsequently approved and applied to Acceptance on 2026-11-08, count 34 (F.17); no longer pending |
 | OFF Return | **PASS / CLOSED** (F.14) |
-| Local commits | `ecd6588` feat(db), `75e6a5c` fix(play), plus this documentation commit; not pushed |
+| Local commits | Historical (2026-11-03): `ecd6588` feat(db), `75e6a5c` fix(play), plus the documentation commit were recorded here as not pushed. This statement is now stale because the repository has since advanced to `f863120`; consult the current Git history for exact push inclusion |
 
 **Fix 1: team-board convergence (C-4). LOCAL PASS.**
 - The poller's known revision now means "the board fully applied this revision". The board reports how it applied each
@@ -669,8 +673,10 @@ Nothing below is on Acceptance or the Preview.
 - No table, column, constraint or row is touched.
 - In Hangul mode, `CROSSWORD_PLAY_BAD_CHAR` is raised before anything is written: no cell, revision, saved time or cell
   writer changes.
-- The local migration count is 34. **Applying it to Acceptance is NOT approved.** It would move the Acceptance baseline
-  from 33 to 34 (E-2 HC-12, Step 0 P0-6).
+- The local migration count is 34.
+- Historical item (2026-11-03): applying it to Acceptance was **not approved** at that time, because it moves the
+  Acceptance baseline from 33 to 34 (E-2 HC-12, Step 0 P0-6). Subsequently approved and completed on 2026-11-08
+  (F.17); no longer pending.
 
 **Validation (local, clean order, 2026-11-03):**
 
@@ -692,10 +698,12 @@ Nothing below is on Acceptance or the Preview.
 **Real-device local check with the Windows Korean IME** (required before any hosted rerun): Done for IME-1, IME-2 and
 IME-3 (PM, 2026-11-07; F.16).
 
-**Still not approved:**
-- push;
+**Historical items (not approved at F.15; no longer pending):**
+- push: subsequently approved and completed; the repository has since advanced to `f863120` (see the end of F.16);
 - applying Migration 34 to Acceptance (separate review; it moves the Acceptance baseline from 33 to 34 for E-2 HC-12
-  and Step 0 P0-6);
+  and Step 0 P0-6): subsequently approved and completed on 2026-11-08 (F.17).
+
+**Still not approved:**
 - Preview deployment and flag changes;
 - a hosted Gate 3 rerun;
 - E-6 cleanup.
@@ -828,9 +836,95 @@ In every retest, B made no saves, all responses were HTTP 200, and A, B and the 
   - real student input and several teams at once.
 - The acceptance bar for IME input loss and data corruption is 0 cases.
 
-The R9 fix and its tests were committed locally as `5d18bf3` (five files, matching `ime3-fix-on-head.patch`) and have
-not been pushed. A hosted rerun is still not approved. The local diagnostic and
+The R9 fix and its tests were committed locally as `5d18bf3` (five files, matching `ime3-fix-on-head.patch`). The
+statement written here that it had not been pushed is stale: the repository has since advanced to `f863120`
+(2026-11-08). A hosted rerun is still not approved. The local diagnostic and
 scheduled-write code was removed from the working tree on 2026-11-07 after evidence capture and is not part of the
 product change. Removal used the verified `diag-on-fix.patch`, which contains the same added and removed lines as
 `diag-only.patch`, rebased onto the R9 fix. The five product files match HEAD plus `ime3-fix-on-head.patch` byte for
 byte.
+
+### F.17 Migration 34 Acceptance apply (2026-11-08): PASS
+
+| Item | State |
+|---|---|
+| First APPLY | POST guard **FAILED** (`history_m34_cli_format`); whole transaction rolled back; **no DB change** |
+| PRE-1 v1 | row 36 **HOLD**, from a bug in the aggregate's row range; **no real schema drift** |
+| PRE-1 v2 | **PASS**: 20 of 20 checked rows ok |
+| APPLY (fixed package) | **COMMITTED** |
+| POST-A | **PASS** |
+| POST-B | **PASS** |
+| Acceptance history | 34 migrations, latest `20261103000001` |
+| Preview OFF | OFF at the checkpoint after the first (failed) APPLY; **not re-verified** after the successful APPLY |
+| Rollback package | **not run**; no reason to run it |
+
+Each step was run by the owner in the Acceptance SQL Editor. Claude did not connect to Acceptance. The Supabase CLI
+link and the hosted profile were not used.
+
+**Completion evidence (owner-reported results).**
+- First APPLY: the POST guard raised `M34_POST_GUARD_FAILED: history_m34_cli_format`. Checkpoint after the rollback:
+  - history 33;
+  - no `fn_crossword_play_input_mode`;
+  - `fn_crossword_play_save` fingerprint still `d3304106…`;
+  - data unchanged; Preview OFF.
+- PRE-1 v2: rows 3–6 and 8–23 true; row 36 "schema drift (rows 3-23 checked rows, 20 of 20 ok)" PASS / PASS / true.
+- APPLY: `M34 APPLY COMMITTED`; history_total 34; history_latest `20261103000001`. Fingerprints:
+  - `fn_crossword_play_input_mode` `e1576f187c12ef79745b4594efb7fc10`;
+  - `fn_crossword_play_save` `b2eccd4aa0ec9540fc3647554d94a43b`.
+  Both match the local Migration 34.
+- APPLY file: the restored copy in `scratchpad/m34-retry/`. Before the run, that copy was confirmed byte for byte
+  identical to the original generated file, and its SHA-256 matched the value reported earlier:
+  `01BC096522000CC05DC68114BD6297023CC8EC0190BA1F95A4DDF5A6CAB8183C`.
+- POST-A: rows 0–31 true; row 99 PASS / PASS / true.
+- POST-B: rows 0–31 true; row 99 PASS / PASS / true. SHA-256 of the file checked before the run:
+  `81EC9EDCBEBD790CE22192D3A6B301754B78CBD2A67445756CC4CFC00988B922`.
+
+**First APPLY failure: probable cause (not confirmed).**
+- The failed check compared one value: `md5(statements::text) || ' ' || name` for the Migration 34 history row.
+- Ruled out locally (rolled-back transactions on the local DB):
+  - the generated history literal matches the local CLI row byte for byte;
+  - the expected md5 is correct;
+  - name and version match.
+- Most probable cause: CR characters entered the raw history text when the package was pasted into the SQL Editor.
+  - The function fingerprint checks remove CR before comparing, and they passed. Only the raw history check failed.
+  - A local CRLF simulation fails the same way.
+- This is **not confirmed**. The rollback removed the failed row, and other differences, such as a changed comment line
+  in statement 1, would fail the same way.
+
+**Package changes after the failure.**
+- The history INSERT removes `chr(13)` from each statement before storing it. Element order, the 4 elements, version
+  and name are unchanged.
+- The single history check became separate checks:
+  - `history_m34_name`;
+  - `history_m34_statements_4` (element count);
+  - `history_m34_statement_1` to `_4` (MD5 of each element against the local CLI row);
+  - `history_m34_no_cr`.
+  When any of them fails, the message adds a de-identified `history_shape(n=… len=… cr=…)`.
+- POST-A row 4 uses the same checks.
+- Local validation (all rolled back):
+  - LF and CRLF pastes both stored the CLI-identical row and passed;
+  - a raw CRLF insert without the fix failed with a clear diagnostic.
+
+**PRE-1 v1 HOLD.**
+- Row 36 took `bool_and(COALESCE(actual, 'missing') = expected)` over `ord BETWEEN 3 AND 23`.
+- That range included the record-only row 7 (expected `(record)`). On that row the comparison is false, not null, so
+  row 36 showed HOLD even though every checked row was true.
+- PRE-1 v2 counts only the checked rows (`expected <> '(record)'`) and also requires `count(*) = 20`, so a missing or
+  relabelled checked row still gives HOLD.
+- Local fixture tests:
+  - the correct state gives PASS;
+  - a wrong, NULL or missing checked row gives HOLD;
+  - any value in row 7 does not change the result.
+
+**Baseline change.** The Acceptance migration baseline for E-2 HC-12 and Step 0 P0-6 is now **34**
+(latest `20261103000001`).
+
+The package files are in the untracked `scratchpad/` directory under the working tree. They have not been staged or
+committed and are not part of the tracked repository contents.
+
+**Still not approved:**
+- Preview flag changes (flags ON);
+- a hosted Gate 3 rerun;
+- E-6 cleanup.
+
+Gate 3 data on Acceptance stays retained and untouched.
