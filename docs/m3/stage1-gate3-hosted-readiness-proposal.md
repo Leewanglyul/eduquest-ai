@@ -3,6 +3,7 @@
 Status: **READINESS PLANNING APPROVED (PM, 2026-11-03); E-1 approved; E-2 PASS WITH ADVISORY; E-3 approved and executed
 (flag rows only); E-4 Fresh Git Flags-ON Preview PASS WITH ADVISORY / CLOSED; E-5 approved and executed: **STOPPED / NO-GO**
 at C-4 (C-4 FAIL / BLOCKER, PLAY-E5-1 FAIL / BLOCKER; F.13); OFF Return **PASS / CLOSED** (PM, 2026-11-03; F.14); E-6 NOT approved.**
+Local Windows Korean IME checks: **IME-1 PASS; IME-2 PASS WITH OBSERVATION; IME-3 PASS AFTER FIX** (PM, 2026-11-07; F.16).
 Gate 3 data on Acceptance is **retained temporarily** for defect investigation; no cleanup has been done. Each step needs
 its own approval (section E); no action implies the next.
 
@@ -31,6 +32,7 @@ Basis: [Stage 1 Gate 3 Integrated Implementation Package](stage1-gate3-integrate
 | **E-4 Fresh Git Flags-ON Preview** | **PASS WITH ADVISORY / CLOSED** (PM, 2026-11-03) | push `25cbd71..9545ba1`; Preview `dpl_FF8s9iHjsdEPW69gmFeDx7kUTr6z` Ready, target Preview, branch `m2/m2-1-content-pipeline`, built from `9545ba1` after E-3; branch alias on it; PM browser P-1, P-2, P-4 to P-7 PASS, P-3 authentication boundary PASS with response-format advisory (D.1); Production isolation PASS; protected-information exposure none. E-5 and E-6 are **not** approved by this result |
 | **E-5 Hosted Gate 3 execution** | **STOPPED / NO-GO** (PM, 2026-11-03) | C-4 shared-board synchronization **FAIL / BLOCKER**; PLAY-E5-1 Hangul-cell validation **FAIL / BLOCKER**; C-5 to C-13 not executed; C-10 not completed; S5 not deleted (F.13) |
 | **OFF Return** | **PASS / CLOSED** (PM, 2026-11-03) | both Preview flag rows `false` (branch-scoped, remove-then-add); push `9545ba1..cd34af5`; fresh Git Preview `dpl_2mnZCKWoHePSx8YEWtLKsHcT5gai` Ready, target Preview, branch `m2/m2-1-content-pipeline`, built from `cd34af5`, branch alias on it; owner browser: `/student/crosswords` 404, invalid team-state 404 `{"error":"NOT_FOUND"}`, invalid `/live` 404, `/student/sign-in` and `/teacher/sign-in` load; Production unchanged and OFF (F.14) |
+| **Local Windows Korean IME checks** | **IME-1 PASS; IME-2 PASS WITH OBSERVATION; IME-3 PASS AFTER FIX** (PM, 2026-11-07) | Scope: local only, Windows 11 Chrome, Microsoft Korean IME, two student browsers, local Supabase. Initial IME-3 FAIL / BLOCKER, now CLOSED after the R9 tail-guard fix. A hosted rerun is **not** approved by this result (F.16) |
 
 ---
 
@@ -687,9 +689,8 @@ Nothing below is on Acceptance or the Preview.
   - with the old "known on receipt" poller, the hosted replay and every C-4 test fail;
   - without the unsaved-overlay rule, the overtaken-save test fails.
 
-**Still required before any hosted rerun:** a real-device local check with the Windows Korean IME. Use two browsers,
-leave the last syllable of a word open while a teammate saves the same word, then confirm the screens converge. The
-automated tests only simulate composition events.
+**Real-device local check with the Windows Korean IME** (required before any hosted rerun): Done for IME-1, IME-2 and
+IME-3 (PM, 2026-11-07; F.16).
 
 **Still not approved:**
 - push;
@@ -700,3 +701,136 @@ automated tests only simulate composition events.
 - E-6 cleanup.
 
 Gate 3 data on Acceptance stays retained and untouched.
+
+### F.16 Local Windows Korean IME checks (2026-11-07)
+
+| Item | State |
+|---|---|
+| IME-1 | **PASS** |
+| IME-2 | **PASS WITH OBSERVATION** |
+| IME-3 | **PASS AFTER FIX** (initial run FAIL / BLOCKER) |
+| IME-3 BLOCKER | **CLOSED** |
+| Immediate additional real-device retest | not required |
+| Broader real-user validation | deferred to the post-completion pilot |
+| Hosted Gate 3 rerun | **not approved** (F.15 "Still not approved" stands) |
+
+Scope:
+- local only: Windows 11, Chrome, Microsoft Korean IME;
+- two student browsers (A and B) in one team;
+- local Next dev server and local Supabase (Migration 34 local only);
+- a local test puzzle in Hangul mode.
+
+Cell keys below are 0-based `r,c` as stored in the database. The screen shows the same cell at row r+1, column c+1.
+
+**IME-1: PASS.**
+- A kept its open composing syllable when B's revision arrived.
+- A showed the teammate-edit notice.
+- B's cell was applied on A about 550 ms after A's compositionend.
+- Revision 18 → 19 → 20.
+- Final DB = A = B for the three cells of the word: 바 / 서 / 빛.
+- Procedural deviation: A's composition ended by Alt / window blur, not by the planned click outside the cell. The core
+  concurrency result was already met before that point.
+
+**IME-2: PASS WITH OBSERVATION.**
+- H, h and 1 were all refused in Hangul-only input.
+- No change to cells, pending input, saves or revision; revision stayed 20.
+- NOT INDEPENDENTLY PROVEN: that H was the input that first showed the refusal message (an unplanned key came first).
+- Not independently proven either: that h and 1 set the same message again.
+
+**Initial IME-3: FAIL / BLOCKER.**
+- A composed 해 in 0,0 (first cell of a two-cell word); the window then lost focus.
+- The blur committed 해 in 0,0 and moved the selection to 1,0.
+- The board then pointed the controller at the new cell (`setWord`), which cleared the duplicate-commit guard.
+- The late compositionend then committed a ghost 해 in 1,0.
+- A deleteContentBackward with no keydown before it deleted 1,0.
+- The save patch held both 0,0 and 1,0 (1,0 as a deletion).
+- The final DB was correct by chance (1,0 had been empty). A letter a teammate had already written in the next cell
+  would have been deleted on the server, so the defect was made a BLOCKER.
+
+**Fix (local; product code kept).**
+- `ImeController` rule R9, the tail guard:
+  - `setWord` no longer destroys the tail / recent state after a forced commit;
+  - a late compositionend with the same text is absorbed once;
+  - one following deleteContentBackward with no keydown is absorbed once;
+  - a real Backspace (its keydown first) deletes as before;
+  - a modifier, an input-language key or an IME key (Process / 229) keeps the tail; any other key ends it.
+- The input-validation message ("한글 한 글자를 입력해 주세요." and the other refusal lines) is cleared only when a commit
+  succeeds and the same batch holds no refusal. Other messages are kept.
+- No change to the save queue, polling, API, DB or migrations.
+
+**Automated validation.**
+
+| Check | Result |
+|---|---|
+| Related non-DB Vitest suites before diagnostic removal (21, including the 31 diagnostic-tool tests) | 374 / 374 PASS |
+| Related non-DB Vitest suites after diagnostic removal (20) | 343 / 343 PASS; `tsc --noEmit`, ESLint, and `git diff --check` also passed again |
+| Controller mutation check | 11 new tests fail on the pre-fix controller |
+| Board harness (real controller and real save queue, fake sender) | empty next cell, teammate letter in the next cell, real Backspace, message clearing: PASS |
+| Recorded-sequence replay (anonymized fixture) | PASS: one commit, patch keys `0,0` only |
+| `tsc --noEmit` | PASS |
+| eslint | PASS |
+| `git diff --check` | PASS |
+| The 4 DB-writing suites | not run (local data freeze) |
+
+**Real-device retests (after the fix).**
+
+| Retest | Result | Record |
+|---|---|---|
+| A | PASS with procedural deviations | Natural compositionend path in 5,4. No ghost input, patch 1 cell, revision 21 → 22. Not the tail-guard path. Deviations: diagnostic baseline not set; a non-cell area was clicked instead of a cell; screen and DB coordinates were mixed |
+| B | PASS with procedural deviations | In 5,4 (planned 6,5): blur → selection move → `setWord` (index 1) → late compositionend → keyless delete. Next empty cell 6,4 unchanged; patch 1 cell (5,4); revision 22 → 23. Tail guard confirmed on the device |
+| C | INVALID | The last cell of 5 down was selected, so the next-cell protection case did not run |
+| C-2 | Protection case INVALID; same-cell late delete PASS | Forced commit in the last cell 3,2 of 5 down, then a keyless delete aimed at the same cell: absorbed, 3,2 kept. Revision 24 → 25 |
+| C-3 | **PASS** | Before input: 6 across, length 2, selected 0. After the blur the selection moved to the teammate's cell 3,3 (`setWord` length 2, selected 1). The late compositionend and a keyless delete followed. Protected cell 3,3=바: 0 typed, pending or empty changes; patchCount 1, patchKeys `3,2`; 3,3 not in the patch; its value, writer and written time kept. Revision 25 → 26. DB = A = B: 3,2=달, 3,3=바. Server errors 0 |
+
+In every retest, B made no saves, all responses were HTTP 200, and A, B and the DB converged.
+
+**Test data changes (local fixture only).**
+- Final revision 26; final saved cell count 7.
+- Example values changed during the retests: 5,4 물 → 숲; 3,2 달 → 별 → 달.
+- No data reset and no restore of earlier values.
+
+**Observations.** None needs action now. Each gets a separate review, and none blocks closing the IME-3 BLOCKER.
+
+| ID | Observation | Status |
+|---|---|---|
+| OBS-IME-01 | The save queue sends patchCount 0 saves for active time; they update the saved time, not the revision | no action now; separate review |
+| OBS-IME-02 | After a partial apply the next poll has no known revision and asks for the whole grid | no action now; separate review |
+| OBS-IME-03 | A page re-render recreates the save queue and the poller | no action now; separate review |
+| OBS-IME-04 | **Security technical debt.** The existing `?imetrace=1` device recorder can be switched on in any environment, not only locally; it records IME events in the browser's memory | no action now; separate review |
+| OBS-IME-05 | The local diagnostic keeps only 200 entries (ring buffer); earlier entries are dropped | no action now; separate review |
+| OBS-IME-06 | B's teammate-edit notice was not established in some tests | no action now; separate review |
+| OBS-IME-07 | The refusal message set again on repeated refusals, and its clearing after a normal commit, were not independently confirmed on the device | no action now; separate review |
+| OBS-IME-08 | After "로그 지우기" the scheduler panel showed "저장 대기" | no action now; separate review |
+| OBS-IME-09 | After its own save, a browser polls once more with the previous known revision and receives its own change as a remote change | no action now; separate review |
+| OBS-IME-10 | A hidden or inactive window's polling can be delayed for one to several minutes | no action now; separate review |
+
+**Evidence.**
+- Evidence bundle: EduQuest-Evidence / stage1-gate3 / ime3-blocker-2026-11-07;
+- `manifest-sha256.txt`;
+- masked server logs;
+- de-identified A and B diagnostic logs;
+- the reproduction script and its output;
+- `diag-only.patch` and `ime3-fix.patch`; `diag-on-fix.patch` and `ime3-fix-on-head.patch` preserve the same changes
+  rebased for diagnostic removal.
+
+**Residual limits.**
+- A late compositionend with a different text keeps the earlier behaviour: it is committed at the selection.
+- The real traces come mainly from Windows Chrome.
+- Clearing the refusal message is confirmed by the automated board tests, not independently on the device.
+- Background polling delay needs a separate operational check.
+- Real-user validation is done in the classroom pilot after the service is complete.
+
+**Real-user validation is separate.**
+- These checks are local engineering validation.
+- After the service is complete, a controlled classroom pilot covers:
+  - Windows 11 Chrome and Edge, Microsoft Korean IME;
+  - the school network;
+  - real student input and several teams at once.
+- The acceptance bar for IME input loss and data corruption is 0 cases.
+
+The R9 fix and its tests were committed locally as `5d18bf3` (five files, matching `ime3-fix-on-head.patch`) and have
+not been pushed. A hosted rerun is still not approved. The local diagnostic and
+scheduled-write code was removed from the working tree on 2026-11-07 after evidence capture and is not part of the
+product change. Removal used the verified `diag-on-fix.patch`, which contains the same added and removed lines as
+`diag-only.patch`, rebased onto the R9 fix. The five product files match HEAD plus `ime3-fix-on-head.patch` byte for
+byte.
