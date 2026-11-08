@@ -55,6 +55,15 @@ import { TeamNotice, TeamSyncNotice } from "./team-notice";
 import { TeamPoller, type ApplyResult } from "./team-poller";
 import { useGridInput } from "./use-grid-input";
 
+/**
+ * Gate 3 IME-3: the lines that refuse a typed character. The next accepted letter clears them; nothing else (saving,
+ * sync, network, tools, teammates) is cleared by typing.
+ */
+export function isInputValidationMessage(message: string): boolean {
+  return message === PLAY_TEXT.invalidChar("hangul") || message === PLAY_TEXT.invalidChar("mixed") || message === PLAY_ERROR_MESSAGES.BAD_CHAR;
+}
+const clearInputValidation = (message: string) => (isInputValidationMessage(message) ? "" : message);
+
 export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
   const { assignmentId, puzzle } = payload;
   const words = puzzle.words;
@@ -149,6 +158,8 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
             return next;
           });
           for (const w of it.writes) queue.setCell(keys[w.index], w.char);
+          // a refusal in the same batch (a paste such as 복HR) keeps its line
+          if (!intents.some((x) => x.kind === "reject")) setMessage(clearInputValidation);
         } else if (it.kind === "delete") {
           lastInputAt.current = Date.now();
           const k = keys[it.index];
@@ -551,6 +562,7 @@ export function CrosswordPlayBoard({ payload }: { payload: PlayPayload }) {
       return next;
     });
     for (const [k, c] of writes) queue.setCell(k, c);
+    if (writes.length > 0) setMessage(clearInputValidation);
     lastInputAt.current = Date.now();
     setWordText("");
   };

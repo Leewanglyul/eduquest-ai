@@ -1,0 +1,42 @@
+{
+  "source": {
+    "trace": "play-board-blur-tail",
+    "device": "Windows 11 / Chrome / Microsoft Korean IME",
+    "recordedWith": "local IME diagnostic, Gate 3 IME-3 (2026-11-07)",
+    "note": "One syllable composed in the first cell of a two-cell word, then the page lost focus. Only the order of events is kept: no times, labels, ids or puzzle data. keyCode was not recorded (key Process is enough for R7). The delete's data was not recorded (not a string); the input hook passes null."
+  },
+  "word": { "length": 2, "selected": 0, "cells": ["", ""], "locked": [false, false] },
+  "domOrder": [
+    "keydown Process",
+    "compositionstart",
+    "compositionupdate ㅎ",
+    "beforeinput insertCompositionText ㅎ",
+    "input insertCompositionText ㅎ",
+    "keydown Process",
+    "compositionupdate 해",
+    "beforeinput insertCompositionText 해",
+    "input insertCompositionText 해",
+    "change (input)",
+    "blur (input)",
+    "board: setWord selected 1",
+    "blur (window)",
+    "compositionend 해",
+    "beforeinput deleteContentBackward (isComposing false, value 해)",
+    "input deleteContentBackward (isComposing false, value empty)"
+  ],
+  "events": [
+    { "type": "keydown", "key": "Process", "keyCode": 0, "isComposing": false, "valueEmpty": true },
+    { "type": "compositionstart" },
+    { "type": "compositionupdate", "data": "ㅎ" },
+    { "type": "input", "inputType": "insertCompositionText", "data": "ㅎ", "isComposing": true, "value": "ㅎ" },
+    { "type": "keydown", "key": "Process", "keyCode": 0, "isComposing": true, "valueEmpty": false },
+    { "type": "compositionupdate", "data": "해" },
+    { "type": "input", "inputType": "insertCompositionText", "data": "해", "isComposing": true, "value": "해" },
+    { "type": "blur" },
+    { "type": "setWord", "selected": 1, "source": "board effect after the selection moved" },
+    { "type": "compositionend", "data": "해", "value": "해" },
+    { "type": "input", "inputType": "deleteContentBackward", "data": null, "isComposing": false, "value": "" }
+  ],
+  "observedBeforeFix": { "cells": ["해", ""], "commits": [[0, "해"], [1, "해"]], "deletes": [1], "patchKeys": ["0,0", "1,0"] },
+  "expectedWithFix": { "cells": ["해", ""], "commits": [[0, "해"]], "deletes": [], "patchKeys": ["0,0"] }
+}

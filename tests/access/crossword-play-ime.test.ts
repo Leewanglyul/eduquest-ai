@@ -426,3 +426,192 @@ describe("IME controller replays real keyboard traces (Windows 11, Microsoft Kor
     }
   });
 });
+
+// --- R9: the tail of a forced commit (Gate 3 IME-3, Windows Chrome + Microsoft Korean IME) ---------------------------
+
+const del = (value = ""): ImeEvent => ({ type: "input", inputType: "deleteContentBackward", data: null, isComposing: false, value });
+const blur = (): ImeEvent => ({ type: "blur" });
+/** What the board's effect does after the selection moved (crossword-play-board: setWord when not composing). */
+const boardSetWord = (c: ImeController, b: Applied, selected: number) =>
+  c.setWord({ length: b.cells.length, selected, cells: [...b.cells] });
+
+/** Compose 해 in the first cell, then lose focus: committed by blur, the selection moves to the second cell. */
+function forcedCommit() {
+  const { c, b } = make(2);
+  run(c, b, [start(), upd("ㅎ"), inputComp("ㅎ", "ㅎ"), upd("해"), inputComp("해", "해"), blur()]);
+  expect(b.cells).toEqual(["해", ""]);
+  expect(b.selected).toBe(1);
+  return { c, b };
+}
+
+describe("R9: a composition committed by force keeps its late events out of the grid", () => {
+  it("1. blur, setWord (selection moved), compositionend with the same text: no second commit", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [end("해", "해")]);
+    expect(b.commitLog).toEqual(["해"]);
+    expect(b.cells).toEqual(["해", ""]);
+  });
+
+  it("2. blur, then a deleteContentBackward with no keydown before it: the committed letter stays (with or without setWord)", () => {
+    for (const moved of [true, false]) {
+      const { c, b } = forcedCommit();
+      if (moved) boardSetWord(c, b, 1);
+      run(c, b, [del("")]);
+      expect(b.cells, `setWord ${moved}`).toEqual(["해", ""]);
+      expect(b.deletes, `setWord ${moved}`).toEqual([]);
+    }
+  });
+
+  it("3. the IME-3 order (blur, setWord, compositionend, deleteContentBackward): only the first cell is written, the next is untouched", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [end("해", "해"), del("")]);
+    expect(b.cells).toEqual(["해", ""]);
+    expect(b.commitLog).toEqual(["해"]);
+    expect(b.deletes).toEqual([]);
+    expect(c.state.composing).toBe(false);
+  });
+
+  it("4. a late compositionend after the student moved to another word is not written into the new word", () => {
+    const { c, b } = make(2);
+    run(c, b, [start(), upd("해")]);
+    apply(b, c.handle({ type: "select", index: 1 })); // tapping commits at its own cell first (R6)
+    const other = newBoard(3);
+    c.setWord({ length: 3, selected: 0, cells: ["", "", ""] }); // the board points the controller at the new word
+    run(c, other, [end("해", "해"), del("")]);
+    expect(other.commitLog).toEqual([]);
+    expect(other.cells).toEqual(["", "", ""]);
+    expect(other.deletes).toEqual([]);
+    expect(b.cells).toEqual(["해", ""]);
+  });
+
+  it("5. a new composition after the tail is a new letter: the same text commits normally", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [start(), upd("해"), end("해", "해")]);
+    expect(b.cells).toEqual(["해", "해"]);
+    expect(b.commitLog).toEqual(["해", "해"]);
+  });
+
+  it("6. the same syllable typed twice in a row (natural ends) is written twice", () => {
+    const { c, b } = make(2);
+    run(c, b, [start(), upd("해"), end("해", "해"), start(), upd("해"), end("해", "해해")]);
+    expect(b.cells).toEqual(["해", "해"]);
+    expect(b.commitLog).toEqual(["해", "해"]);
+  });
+
+  it("7. a real Backspace (its keydown first) still deletes, tail or not", () => {
+    for (const valueEmpty of [false, true]) {
+      const { c, b } = forcedCommit();
+      boardSetWord(c, b, 1);
+      run(c, b, [key("Backspace", { valueEmpty })]);
+      if (!valueEmpty) run(c, b, [del("")]); // the input still held text: the browser deletes it, the controller follows
+      expect(b.cells, `valueEmpty ${valueEmpty}`).toEqual(["", ""]); // second cell empty: step back and delete (R4)
+      expect(b.deletes, `valueEmpty ${valueEmpty}`).toEqual([0]);
+      expect(b.selected).toBe(0);
+    }
+  });
+
+  it("8. compositionend without compositionstart still commits (some keyboards), as before", () => {
+    const { c, b } = make(2);
+    run(c, b, [end("가", "가")]);
+    expect(b.cells).toEqual(["가", ""]);
+    expect(b.commitLog).toEqual(["가"]);
+  });
+
+  it("9. modifiers and the input-language keys do not end the tail", () => {
+    for (const k of ["Shift", "Alt", "Control", "Meta", "CapsLock", "HangulMode", "HanjaMode", "Lang1", "Lang2"]) {
+      const { c, b } = forcedCommit();
+      boardSetWord(c, b, 1);
+      run(c, b, [key(k), end("해", "해"), key(k), del("")]);
+      expect(b.cells, k).toEqual(["해", ""]);
+      expect(b.commitLog, k).toEqual(["해"]);
+      expect(b.deletes, k).toEqual([]);
+    }
+  });
+
+  it("9b. an IME key (Process, 229) keeps the tail, and the composition it starts ends it", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [key("Process", { keyCode: 229, isComposing: false }), end("해", "해")]);
+    expect(b.commitLog).toEqual(["해"]); // still the tail
+    run(c, b, [key("Process", { keyCode: 229 }), start(), upd("ㄷ"), upd("다"), end("다", "다")]);
+    expect(b.cells).toEqual(["해", "다"]);
+    run(c, b, [key("Backspace", { valueEmpty: true })]);
+    expect(b.deletes).toEqual([1]); // the tail is gone: a real Backspace deletes as always
+  });
+
+  it("10. the reverse order (delete first, then compositionend) is absorbed too, each once", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [del(""), end("해", "")]);
+    expect(b.cells).toEqual(["해", ""]);
+    expect(b.commitLog).toEqual(["해"]);
+    expect(b.deletes).toEqual([]);
+    run(c, b, [del("")]); // a third event is no longer the tail: a plain deleteContentBackward, handled as Backspace
+    expect(b.deletes).toEqual([0]);
+  });
+
+  it("11. a key that moves, edits or types ends the tail: what follows is handled as usual", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [key("ArrowLeft")]);
+    expect(b.selected).toBe(0);
+    run(c, b, [del("")]);
+    expect(b.deletes).toEqual([0]); // a deletion after a key is the student's
+    const t = forcedCommit();
+    boardSetWord(t.c, t.b, 1);
+    run(t.c, t.b, [key("a"), text("A")]);
+    expect(t.b.cells).toEqual(["해", "A"]); // mixed mode (the default here): typed text is written
+  });
+
+  it("12. known limit: a compositionend with another text after a forced commit is committed at the selection, as before", () => {
+    const { c, b } = forcedCommit();
+    boardSetWord(c, b, 1);
+    run(c, b, [end("하", "하")]);
+    expect(b.cells).toEqual(["해", "하"]);
+    expect(b.commitLog).toEqual(["해", "하"]);
+    run(c, b, [del("")]); // that end was not the tail: the tail is dropped, a delete is a Backspace again
+    expect(b.deletes).toEqual([1]);
+  });
+});
+
+// --- the recorded IME-3 sequence (tests/fixtures/ime/windows-chrome-blur-tail.json) -----------------------------------
+
+type TailStep = ImeEvent | { type: "setWord"; selected: number };
+type TailFixture = {
+  source: { trace: string; device: string };
+  word: { length: number; selected: number; cells: string[]; locked: boolean[] };
+  events: TailStep[];
+  observedBeforeFix: { cells: string[]; commits: [number, string][]; deletes: number[] };
+  expectedWithFix: { cells: string[]; commits: [number, string][]; deletes: number[]; patchKeys: string[] };
+};
+
+describe("R9: replay of the recorded IME-3 sequence", () => {
+  const f = JSON.parse(fs.readFileSync(path.join(process.cwd(), "tests/fixtures/ime/windows-chrome-blur-tail.json"), "utf8")) as TailFixture;
+
+  it("the fixture names its source and carries no times, labels, paths or ids", () => {
+    expect(f.source.device).toMatch(/Windows 11/);
+    const raw = JSON.stringify(f);
+    expect(raw).not.toMatch(/elapsedMs|baseWall|브라우저-|\/student|http|[0-9a-f]{8}-[0-9a-f]{4}-/i);
+  });
+
+  it("replayed through the controller: one commit in the first cell, no write and no delete in the second", () => {
+    const { c, b } = make(f.word.length, { cells: f.word.cells, locked: f.word.locked });
+    const commits: [number, string][] = [];
+    for (const e of f.events) {
+      if (e.type === "setWord") {
+        c.setWord({ length: f.word.length, selected: e.selected, cells: [...b.cells], locked: f.word.locked });
+        continue;
+      }
+      const intents = c.handle(e);
+      for (const it of intents) if (it.kind === "commit") for (const w of it.writes) commits.push([w.index, w.char]);
+      apply(b, intents);
+    }
+    expect(b.cells).toEqual(f.expectedWithFix.cells);
+    expect(commits).toEqual(f.expectedWithFix.commits);
+    expect(b.deletes).toEqual(f.expectedWithFix.deletes);
+    expect(f.observedBeforeFix.commits).toHaveLength(2); // what the unfixed controller did with the same events
+  });
+});

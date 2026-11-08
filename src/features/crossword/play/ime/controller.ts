@@ -21,9 +21,25 @@
  *  R7 While composing (isComposing, keyCode 229, key "Process") keys do nothing: no Backspace handling, no arrows.
  *  R8 A cell takes one NFC [가-힣A-Z0-9] (only [가-힣] when the puzzle's input mode is "hangul", PLAY-E5-1). A lone jamo
  *     is rejected, lower-case is upper-cased, anything else rejected.
+ *  R9 After a commit by blur, selection, paste or flush, the composition's late compositionend and the
+ *     deleteContentBackward that empties the input are absorbed once each, in either order, even after setWord
+ *     (Gate 3 IME-3: the late end was committed again in the next cell, and the delete then erased it).
  */
 import { isLoneJamo, isValidCellChar, normalizeTyped } from "../cells";
 import type { CrosswordInputMode } from "../types";
+
+/** R9: keys that leave the tail of a forced commit in place (modifiers and the input-language keys). */
+const TAIL_KEEPING_KEYS: ReadonlySet<string> = new Set([
+  "Shift",
+  "Alt",
+  "Control",
+  "Meta",
+  "CapsLock",
+  "HangulMode",
+  "HanjaMode",
+  "Lang1",
+  "Lang2",
+]);
 
 export type ImeEvent =
   | { type: "compositionstart" }
@@ -74,6 +90,14 @@ export class ImeController {
   private committedLen = 0;
   /** Text of the last composition commit; absorbs the compositionend that follows a blur/select flush (R6). */
   private recent: string | null = null;
+  /**
+   * R9 (Gate 3 IME-3, Windows Chrome + Microsoft Korean IME): a composition committed by force (blur, a cell
+   * selection, a paste or flush(), not its own compositionend) still has a tail in the browser: its compositionend
+   * and, as recorded, a deleteContentBackward with no keydown before it that empties the input. Each is absorbed
+   * once. It survives setWord (the board moves the selection right after such a commit); a new composition, typed
+   * text or a key that edits or moves ends it.
+   */
+  private tail: { text: string; endPending: boolean; deletePending: boolean } | null = null;
 
   private readonly mode: CrosswordInputMode;
 
@@ -82,7 +106,10 @@ export class ImeController {
     if (word) this.setWord(word);
   }
 
-  /** Point the controller at a word. A pending composition is dropped (the hook flushes first when it matters). */
+  /**
+   * Point the controller at a word. A pending composition is dropped (the hook flushes first when it matters). What
+   * absorbs the tail of a composition already committed (recent, R9 tail) is kept: that tail may still arrive.
+   */
   setWord(word: ImeWord): void {
     this.n = word.length;
     this.cells = Array.from({ length: word.length }, (_, i) => word.cells[i] ?? "");
@@ -90,7 +117,6 @@ export class ImeController {
     this.sel = Math.max(0, Math.min(word.selected, Math.max(0, word.length - 1)));
     this.composing = false;
     this.buf = "";
-    this.recent = null;
   }
 
   get state() {
@@ -144,6 +170,7 @@ export class ImeController {
     // A previous composition that never reported its end (seen after an IME cancel): commit it once.
     const out = this.composing ? this.commitPending() : [];
     this.recent = null;
+    this.tail = null;
     this.composing = true;
     this.anchor = this.sel;
     this.buf = "";
@@ -153,18 +180,30 @@ export class ImeController {
   private onCompositionUpdate(data: string): Intent[] {
     if (!this.composing) this.startImplicit();
     this.recent = null;
+    this.tail = null;
     this.buf = normalizeTyped(data);
     return [this.previewIntent()];
   }
 
   private onCompositionEnd(data: string, value?: string): Intent[] {
     if (!this.composing) {
-      // Already committed by a blur/select/flush (or a repeated end): never commit it twice.
-      if (this.recent !== null && (normalizeTyped(data) === this.recent || normalizeTyped(data) === "")) {
+      const d = normalizeTyped(data);
+      // R9: the end of a composition committed by force, even after setWord moved the selection elsewhere
+      if (this.tail?.endPending && (d === this.tail.text || d === "")) {
+        this.tail.endPending = false;
+        this.releaseTail();
         this.recent = null;
         if (value !== undefined) this.committedLen = normalizeTyped(value).length;
         return [];
       }
+      // Already committed by a blur/select/flush (or a repeated end): never commit it twice.
+      if (this.recent !== null && (d === this.recent || d === "")) {
+        this.recent = null;
+        if (value !== undefined) this.committedLen = normalizeTyped(value).length;
+        return [];
+      }
+      // Another text: committed at the selection as before (known limit); it is not the tail of the forced commit.
+      this.tail = null;
       this.startImplicit();
     }
     const text = normalizeTyped(data) !== "" ? normalizeTyped(data) : this.buf;
@@ -185,7 +224,16 @@ export class ImeController {
       this.committedLen = normalizeTyped(e.value).length;
       return [{ kind: "preview", cells: [] }];
     }
+    // R9: the browser empties the input after a forced commit. No key came first (a key ends the tail), so this is not
+    // a Backspace: no cell changes, and the input is now as long as the event says.
+    if (!this.composing && e.inputType === "deleteContentBackward" && this.tail?.deletePending) {
+      this.tail.deletePending = false;
+      this.releaseTail();
+      this.committedLen = normalizeTyped(e.value).length;
+      return [];
+    }
     this.recent = null;
+    this.tail = null;
     if (this.composing || e.isComposing) {
       if (!this.composing) this.startImplicit();
       this.buf =
@@ -201,6 +249,9 @@ export class ImeController {
   }
 
   private onKeydown(e: Extract<ImeEvent, { type: "keydown" }>): Intent[] {
+    // R9: a key that types, edits or moves ends the tail. Modifiers and the input-language keys do not; an IME key
+    // (Process, 229) does not either, but the composition it starts does.
+    if (this.tail && !TAIL_KEEPING_KEYS.has(e.key) && e.key !== "Process" && e.keyCode !== 229) this.tail = null;
     if (this.composing || e.isComposing || e.keyCode === 229 || e.key === "Process") return []; // R7
     if (e.key === "Backspace" && e.valueEmpty) return this.backspace();
     if (e.key === "ArrowLeft") return this.moveTo(this.sel - 1, -1);
@@ -247,7 +298,13 @@ export class ImeController {
     this.composing = false;
     this.buf = "";
     this.recent = text !== "" ? text : null;
+    this.tail = text !== "" ? { text, endPending: true, deletePending: true } : null;
     return [{ kind: "preview", cells: [] }, ...this.commitText(text, this.anchor)];
+  }
+
+  /** R9: both parts of the tail have arrived. */
+  private releaseTail(): void {
+    if (this.tail && !this.tail.endPending && !this.tail.deletePending) this.tail = null;
   }
 
   /** Writes valid characters into consecutive unlocked cells from `start`; rejects the rest. */
